@@ -64,6 +64,8 @@ module FanInPrimitive_Req_PE
     input  logic                                 data_req1_i,
     input  logic                                 data_wen0_i,
     input  logic                                 data_wen1_i,
+    input  logic [5:0]                           data_atop0_i,
+    input  logic [5:0]                           data_atop1_i,
     input  logic [BE_WIDTH-1:0]                  data_be0_i,
     input  logic [BE_WIDTH-1:0]                  data_be1_i,
     input  logic [ID_WIDTH-1:0]                  data_ID0_i,
@@ -81,6 +83,7 @@ module FanInPrimitive_Req_PE
     output logic                                 data_req_o,
     output logic [ID_WIDTH-1:0]                  data_ID_o,
     output logic                                 data_wen_o,
+    output logic [5:0]                           data_atop_o,
     output logic [BE_WIDTH-1:0]                  data_be_o,
 `ifdef GNT_BASED_FC
     input  logic                                 data_gnt_i
@@ -113,6 +116,7 @@ module FanInPrimitive_Req_PE
               data_wdata_o = data_wdata0_i;
               data_add_o   = data_add0_i;
               data_wen_o   = data_wen0_i;
+              data_atop_o  = data_atop0_i;
               data_ID_o    = data_ID0_i;
               data_be_o    = data_be0_i;
           end
@@ -122,11 +126,12 @@ module FanInPrimitive_Req_PE
               data_wdata_o = data_wdata1_i;
               data_add_o   = data_add1_i;
               data_wen_o   = data_wen1_i;
+              data_atop_o  = data_atop1_i;
               data_ID_o    = data_ID1_i;
               data_be_o    = data_be1_i;
           end
 
           endcase
       end
- 
+
 endmodule

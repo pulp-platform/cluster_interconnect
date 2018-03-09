@@ -57,10 +57,11 @@ module RequestBlock2CH_PE
     parameter BE_WIDTH   = DATA_WIDTH/8
 )
 (
-    // CHANNEL CH0 --> (example: Used for xP70s) 
+    // CHANNEL CH0 --> (example: Used for xP70s)
     input  logic [N_CH0-1:0]                     data_req_CH0_i,
     input  logic [N_CH0-1:0][ADDR_WIDTH-1:0]     data_add_CH0_i,
     input  logic [N_CH0-1:0]                     data_wen_CH0_i,
+    input  logic [N_CH0-1:0][5:0]                data_atop_CH0_i,
     input  logic [N_CH0-1:0][DATA_WIDTH-1:0]     data_wdata_CH0_i,
     input  logic [N_CH0-1:0][BE_WIDTH-1:0]       data_be_CH0_i,
     input  logic [N_CH0-1:0][ID_WIDTH-1:0]       data_ID_CH0_i,
@@ -74,6 +75,7 @@ module RequestBlock2CH_PE
     input  logic [N_CH1-1:0]                     data_req_CH1_i,
     input  logic [N_CH1-1:0][ADDR_WIDTH-1:0]     data_add_CH1_i,
     input  logic [N_CH1-1:0]                     data_wen_CH1_i,
+    input  logic [N_CH1-1:0][5:0]                data_atop_CH1_i,
     input  logic [N_CH1-1:0][DATA_WIDTH-1:0]     data_wdata_CH1_i,
     input  logic [N_CH1-1:0][BE_WIDTH-1:0]       data_be_CH1_i,
     input  logic [N_CH1-1:0][ID_WIDTH-1:0]       data_ID_CH1_i,
@@ -88,6 +90,7 @@ module RequestBlock2CH_PE
     output logic                                 data_req_o,
     output logic [ADDR_WIDTH-1:0]                data_add_o,
     output logic                                 data_wen_o,
+    output logic [5:0]                           data_atop_o,
     output logic [DATA_WIDTH-1:0]                data_wdata_o,
     output logic [BE_WIDTH-1:0]                  data_be_o,
     output logic [ID_WIDTH-1:0]                  data_ID_o,
@@ -109,38 +112,41 @@ module RequestBlock2CH_PE
     input  logic                                  rst_n
 
    );
-   
-       // OUT CHANNEL CH0 --> (example: Used for xP70s) 
+
+       // OUT CHANNEL CH0 --> (example: Used for xP70s)
       logic                                                data_req_CH0;
       logic [ADDR_WIDTH-1:0]                               data_add_CH0;
       logic                                                data_wen_CH0;
+      logic [5:0]                                          data_atop_CH0;
       logic [DATA_WIDTH-1:0]                               data_wdata_CH0;
       logic [BE_WIDTH-1:0]                                 data_be_CH0;
       logic [ID_WIDTH-1:0]                                 data_ID_CH0;
-    `ifdef GNT_BASED_FC            
+    `ifdef GNT_BASED_FC
       logic                                                data_gnt_CH0;
     `else
-      logic                                                data_stall_CH0;    
+      logic                                                data_stall_CH0;
     `endif
-    
+
       // OUT CHANNEL CH1 --> (example: Used for DMAs)
       logic                                               data_req_CH1;
       logic [ADDR_WIDTH-1:0]                              data_add_CH1;
       logic                                               data_wen_CH1;
+      logic [5:0]                                         data_atop_CH1;
       logic [DATA_WIDTH-1:0]                              data_wdata_CH1;
       logic [BE_WIDTH-1:0]                                data_be_CH1;
       logic [ID_WIDTH-1:0]                                data_ID_CH1;
-    `ifdef GNT_BASED_FC            
+    `ifdef GNT_BASED_FC
       logic                                               data_gnt_CH1;
-    `else 
-      logic                                               data_stall_CH1;    
+    `else
+      logic                                               data_stall_CH1;
     `endif
 
-  
-      // CHANNEL CH0 --> (example: Used for Processing Elements / CORES) 
+
+      // CHANNEL CH0 --> (example: Used for Processing Elements / CORES)
     logic [2**$clog2(N_CH0)-1:0]                                data_req_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ADDR_WIDTH-1:0]                data_add_CH0_int;
     logic [2**$clog2(N_CH0)-1:0]                                data_wen_CH0_int;
+    logic [2**$clog2(N_CH0)-1:0][5:0]                           data_atop_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][DATA_WIDTH-1:0]                data_wdata_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][BE_WIDTH-1:0]                  data_be_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ID_WIDTH-1:0]                  data_ID_CH0_int;
@@ -152,10 +158,11 @@ module RequestBlock2CH_PE
 
 
 
-    // CHANNEL CH0 --> (example: Used for Processing Elements / CORES) 
+    // CHANNEL CH0 --> (example: Used for Processing Elements / CORES)
     logic [2**$clog2(N_CH1)-1:0]                                data_req_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][ADDR_WIDTH-1:0]                data_add_CH1_int;
     logic [2**$clog2(N_CH1)-1:0]                                data_wen_CH1_int;
+    logic [2**$clog2(N_CH1)-1:0][5:0]                           data_atop_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][DATA_WIDTH-1:0]                data_wdata_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][BE_WIDTH-1:0]                  data_be_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][ID_WIDTH-1:0]                  data_ID_CH1_int;
@@ -173,10 +180,11 @@ module RequestBlock2CH_PE
 
               if(2**$clog2(N_CH0) != N_CH0) // if N_CH0 is not power of 2 --> then use power 2 ports
               begin : _DUMMY_CH0_PORTS_
-                
+
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_req_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ADDR_WIDTH-1:0]                data_add_CH0_dummy; // Memory address + T&S bit
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_wen_CH0_dummy;
+                logic [2**$clog2(N_CH0)-N_CH0 -1 :0][5:0]                           data_atop_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][DATA_WIDTH-1:0]                data_wdata_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][BE_WIDTH-1:0]                  data_be_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ID_WIDTH-1:0]                  data_ID_CH0_dummy;
@@ -186,28 +194,30 @@ module RequestBlock2CH_PE
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_stall_CH0_dummy;
             `endif
 
-                assign data_req_CH0_dummy    = '0 ;  
-                assign data_add_CH0_dummy    = '0 ;   
-                assign data_wen_CH0_dummy    = '0 ;  
+                assign data_req_CH0_dummy    = '0 ;
+                assign data_add_CH0_dummy    = '0 ;
+                assign data_wen_CH0_dummy    = '0 ;
+                assign data_atop_CH0_dummy   = '0 ;
                 assign data_wdata_CH0_dummy  = '0 ;
-                assign data_be_CH0_dummy     = '0 ;   
+                assign data_be_CH0_dummy     = '0 ;
                 assign data_ID_CH0_dummy     = '0 ;
 
                 assign data_req_CH0_int      = {  data_req_CH0_dummy  ,     data_req_CH0_i     };
                 assign data_add_CH0_int      = {  data_add_CH0_dummy  ,     data_add_CH0_i     };
                 assign data_wen_CH0_int      = {  data_wen_CH0_dummy  ,     data_wen_CH0_i     };
+                assign data_atop_CH0_int     = {  data_atop_CH0_dummy ,     data_atop_CH0_i    };
                 assign data_wdata_CH0_int    = {  data_wdata_CH0_dummy  ,   data_wdata_CH0_i   };
                 assign data_be_CH0_int       = {  data_be_CH0_dummy  ,      data_be_CH0_i      };
-                assign data_ID_CH0_int       = {  data_ID_CH0_dummy  ,      data_ID_CH0_i      };        
+                assign data_ID_CH0_int       = {  data_ID_CH0_dummy  ,      data_ID_CH0_i      };
 
 
                 for(genvar j=0; j<N_CH0; j++)
                 begin : _MERGING_CH0_DUMMY_PORTS_OUT_
-          `ifdef GNT_BASED_FC           
+          `ifdef GNT_BASED_FC
                   assign data_gnt_CH0_o[j]     = data_gnt_CH0_int[j];
           `else
                   assign data_stall_CH0_o[j]   = data_stall_CH0_int[j];
-          `endif        
+          `endif
                 end
             end
             else // N_CH0 is power of 2
@@ -215,12 +225,13 @@ module RequestBlock2CH_PE
                   assign data_req_CH0_int   = data_req_CH0_i;
                   assign data_add_CH0_int   = data_add_CH0_i;
                   assign data_wen_CH0_int   = data_wen_CH0_i;
+                  assign data_atop_CH0_int  = data_atop_CH0_i;
                   assign data_wdata_CH0_int = data_wdata_CH0_i;
                   assign data_be_CH0_int    = data_be_CH0_i;
                   assign data_ID_CH0_int    = data_ID_CH0_i;
-              `ifdef GNT_BASED_FC    
+              `ifdef GNT_BASED_FC
                   assign data_gnt_CH0_o     = data_gnt_CH0_int;
-              `else 
+              `else
                   assign data_stall_CH0_o   = data_stall_CH0_int;
               `endif
             end
@@ -230,10 +241,11 @@ module RequestBlock2CH_PE
 
             if(2**$clog2(N_CH1) != N_CH1) // if N_CH1 is not power of 2 --> then use power 2 ports
             begin : _DUMMY_CH1_PORTS_
-              
+
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0]                                data_req_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][ADDR_WIDTH-1:0]                data_add_CH1_dummy; // Memory address + T&S bit
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0]                                data_wen_CH1_dummy;
+              logic [2**$clog2(N_CH1)-N_CH1 -1 :0][5:0]                           data_atop_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][DATA_WIDTH-1:0]                data_wdata_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][BE_WIDTH-1:0]                  data_be_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][ID_WIDTH-1:0]                  data_ID_CH1_dummy;
@@ -243,28 +255,30 @@ module RequestBlock2CH_PE
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0]                                data_stall_CH1_dummy;
           `endif
 
-              assign data_req_CH1_dummy    = '0 ;  
-              assign data_add_CH1_dummy    = '0 ;   
-              assign data_wen_CH1_dummy    = '0 ;  
+              assign data_req_CH1_dummy    = '0 ;
+              assign data_add_CH1_dummy    = '0 ;
+              assign data_wen_CH1_dummy    = '0 ;
+              assign data_atop_CH1_dummy   = '0 ;
               assign data_wdata_CH1_dummy  = '0 ;
-              assign data_be_CH1_dummy     = '0 ;   
+              assign data_be_CH1_dummy     = '0 ;
               assign data_ID_CH1_dummy     = '0 ;
 
               assign data_req_CH1_int      = {  data_req_CH1_dummy  ,     data_req_CH1_i     };
               assign data_add_CH1_int      = {  data_add_CH1_dummy  ,     data_add_CH1_i     };
               assign data_wen_CH1_int      = {  data_wen_CH1_dummy  ,     data_wen_CH1_i     };
+              assign data_atop_CH1_int     = {  data_atop_CH1_dummy ,     data_atop_CH1_i    };
               assign data_wdata_CH1_int    = {  data_wdata_CH1_dummy  ,   data_wdata_CH1_i   };
               assign data_be_CH1_int       = {  data_be_CH1_dummy  ,      data_be_CH1_i      };
-              assign data_ID_CH1_int       = {  data_ID_CH1_dummy  ,      data_ID_CH1_i      };        
+              assign data_ID_CH1_int       = {  data_ID_CH1_dummy  ,      data_ID_CH1_i      };
 
 
               for(genvar j=0; j<N_CH1; j++)
               begin : _MERGING_CH1_DUMMY_PORTS_OUT_
-        `ifdef GNT_BASED_FC           
+        `ifdef GNT_BASED_FC
                 assign data_gnt_CH1_o[j]     = data_gnt_CH1_int[j];
         `else
                 assign data_stall_CH1_o[j]   = data_stall_CH1_int[j];
-        `endif        
+        `endif
               end
 
 
@@ -274,12 +288,13 @@ module RequestBlock2CH_PE
                 assign data_req_CH1_int   = data_req_CH1_i;
                 assign data_add_CH1_int   = data_add_CH1_i;
                 assign data_wen_CH1_int   = data_wen_CH1_i;
+                assign data_atop_CH1_int  = data_atop_CH1_i;
                 assign data_wdata_CH1_int = data_wdata_CH1_i;
                 assign data_be_CH1_int    = data_be_CH1_i;
                 assign data_ID_CH1_int    = data_ID_CH1_i;
-            `ifdef GNT_BASED_FC    
+            `ifdef GNT_BASED_FC
                 assign data_gnt_CH1_o     = data_gnt_CH1_int;
-            `else 
+            `else
                 assign data_stall_CH1_o   = data_stall_CH1_int;
             `endif
           end
@@ -308,10 +323,11 @@ module RequestBlock2CH_PE
               .data_req_i    ( data_req_CH0_int   ),
               .data_add_i    ( data_add_CH0_int   ),
               .data_wen_i    ( data_wen_CH0_int   ),
+              .data_atop_i   ( data_atop_CH0_int  ),
               .data_wdata_i  ( data_wdata_CH0_int ),
               .data_be_i     ( data_be_CH0_int    ),
               .data_ID_i     ( data_ID_CH0_int    ),
-            `ifdef GNT_BASED_FC                    
+            `ifdef GNT_BASED_FC
               .data_gnt_o    ( data_gnt_CH0_int   ),
             `else
               .data_stall_o  ( data_stall_CH0_int ),
@@ -320,23 +336,24 @@ module RequestBlock2CH_PE
               .data_req_o    ( data_req_CH0       ),
               .data_add_o    ( data_add_CH0       ),
               .data_wen_o    ( data_wen_CH0       ),
+              .data_atop_o   ( data_atop_CH0      ),
               .data_wdata_o  ( data_wdata_CH0     ),
               .data_be_o     ( data_be_CH0        ),
               .data_ID_o     ( data_ID_CH0        ),
-            `ifdef GNT_BASED_FC              
+            `ifdef GNT_BASED_FC
               .data_gnt_i    ( data_gnt_CH0       )
             `else
-              .data_stall_i  ( data_stall_CH0     )            
+              .data_stall_i  ( data_stall_CH0     )
             `endif
-          );   
+          );
         end
 
         if(N_CH1 > 1)
         begin : CH1_ARB_TREE
-            ArbitrationTree_PE 
+            ArbitrationTree_PE
               #(
-                  .ADDR_WIDTH    ( ADDR_WIDTH ), 
-                  .ID_WIDTH      ( ID_WIDTH   ), 
+                  .ADDR_WIDTH    ( ADDR_WIDTH ),
+                  .ID_WIDTH      ( ID_WIDTH   ),
                   .N_MASTER      ( N_CH1      ),
                   .DATA_WIDTH    ( DATA_WIDTH ),
                   .BE_WIDTH      ( BE_WIDTH   ),
@@ -350,10 +367,11 @@ module RequestBlock2CH_PE
                   .data_req_i     ( data_req_CH1_int   ),
                   .data_add_i     ( data_add_CH1_int   ),
                   .data_wen_i     ( data_wen_CH1_int   ),
+                  .data_atop_i    ( data_atop_CH1_int  ),
                   .data_wdata_i   ( data_wdata_CH1_int ),
                   .data_be_i      ( data_be_CH1_int    ),
                   .data_ID_i      ( data_ID_CH1_int    ),
-                `ifdef GNT_BASED_FC                    
+                `ifdef GNT_BASED_FC
                   .data_gnt_o     ( data_gnt_CH1_int   ),
                 `else
                   .data_stall_o   ( data_stall_CH1_int ),
@@ -362,6 +380,7 @@ module RequestBlock2CH_PE
                   .data_req_o     ( data_req_CH1       ),
                   .data_add_o     ( data_add_CH1       ),
                   .data_wen_o     ( data_wen_CH1       ),
+                  .data_atop_o    ( data_atop_CH1      ),
                   .data_wdata_o   ( data_wdata_CH1     ),
                   .data_be_o      ( data_be_CH1        ),
                   .data_ID_o      ( data_ID_CH1        ),
@@ -390,10 +409,11 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i   (  data_req_CH0_int   ),
                     .data_add_CH0_i   (  data_add_CH0_int   ),
                     .data_wen_CH0_i   (  data_wen_CH0_int   ),
+                    .data_atop_CH0_i  (  data_atop_CH0_int  ),
                     .data_wdata_CH0_i (  data_wdata_CH0_int ),
                     .data_be_CH0_i    (  data_be_CH0_int    ),
                     .data_ID_CH0_i    (  data_ID_CH0_int    ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_CH0_o   (  data_gnt_CH0_int   ),
                 `else
                     .data_stall_CH0_o (  data_stall_CH0_int ),
@@ -402,10 +422,11 @@ module RequestBlock2CH_PE
                     .data_req_CH1_i   (  data_req_CH1_int   ),
                     .data_add_CH1_i   (  data_add_CH1_int   ),
                     .data_wen_CH1_i   (  data_wen_CH1_int   ),
+                    .data_atop_CH1_i  (  data_atop_CH1_int  ),
                     .data_wdata_CH1_i (  data_wdata_CH1_int ),
                     .data_be_CH1_i    (  data_be_CH1_int    ),
                     .data_ID_CH1_i    (  data_ID_CH1_int    ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_CH1_o   (  data_gnt_CH1_int   ),
                 `else
                     .data_stall_CH1_o (  data_stall_CH1_int ),
@@ -414,10 +435,11 @@ module RequestBlock2CH_PE
                     .data_req_o       (  data_req_o        ),
                     .data_add_o       (  data_add_o        ),
                     .data_wen_o       (  data_wen_o        ),
+                    .data_atop_o      (  data_atop_o       ),
                     .data_wdata_o     (  data_wdata_o      ),
                     .data_be_o        (  data_be_o         ),
-                    .data_ID_o        (  data_ID_o         ), 
-                `ifdef GNT_BASED_FC                
+                    .data_ID_o        (  data_ID_o         ),
+                `ifdef GNT_BASED_FC
                     .data_gnt_i       (  data_gnt_i        ),
                 `else
                     .data_stall_i     (  data_stall_i      ),
@@ -441,34 +463,37 @@ module RequestBlock2CH_PE
                       .data_req_CH0_i   ( data_req_CH0       ),
                       .data_add_CH0_i   ( data_add_CH0       ),
                       .data_wen_CH0_i   ( data_wen_CH0       ),
+                      .data_atop_CH0_i  ( data_atop_CH0      ),
                       .data_wdata_CH0_i ( data_wdata_CH0     ),
                       .data_be_CH0_i    ( data_be_CH0        ),
                       .data_ID_CH0_i    ( data_ID_CH0        ),
-                  `ifdef GNT_BASED_FC      
+                  `ifdef GNT_BASED_FC
                       .data_gnt_CH0_o   ( data_gnt_CH0       ),
                   `else
                       .data_stall_CH0_o ( data_stall_CH0     ),
-                  `endif              
+                  `endif
                       // CH1 input
                       .data_req_CH1_i   ( data_req_CH1_int   ),
                       .data_add_CH1_i   ( data_add_CH1_int   ),
                       .data_wen_CH1_i   ( data_wen_CH1_int   ),
+                      .data_atop_CH1_i  ( data_atop_CH1_int  ),
                       .data_wdata_CH1_i ( data_wdata_CH1_int ),
                       .data_be_CH1_i    ( data_be_CH1_int    ),
                       .data_ID_CH1_i    ( data_ID_CH1_int    ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                       .data_gnt_CH1_o   ( data_gnt_CH1_int   ),
                 `else
                       .data_stall_CH1_o ( data_stall_CH1_int ),
-                `endif                  
+                `endif
                       // MUX output
                       .data_req_o       ( data_req_o        ),
                       .data_add_o       ( data_add_o        ),
                       .data_wen_o       ( data_wen_o        ),
+                      .data_atop_o      ( data_atop_o       ),
                       .data_wdata_o     ( data_wdata_o      ),
                       .data_be_o        ( data_be_o         ),
                       .data_ID_o        ( data_ID_o         ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_i         ( data_gnt_i        ),
                 `else
                     .data_stall_i       ( data_stall_i      ),
@@ -495,47 +520,50 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i    ( data_req_CH0_int     ),
                     .data_add_CH0_i    ( data_add_CH0_int     ),
                     .data_wen_CH0_i    ( data_wen_CH0_int     ),
+                    .data_atop_CH0_i   ( data_atop_CH0_int    ),
                     .data_wdata_CH0_i  ( data_wdata_CH0_int   ),
                     .data_be_CH0_i     ( data_be_CH0_int      ),
                     .data_ID_CH0_i     ( data_ID_CH0_int      ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_CH0_o    ( data_gnt_CH0_int     ),
                 `else
                     .data_stall_CH0_o  ( data_stall_CH0_int   ),
-                `endif                
+                `endif
                     // CH1 input
                     .data_req_CH1_i    ( data_req_CH1       ),
                     .data_add_CH1_i    ( data_add_CH1       ),
                     .data_wen_CH1_i    ( data_wen_CH1       ),
+                    .data_atop_CH1_i   ( data_atop_CH1      ),
                     .data_wdata_CH1_i  ( data_wdata_CH1     ),
                     .data_be_CH1_i     ( data_be_CH1        ),
                     .data_ID_CH1_i     ( data_ID_CH1        ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_CH1_o    ( data_gnt_CH1       ),
                 `else
                     .data_stall_CH1_o  ( data_stall_CH1     ),
-                `endif                
+                `endif
                     // MUX output
                     .data_req_o        ( data_req_o         ),
                     .data_add_o        ( data_add_o         ),
                     .data_wen_o        ( data_wen_o         ),
+                    .data_atop_o       ( data_atop_o        ),
                     .data_wdata_o      ( data_wdata_o       ),
                     .data_be_o         ( data_be_o          ),
                     .data_ID_o         ( data_ID_o          ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_i        ( data_gnt_i         ),
                 `else
                     .data_stall_i      ( data_stall_i       ),
                 `endif
                     .clk               ( clk                ),
                     .rst_n             ( rst_n              )
-            );          
+            );
           end
           else
           begin : POLY_CH0
-                MUX2_REQ_PE 
+                MUX2_REQ_PE
                 #(
-                    .ID_WIDTH   ( ID_WIDTH     ), 
+                    .ID_WIDTH   ( ID_WIDTH     ),
                     .ADDR_WIDTH ( ADDR_WIDTH   ),
                     .DATA_WIDTH ( DATA_WIDTH   ),
                     .BE_WIDTH   ( DATA_WIDTH/8 )
@@ -546,10 +574,11 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i     ( data_req_CH0     ),
                     .data_add_CH0_i     ( data_add_CH0     ),
                     .data_wen_CH0_i     ( data_wen_CH0     ),
+                    .data_atop_CH0_i    ( data_atop_CH0    ),
                     .data_wdata_CH0_i   ( data_wdata_CH0   ),
                     .data_be_CH0_i      ( data_be_CH0      ),
                     .data_ID_CH0_i      ( data_ID_CH0      ),
-                  `ifdef GNT_BASED_FC      
+                  `ifdef GNT_BASED_FC
                       .data_gnt_CH0_o   ( data_gnt_CH0     ),
                   `else
                       .data_stall_CH0_o ( data_stall_CH0   ),
@@ -558,41 +587,43 @@ module RequestBlock2CH_PE
                     .data_req_CH1_i     ( data_req_CH1     ),
                     .data_add_CH1_i     ( data_add_CH1     ),
                     .data_wen_CH1_i     ( data_wen_CH1     ),
+                    .data_atop_CH1_i    ( data_atop_CH1    ),
                     .data_wdata_CH1_i   ( data_wdata_CH1   ),
                     .data_be_CH1_i      ( data_be_CH1      ),
                     .data_ID_CH1_i      ( data_ID_CH1      ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_CH1_o     ( data_gnt_CH1     ),
                 `else
                     .data_stall_CH1_o   ( data_stall_CH1   ),
-                `endif      
+                `endif
                     // MUX output
                     .data_req_o         ( data_req_o       ),
                     .data_add_o         ( data_add_o       ),
                     .data_wen_o         ( data_wen_o       ),
+                    .data_atop_o        ( data_atop_o      ),
                     .data_wdata_o       ( data_wdata_o     ),
                     .data_be_o          ( data_be_o        ),
                     .data_ID_o          ( data_ID_o        ),
-                `ifdef GNT_BASED_FC                
+                `ifdef GNT_BASED_FC
                     .data_gnt_i         ( data_gnt_i       ),
                 `else
                     .data_stall_i       ( data_stall_i     ),
                 `endif
                     .clk                ( clk              ),
                     .rst_n              ( rst_n            )
-                );          
+                );
           end
-    end        
+    end
     endgenerate
-   
 
 
 
-    AddressDecoder_Resp_PE 
-    #( 
-        .ID_WIDTH(ID_WIDTH), 
+
+    AddressDecoder_Resp_PE
+    #(
+        .ID_WIDTH(ID_WIDTH),
         .N_MASTER(N_CH0+N_CH1)
-    ) 
+    )
     i_AddressDecoder_Resp_PE
     (
       // FROM Test And Set Interface

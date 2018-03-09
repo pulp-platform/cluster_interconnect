@@ -60,10 +60,11 @@ module RequestBlock1CH_PE
     parameter BE_WIDTH   = DATA_WIDTH/8
 )
 (
-    // CHANNEL CH0 --> (example: Used for xP70s) 
+    // CHANNEL CH0 --> (example: Used for xP70s)
     input  logic [N_CH0-1:0]                     data_req_CH0_i,
     input  logic [N_CH0-1:0][ADDR_WIDTH-1:0]     data_add_CH0_i,
     input  logic [N_CH0-1:0]                     data_wen_CH0_i,
+    input  logic [N_CH0-1:0][5:0]                data_atop_CH0_i,
     input  logic [N_CH0-1:0][DATA_WIDTH-1:0]     data_wdata_CH0_i,
     input  logic [N_CH0-1:0][BE_WIDTH-1:0]       data_be_CH0_i,
     input  logic [N_CH0-1:0][ID_WIDTH-1:0]       data_ID_CH0_i,
@@ -78,6 +79,7 @@ module RequestBlock1CH_PE
     output logic                                 data_req_o,
     output logic [ADDR_WIDTH-1:0]                data_add_o,
     output logic                                 data_wen_o,
+    output logic [5:0]                           data_atop_o,
     output logic [DATA_WIDTH-1:0]                data_wdata_o,
     output logic [BE_WIDTH-1:0]                  data_be_o,
     output logic [ID_WIDTH-1:0]                  data_ID_o,
@@ -99,10 +101,11 @@ module RequestBlock1CH_PE
 
 
 
-    // CHANNEL CH0 --> (example: Used for Processing Elements / CORES) 
+    // CHANNEL CH0 --> (example: Used for Processing Elements / CORES)
     logic [2**$clog2(N_CH0)-1:0]                                data_req_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ADDR_WIDTH-1:0]                data_add_CH0_int;
     logic [2**$clog2(N_CH0)-1:0]                                data_wen_CH0_int;
+    logic [2**$clog2(N_CH0)-1:0][5:0]                           data_atop_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][DATA_WIDTH-1:0]                data_wdata_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][BE_WIDTH-1:0]                  data_be_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ID_WIDTH-1:0]                  data_ID_CH0_int;
@@ -122,10 +125,11 @@ module RequestBlock1CH_PE
 
             if(2**$clog2(N_CH0) != N_CH0) // if N_CH0 is not power of 2 --> then use power 2 ports
             begin : _DUMMY_CH0_PORTS_
-              
+
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_req_CH0_dummy;
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ADDR_WIDTH-1:0]                data_add_CH0_dummy;
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_wen_CH0_dummy;
+              logic [2**$clog2(N_CH0)-N_CH0 -1 :0][5:0]                           data_atop_CH0_dummy;
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0][DATA_WIDTH-1:0]                data_wdata_CH0_dummy;
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0][BE_WIDTH-1:0]                  data_be_CH0_dummy;
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ID_WIDTH-1:0]                  data_ID_CH0_dummy;
@@ -135,28 +139,30 @@ module RequestBlock1CH_PE
               logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_stall_CH0_dummy;
           `endif
 
-              assign data_req_CH0_dummy    = '0 ;  
-              assign data_add_CH0_dummy    = '0 ;   
-              assign data_wen_CH0_dummy    = '0 ;  
+              assign data_req_CH0_dummy    = '0 ;
+              assign data_add_CH0_dummy    = '0 ;
+              assign data_wen_CH0_dummy    = '0 ;
+              assign data_atop_CH0_dummy   = '0 ;
               assign data_wdata_CH0_dummy  = '0 ;
-              assign data_be_CH0_dummy     = '0 ;   
+              assign data_be_CH0_dummy     = '0 ;
               assign data_ID_CH0_dummy     = '0 ;
 
               assign data_req_CH0_int      = {  data_req_CH0_dummy  ,     data_req_CH0_i     };
               assign data_add_CH0_int      = {  data_add_CH0_dummy  ,     data_add_CH0_i     };
               assign data_wen_CH0_int      = {  data_wen_CH0_dummy  ,     data_wen_CH0_i     };
+              assign data_atop_CH0_int     = {  data_atop_CH0_dummy  ,    data_atop_CH0_i    };
               assign data_wdata_CH0_int    = {  data_wdata_CH0_dummy  ,   data_wdata_CH0_i   };
               assign data_be_CH0_int       = {  data_be_CH0_dummy  ,      data_be_CH0_i      };
-              assign data_ID_CH0_int       = {  data_ID_CH0_dummy  ,      data_ID_CH0_i      };        
+              assign data_ID_CH0_int       = {  data_ID_CH0_dummy  ,      data_ID_CH0_i      };
 
 
               for(genvar j=0; j<N_CH0; j++)
               begin : _MERGING_CH0_DUMMY_PORTS_OUT_
-        `ifdef GNT_BASED_FC           
+        `ifdef GNT_BASED_FC
                 assign data_gnt_CH0_o[j]     = data_gnt_CH0_int[j];
         `else
                 assign data_stall_CH0_o[j]   = data_stall_CH0_int[j];
-        `endif        
+        `endif
               end
 
 
@@ -166,12 +172,13 @@ module RequestBlock1CH_PE
                 assign data_req_CH0_int   = data_req_CH0_i;
                 assign data_add_CH0_int   = data_add_CH0_i;
                 assign data_wen_CH0_int   = data_wen_CH0_i;
+                assign data_atop_CH0_int  = data_atop_CH0_i;
                 assign data_wdata_CH0_int = data_wdata_CH0_i;
                 assign data_be_CH0_int    = data_be_CH0_i;
                 assign data_ID_CH0_int    = data_ID_CH0_i;
-            `ifdef GNT_BASED_FC    
+            `ifdef GNT_BASED_FC
                 assign data_gnt_CH0_o     = data_gnt_CH0_int;
-            `else 
+            `else
                 assign data_stall_CH0_o   = data_stall_CH0_int;
             `endif
           end
@@ -197,6 +204,7 @@ module RequestBlock1CH_PE
                 .data_req_i   ( data_req_CH0_int   ),
                 .data_add_i   ( data_add_CH0_int   ),
                 .data_wen_i   ( data_wen_CH0_int   ),
+                .data_atop_i  ( data_atop_CH0_int   ),
                 .data_wdata_i ( data_wdata_CH0_int ),
                 .data_be_i    ( data_be_CH0_int    ),
                 .data_ID_i    ( data_ID_CH0_int    ),
@@ -209,6 +217,7 @@ module RequestBlock1CH_PE
                 .data_req_o   ( data_req_o         ),
                 .data_add_o   ( data_add_o         ),
                 .data_wen_o   ( data_wen_o         ),
+                .data_atop_o  ( data_atop_o         ),
                 .data_wdata_o ( data_wdata_o       ),
                 .data_be_o    ( data_be_o          ),
                 .data_ID_o    ( data_ID_o          ),
@@ -224,6 +233,7 @@ module RequestBlock1CH_PE
             assign data_req_o   = data_req_CH0_int;
             assign data_add_o   = data_add_CH0_int;
             assign data_wen_o   = data_wen_CH0_int;
+            assign data_atop_o  = data_atop_CH0_int;
             assign data_wdata_o = data_wdata_CH0_int;
             assign data_be_o    = data_be_CH0_int;
             assign data_ID_o    = data_ID_CH0_int;

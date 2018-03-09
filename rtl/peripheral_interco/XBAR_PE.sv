@@ -73,6 +73,7 @@ module XBAR_PE
     input  logic [N_CH0+N_CH1-1:0]                         data_req_i,                // Data request
     input  logic [N_CH0+N_CH1-1:0][ADDR_WIDTH-1:0]         data_add_i,                // Data request Address
     input  logic [N_CH0+N_CH1-1:0]                         data_wen_i,                // Data request type : 0--> Store, 1 --> Load
+    input  logic [N_CH0+N_CH1-1:0][5:0]                    data_atop_i,               // Data request atomic operation
     input  logic [N_CH0+N_CH1-1:0][DATA_WIDTH-1:0]         data_wdata_i,              // Data request Write data
     input  logic [N_CH0+N_CH1-1:0][BE_WIDTH-1:0]           data_be_i,                 // Data request Byte enable
 `ifdef GNT_BASED_FC
@@ -86,18 +87,19 @@ module XBAR_PE
     output logic [N_CH0+N_CH1-1:0]                         data_r_opc_o,              // Response Error
 
 
-    // ---------------- MM_SIDE (Interleaved) -------------------------- 
+    // ---------------- MM_SIDE (Interleaved) --------------------------
     // Req --> to Mem
     output  logic [N_SLAVE-1:0]                            data_req_o,                // Data request
     output  logic [N_SLAVE-1:0][ADDR_PE_WIDTH-1:0]         data_add_o,                // Data request Address
     output  logic [N_SLAVE-1:0]                            data_wen_o,                // Data request type : 0--> Store, 1 --> Load
+    output  logic [N_SLAVE-1:0][5:0]                       data_atop_o,               // Data request atomic operation
     output  logic [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_wdata_o,              // Data request Wrire data
-    output  logic [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_o,                 // Data request Byte enable 
+    output  logic [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_o,                 // Data request Byte enable
     output  logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_ID_o,
 `ifdef GNT_BASED_FC
-    input   logic [N_SLAVE-1:0]                            data_gnt_i,                // Data request : input on slave side 
+    input   logic [N_SLAVE-1:0]                            data_gnt_i,                // Data request : input on slave side
 `else
-    input   logic [N_SLAVE-1:0]                            data_stall_i,              // Data request stall : input on slave side     
+    input   logic [N_SLAVE-1:0]                            data_stall_i,              // Data request stall : input on slave side
 `endif
     // Resp        --> From Mem
     input  logic [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_r_rdata_i,            // Data Response DATA (For LOAD commands)
@@ -167,10 +169,11 @@ module XBAR_PE
               )
               i_RequestBlock2CH_PE
               (
-                // CHANNEL CH0 --> (example: Used for xP70s) 
+                // CHANNEL CH0 --> (example: Used for xP70s)
                 .data_req_CH0_i(data_req_to_MEM[j][N_CH0-1:0]),
                 .data_add_CH0_i(data_add[N_CH0-1:0]),
                 .data_wen_CH0_i(data_wen_i[N_CH0-1:0]),
+                .data_atop_CH0_i(data_atop_i[N_CH0-1:0]),
                 .data_wdata_CH0_i(data_wdata_i[N_CH0-1:0]),
                 .data_be_CH0_i(data_be_i[N_CH0-1:0]),
                 .data_ID_CH0_i(data_ID[N_CH0-1:0]),
@@ -178,11 +181,12 @@ module XBAR_PE
                 .data_gnt_CH0_o(data_gnt_from_MEM[j][N_CH0-1:0]),
           `else
                  .data_stall_CH0_o(data_stall_from_MEM[j][N_CH0-1:0]),
-          `endif                 
+          `endif
                 // CHANNEL CH1 --> (example: Used for DMAs)
                 .data_req_CH1_i(data_req_to_MEM[j][N_CH1+N_CH0-1:N_CH0]),
                 .data_add_CH1_i(data_add[N_CH1+N_CH0-1:N_CH0]),
                 .data_wen_CH1_i(data_wen_i[N_CH1+N_CH0-1:N_CH0]),
+                .data_atop_CH1_i(data_atop_i[N_CH1+N_CH0-1:N_CH0]),
                 .data_wdata_CH1_i(data_wdata_i[N_CH1+N_CH0-1:N_CH0]),
                 .data_be_CH1_i(data_be_i[N_CH1+N_CH0-1:N_CH0]),
                 .data_ID_CH1_i(data_ID[N_CH1+N_CH0-1:N_CH0]),
@@ -190,20 +194,21 @@ module XBAR_PE
                  .data_gnt_CH1_o(data_gnt_from_MEM[j][N_CH1+N_CH0-1:N_CH0]),
           `else
                 .data_stall_CH1_o(data_stall_from_MEM[j][N_CH1+N_CH0-1:N_CH0]),
-          `endif                  
+          `endif
                 // -----------------             MEMORY                    -------------------
                 // ---------------- RequestBlock OUTPUT (Connected to MEMORY) ----------------
                 .data_req_o(data_req_o[j]),
                 .data_add_o(data_add_o[j]),
                 .data_wen_o(data_wen_o[j]),
+                .data_atop_o(data_atop_o[j]),
                 .data_wdata_o(data_wdata_o[j]),
                 .data_be_o(data_be_o[j]),
                 .data_ID_o(data_ID_o[j]),
           `ifdef GNT_BASED_FC
-                .data_gnt_i(data_gnt_i[j]),          
+                .data_gnt_i(data_gnt_i[j]),
           `else
-                 .data_stall_i(data_stall_i[j]),         
-          `endif   
+                 .data_stall_i(data_stall_i[j]),
+          `endif
                 .data_r_valid_i(data_r_valid_i[j]),
                 .data_r_ID_i(data_r_ID_i[j]),
 
@@ -216,20 +221,21 @@ module XBAR_PE
            end
            else
            begin : CH0_ONLY
-              RequestBlock1CH_PE  
-              #( 
-                  .ADDR_WIDTH(ADDR_PE_WIDTH), 
-                  .N_CH0(N_CH0), 
+              RequestBlock1CH_PE
+              #(
+                  .ADDR_WIDTH(ADDR_PE_WIDTH),
+                  .N_CH0(N_CH0),
                   .ID_WIDTH(ID_WIDTH),
                   .DATA_WIDTH(DATA_WIDTH),
                   .BE_WIDTH(DATA_WIDTH/8)
-              ) 
+              )
               i_RequestBlock1CH_PE
               (
-                // CHANNEL CH0 --> (example: Used for xP70s) 
+                // CHANNEL CH0 --> (example: Used for xP70s)
                 .data_req_CH0_i(data_req_to_MEM[j]),
                 .data_add_CH0_i(data_add),
                 .data_wen_CH0_i(data_wen_i),
+                .data_atop_CH0_i(data_atop_i),
                 .data_wdata_CH0_i(data_wdata_i),
                 .data_be_CH0_i(data_be_i),
                 .data_ID_CH0_i(data_ID),
@@ -243,6 +249,7 @@ module XBAR_PE
                 .data_req_o(data_req_o[j]),
                 .data_add_o(data_add_o[j]),
                 .data_wen_o(data_wen_o[j]),
+                .data_atop_o(data_atop_o[j]),
                 .data_wdata_o(data_wdata_o[j]),
                 .data_be_o(data_be_o[j]),
                 .data_ID_o(data_ID_o[j]),
