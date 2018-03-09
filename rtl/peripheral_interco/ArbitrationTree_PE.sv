@@ -65,6 +65,7 @@ module ArbitrationTree_PE
     input  logic [N_MASTER-1:0]                  data_req_i,
     input  logic [N_MASTER-1:0][ADDR_WIDTH-1:0]  data_add_i,
     input  logic [N_MASTER-1:0]                  data_wen_i,
+    input  logic [N_MASTER-1:0][5:0]             data_atop_i,
     input  logic [N_MASTER-1:0][DATA_WIDTH-1:0]  data_wdata_i,
     input  logic [N_MASTER-1:0][BE_WIDTH-1:0]    data_be_i,
     input  logic [N_MASTER-1:0][ID_WIDTH-1:0]    data_ID_i,
@@ -77,6 +78,7 @@ module ArbitrationTree_PE
     output logic                                 data_req_o,
     output logic [ADDR_WIDTH-1:0]                data_add_o,
     output logic                                 data_wen_o,
+    output logic [5:0]                           data_atop_o,
     output logic [DATA_WIDTH-1:0]                data_wdata_o,
     output logic [BE_WIDTH-1:0]                  data_be_o,
     output logic [ID_WIDTH-1:0]                  data_ID_o,
@@ -117,6 +119,8 @@ module ArbitrationTree_PE
                   .data_req1_i   ( data_req_i  [1] ),
                   .data_wen0_i   ( data_wen_i  [0] ),
                   .data_wen1_i   ( data_wen_i  [1] ),
+                  .data_atop0_i  ( data_atop_i [0] ),
+                  .data_atop1_i  ( data_atop_i [1] ),
                   .data_ID0_i    ( data_ID_i   [0] ),
                   .data_ID1_i    ( data_ID_i   [1] ),
                   .data_be0_i    ( data_be_i   [0] ),
@@ -133,6 +137,7 @@ module ArbitrationTree_PE
                   .data_add_o    ( data_add_o      ),
                   .data_req_o    ( data_req_o      ),
                   .data_wen_o    ( data_wen_o      ),
+                  .data_atop_o   ( data_atop_o     ),
                   .data_ID_o     ( data_ID_o       ),
                   .data_be_o     ( data_be_o       ),
             `ifdef GNT_BASED_FC
@@ -151,6 +156,7 @@ module ArbitrationTree_PE
           logic [N_WIRE-1:0][ADDR_WIDTH-1:0]      data_add_LEVEL;
           logic [N_WIRE-1:0]                      data_req_LEVEL;
           logic [N_WIRE-1:0]                      data_wen_LEVEL;
+          logic [N_WIRE-1:0][5:0]                 data_atop_LEVEL;
           logic [N_WIRE-1:0][ID_WIDTH-1:0]        data_ID_LEVEL;
           logic [N_WIRE-1:0][BE_WIDTH-1:0]        data_be_LEVEL;
       `ifdef GNT_BASED_FC
@@ -184,6 +190,8 @@ module ArbitrationTree_PE
                         .data_req1_i   ( data_req_LEVEL  [2*k+1] ),
                         .data_wen0_i   ( data_wen_LEVEL  [2*k]   ),
                         .data_wen1_i   ( data_wen_LEVEL  [2*k+1] ),
+                        .data_atop0_i  ( data_atop_LEVEL [2*k]   ),
+                        .data_atop1_i  ( data_atop_LEVEL [2*k+1] ),
                         .data_ID0_i    ( data_ID_LEVEL   [2*k]   ),
                         .data_ID1_i    ( data_ID_LEVEL   [2*k+1] ),
                         .data_be0_i    ( data_be_LEVEL   [2*k]   ),
@@ -200,6 +208,7 @@ module ArbitrationTree_PE
                         .data_add_o    ( data_add_o              ),
                         .data_req_o    ( data_req_o              ),
                         .data_wen_o    ( data_wen_o              ),
+                        .data_atop_o   ( data_atop_o             ),
                         .data_ID_o     ( data_ID_o               ),
                         .data_be_o     ( data_be_o               ),
                     `ifdef GNT_BASED_FC
@@ -230,6 +239,8 @@ module ArbitrationTree_PE
                               .data_req1_i   (data_req_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
                               .data_wen0_i   (data_wen_LEVEL   [((2**j)*2-2) + 2*k]     ),
                               .data_wen1_i   (data_wen_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
+                              .data_atop0_i  (data_atop_LEVEL  [((2**j)*2-2) + 2*k]     ),
+                              .data_atop1_i  (data_atop_LEVEL  [((2**j)*2-2) + 2*k+1]   ),
                               .data_ID0_i    (data_ID_LEVEL    [((2**j)*2-2) + 2*k]     ),
                               .data_ID1_i    (data_ID_LEVEL    [((2**j)*2-2) + 2*k+1]   ),
                               .data_be0_i    (data_be_LEVEL    [((2**j)*2-2) + 2*k]     ),
@@ -247,6 +258,7 @@ module ArbitrationTree_PE
                               .data_add_o    (data_add_LEVEL   [((2**(j-1))*2-2) + k]   ),
                               .data_req_o    (data_req_LEVEL   [((2**(j-1))*2-2) + k]   ),
                               .data_wen_o    (data_wen_LEVEL   [((2**(j-1))*2-2) + k]   ),
+                              .data_atop_o   (data_atop_LEVEL  [((2**(j-1))*2-2) + k]   ),
                               .data_ID_o     (data_ID_LEVEL    [((2**(j-1))*2-2) + k]   ),
                               .data_be_o     (data_be_LEVEL    [((2**(j-1))*2-2) + k]   ),
                         `ifdef GNT_BASED_FC
@@ -277,6 +289,8 @@ module ArbitrationTree_PE
                                 .data_req1_i   ( data_req_i   [2*k+1] ),
                                 .data_wen0_i   ( data_wen_i   [2*k]   ),
                                 .data_wen1_i   ( data_wen_i   [2*k+1] ),
+                                .data_atop0_i  ( data_atop_i[2*k]     ),
+                                .data_atop1_i  ( data_atop_i[2*k+1]   ),
                                 .data_ID0_i    ( data_ID_i    [2*k]   ),
                                 .data_ID1_i    ( data_ID_i    [2*k+1] ),
                                 .data_be0_i    ( data_be_i    [2*k]   ),
@@ -288,12 +302,13 @@ module ArbitrationTree_PE
                                 .data_stall0_o ( data_stall_o [2*k]   ),
                                 .data_stall1_o ( data_stall_o [2*k+1] ),
                           `endif
-  
+
                                 // RIGTH SIDE
                                 .data_wdata_o ( data_wdata_LEVEL [((2**(j-1))*2-2) + k] ),
                                 .data_add_o   ( data_add_LEVEL   [((2**(j-1))*2-2) + k] ),
                                 .data_req_o   ( data_req_LEVEL   [((2**(j-1))*2-2) + k] ),
                                 .data_wen_o   ( data_wen_LEVEL   [((2**(j-1))*2-2) + k] ),
+                                .data_atop_o  ( data_atop_LEVEL  [((2**(j-1))*2-2) + k] ),
                                 .data_ID_o    ( data_ID_LEVEL    [((2**(j-1))*2-2) + k] ),
                                 .data_be_o    ( data_be_LEVEL    [((2**(j-1))*2-2) + k] ),
                           `ifdef GNT_BASED_FC

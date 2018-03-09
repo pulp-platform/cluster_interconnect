@@ -74,6 +74,7 @@ module XBAR_PE
     input  logic [N_CH0+N_CH1-1:0]                         data_req_i,                // Data request
     input  logic [N_CH0+N_CH1-1:0][ADDR_WIDTH-1:0]         data_add_i,                // Data request Address
     input  logic [N_CH0+N_CH1-1:0]                         data_wen_i,                // Data request type : 0--> Store, 1 --> Load
+    input  logic [N_CH0+N_CH1-1:0][5:0]                    data_atop_i,               // Data request atomic operation
     input  logic [N_CH0+N_CH1-1:0][DATA_WIDTH-1:0]         data_wdata_i,              // Data request Write data
     input  logic [N_CH0+N_CH1-1:0][BE_WIDTH-1:0]           data_be_i,                 // Data request Byte enable
 `ifdef GNT_BASED_FC
@@ -92,6 +93,7 @@ module XBAR_PE
     output  logic [N_SLAVE-1:0]                            data_req_o,                // Data request
     output  logic [N_SLAVE-1:0][ADDR_PE_WIDTH-1:0]         data_add_o,                // Data request Address
     output  logic [N_SLAVE-1:0]                            data_wen_o,                // Data request type : 0--> Store, 1 --> Load
+    output  logic [N_SLAVE-1:0][5:0]                       data_atop_o,               // Data request atomic operation
     output  logic [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_wdata_o,              // Data request Wrire data
     output  logic [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_o,                 // Data request Byte enable 
     output  logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_ID_o,
@@ -172,6 +174,7 @@ module XBAR_PE
                 .data_req_CH0_i      ( data_req_to_MEM[j]    [N_CH0-1:0]             ),
                 .data_add_CH0_i      ( data_add              [N_CH0-1:0]             ),
                 .data_wen_CH0_i      ( data_wen_i            [N_CH0-1:0]             ),
+                .data_atop_CH0_i     ( data_atop_i           [N_CH0-1:0]             ),
                 .data_wdata_CH0_i    ( data_wdata_i          [N_CH0-1:0]             ),
                 .data_be_CH0_i       ( data_be_i             [N_CH0-1:0]             ),
                 .data_ID_CH0_i       ( data_ID               [N_CH0-1:0]             ),
@@ -184,6 +187,7 @@ module XBAR_PE
                 .data_req_CH1_i      ( data_req_to_MEM[j]    [N_CH1+N_CH0-1:N_CH0]   ),
                 .data_add_CH1_i      ( data_add              [N_CH1+N_CH0-1:N_CH0]   ),
                 .data_wen_CH1_i      ( data_wen_i            [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_atop_CH1_i     ( data_atop_i           [N_CH1+N_CH0-1:N_CH0]   ),
                 .data_wdata_CH1_i    ( data_wdata_i          [N_CH1+N_CH0-1:N_CH0]   ),
                 .data_be_CH1_i       ( data_be_i             [N_CH1+N_CH0-1:N_CH0]   ),
                 .data_ID_CH1_i       ( data_ID               [N_CH1+N_CH0-1:N_CH0]   ),
@@ -197,6 +201,7 @@ module XBAR_PE
                 .data_req_o          ( data_req_o[j]                                 ),
                 .data_add_o          ( data_add_o[j]                                 ),
                 .data_wen_o          ( data_wen_o[j]                                 ),
+                .data_atop_o         ( data_atop_o[j]                                ),
                 .data_wdata_o        ( data_wdata_o[j]                               ),
                 .data_be_o           ( data_be_o[j]                                  ),
                 .data_ID_o           ( data_ID_o[j]                                  ),
@@ -231,6 +236,7 @@ module XBAR_PE
                 .data_req_CH0_i(data_req_to_MEM[j]),
                 .data_add_CH0_i(data_add),
                 .data_wen_CH0_i(data_wen_i),
+                .data_atop_CH0_i(data_atop_i),
                 .data_wdata_CH0_i(data_wdata_i),
                 .data_be_CH0_i(data_be_i),
                 .data_ID_CH0_i(data_ID),
@@ -244,6 +250,7 @@ module XBAR_PE
                 .data_req_o(data_req_o[j]),
                 .data_add_o(data_add_o[j]),
                 .data_wen_o(data_wen_o[j]),
+                .data_atop_o(data_atop_o[j]),
                 .data_wdata_o(data_wdata_o[j]),
                 .data_be_o(data_be_o[j]),
                 .data_ID_o(data_ID_o[j]),

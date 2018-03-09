@@ -60,6 +60,7 @@ module RequestBlock2CH_PE
     input  logic [N_CH0-1:0]                     data_req_CH0_i,
     input  logic [N_CH0-1:0][ADDR_WIDTH-1:0]     data_add_CH0_i,
     input  logic [N_CH0-1:0]                     data_wen_CH0_i,
+    input  logic [N_CH0-1:0][5:0]                data_atop_CH0_i,
     input  logic [N_CH0-1:0][DATA_WIDTH-1:0]     data_wdata_CH0_i,
     input  logic [N_CH0-1:0][BE_WIDTH-1:0]       data_be_CH0_i,
     input  logic [N_CH0-1:0][ID_WIDTH-1:0]       data_ID_CH0_i,
@@ -73,6 +74,7 @@ module RequestBlock2CH_PE
     input  logic [N_CH1-1:0]                     data_req_CH1_i,
     input  logic [N_CH1-1:0][ADDR_WIDTH-1:0]     data_add_CH1_i,
     input  logic [N_CH1-1:0]                     data_wen_CH1_i,
+    input  logic [N_CH1-1:0][5:0]                data_atop_CH1_i,
     input  logic [N_CH1-1:0][DATA_WIDTH-1:0]     data_wdata_CH1_i,
     input  logic [N_CH1-1:0][BE_WIDTH-1:0]       data_be_CH1_i,
     input  logic [N_CH1-1:0][ID_WIDTH-1:0]       data_ID_CH1_i,
@@ -87,6 +89,7 @@ module RequestBlock2CH_PE
     output logic                                 data_req_o,
     output logic [ADDR_WIDTH-1:0]                data_add_o,
     output logic                                 data_wen_o,
+    output logic [5:0]                           data_atop_o,
     output logic [DATA_WIDTH-1:0]                data_wdata_o,
     output logic [BE_WIDTH-1:0]                  data_be_o,
     output logic [ID_WIDTH-1:0]                  data_ID_o,
@@ -113,6 +116,7 @@ module RequestBlock2CH_PE
       logic                                                data_req_CH0;
       logic [ADDR_WIDTH-1:0]                               data_add_CH0;
       logic                                                data_wen_CH0;
+      logic [5:0]                                          data_atop_CH0;
       logic [DATA_WIDTH-1:0]                               data_wdata_CH0;
       logic [BE_WIDTH-1:0]                                 data_be_CH0;
       logic [ID_WIDTH-1:0]                                 data_ID_CH0;
@@ -126,6 +130,7 @@ module RequestBlock2CH_PE
       logic                                               data_req_CH1;
       logic [ADDR_WIDTH-1:0]                              data_add_CH1;
       logic                                               data_wen_CH1;
+      logic [5:0]                                         data_atop_CH1;
       logic [DATA_WIDTH-1:0]                              data_wdata_CH1;
       logic [BE_WIDTH-1:0]                                data_be_CH1;
       logic [ID_WIDTH-1:0]                                data_ID_CH1;
@@ -140,6 +145,7 @@ module RequestBlock2CH_PE
     logic [2**$clog2(N_CH0)-1:0]                                data_req_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ADDR_WIDTH-1:0]                data_add_CH0_int;
     logic [2**$clog2(N_CH0)-1:0]                                data_wen_CH0_int;
+    logic [2**$clog2(N_CH0)-1:0][5:0]                           data_atop_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][DATA_WIDTH-1:0]                data_wdata_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][BE_WIDTH-1:0]                  data_be_CH0_int;
     logic [2**$clog2(N_CH0)-1:0][ID_WIDTH-1:0]                  data_ID_CH0_int;
@@ -155,6 +161,7 @@ module RequestBlock2CH_PE
     logic [2**$clog2(N_CH1)-1:0]                                data_req_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][ADDR_WIDTH-1:0]                data_add_CH1_int;
     logic [2**$clog2(N_CH1)-1:0]                                data_wen_CH1_int;
+    logic [2**$clog2(N_CH1)-1:0][5:0]                           data_atop_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][DATA_WIDTH-1:0]                data_wdata_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][BE_WIDTH-1:0]                  data_be_CH1_int;
     logic [2**$clog2(N_CH1)-1:0][ID_WIDTH-1:0]                  data_ID_CH1_int;
@@ -176,6 +183,7 @@ module RequestBlock2CH_PE
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_req_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ADDR_WIDTH-1:0]                data_add_CH0_dummy; // Memory address + T&S bit
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0]                                data_wen_CH0_dummy;
+                logic [2**$clog2(N_CH0)-N_CH0 -1 :0][5:0]                           data_atop_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][DATA_WIDTH-1:0]                data_wdata_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][BE_WIDTH-1:0]                  data_be_CH0_dummy;
                 logic [2**$clog2(N_CH0)-N_CH0 -1 :0][ID_WIDTH-1:0]                  data_ID_CH0_dummy;
@@ -188,6 +196,7 @@ module RequestBlock2CH_PE
                 assign data_req_CH0_dummy    = '0 ;  
                 assign data_add_CH0_dummy    = '0 ;   
                 assign data_wen_CH0_dummy    = '0 ;  
+                assign data_atop_CH0_dummy   = '0 ;
                 assign data_wdata_CH0_dummy  = '0 ;
                 assign data_be_CH0_dummy     = '0 ;   
                 assign data_ID_CH0_dummy     = '0 ;
@@ -195,6 +204,7 @@ module RequestBlock2CH_PE
                 assign data_req_CH0_int      = {  data_req_CH0_dummy  ,     data_req_CH0_i     };
                 assign data_add_CH0_int      = {  data_add_CH0_dummy  ,     data_add_CH0_i     };
                 assign data_wen_CH0_int      = {  data_wen_CH0_dummy  ,     data_wen_CH0_i     };
+                assign data_atop_CH0_int     = {  data_atop_CH0_dummy ,     data_atop_CH0_i    };
                 assign data_wdata_CH0_int    = {  data_wdata_CH0_dummy  ,   data_wdata_CH0_i   };
                 assign data_be_CH0_int       = {  data_be_CH0_dummy  ,      data_be_CH0_i      };
                 assign data_ID_CH0_int       = {  data_ID_CH0_dummy  ,      data_ID_CH0_i      };        
@@ -214,6 +224,7 @@ module RequestBlock2CH_PE
                   assign data_req_CH0_int   = data_req_CH0_i;
                   assign data_add_CH0_int   = data_add_CH0_i;
                   assign data_wen_CH0_int   = data_wen_CH0_i;
+                  assign data_atop_CH0_int  = data_atop_CH0_i;
                   assign data_wdata_CH0_int = data_wdata_CH0_i;
                   assign data_be_CH0_int    = data_be_CH0_i;
                   assign data_ID_CH0_int    = data_ID_CH0_i;
@@ -233,6 +244,7 @@ module RequestBlock2CH_PE
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0]                                data_req_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][ADDR_WIDTH-1:0]                data_add_CH1_dummy; // Memory address + T&S bit
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0]                                data_wen_CH1_dummy;
+              logic [2**$clog2(N_CH1)-N_CH1 -1 :0][5:0]                           data_atop_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][DATA_WIDTH-1:0]                data_wdata_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][BE_WIDTH-1:0]                  data_be_CH1_dummy;
               logic [2**$clog2(N_CH1)-N_CH1 -1 :0][ID_WIDTH-1:0]                  data_ID_CH1_dummy;
@@ -245,6 +257,7 @@ module RequestBlock2CH_PE
               assign data_req_CH1_dummy    = '0 ;  
               assign data_add_CH1_dummy    = '0 ;   
               assign data_wen_CH1_dummy    = '0 ;  
+              assign data_atop_CH1_dummy   = '0 ;
               assign data_wdata_CH1_dummy  = '0 ;
               assign data_be_CH1_dummy     = '0 ;   
               assign data_ID_CH1_dummy     = '0 ;
@@ -252,6 +265,7 @@ module RequestBlock2CH_PE
               assign data_req_CH1_int      = {  data_req_CH1_dummy  ,     data_req_CH1_i     };
               assign data_add_CH1_int      = {  data_add_CH1_dummy  ,     data_add_CH1_i     };
               assign data_wen_CH1_int      = {  data_wen_CH1_dummy  ,     data_wen_CH1_i     };
+              assign data_atop_CH1_int     = {  data_atop_CH1_dummy ,     data_atop_CH1_i    };
               assign data_wdata_CH1_int    = {  data_wdata_CH1_dummy  ,   data_wdata_CH1_i   };
               assign data_be_CH1_int       = {  data_be_CH1_dummy  ,      data_be_CH1_i      };
               assign data_ID_CH1_int       = {  data_ID_CH1_dummy  ,      data_ID_CH1_i      };        
@@ -273,6 +287,7 @@ module RequestBlock2CH_PE
                 assign data_req_CH1_int   = data_req_CH1_i;
                 assign data_add_CH1_int   = data_add_CH1_i;
                 assign data_wen_CH1_int   = data_wen_CH1_i;
+                assign data_atop_CH1_int  = data_atop_CH1_i;
                 assign data_wdata_CH1_int = data_wdata_CH1_i;
                 assign data_be_CH1_int    = data_be_CH1_i;
                 assign data_ID_CH1_int    = data_ID_CH1_i;
@@ -307,6 +322,7 @@ module RequestBlock2CH_PE
               .data_req_i    ( data_req_CH0_int   ),
               .data_add_i    ( data_add_CH0_int   ),
               .data_wen_i    ( data_wen_CH0_int   ),
+              .data_atop_i   ( data_atop_CH0_int  ),
               .data_wdata_i  ( data_wdata_CH0_int ),
               .data_be_i     ( data_be_CH0_int    ),
               .data_ID_i     ( data_ID_CH0_int    ),
@@ -319,6 +335,7 @@ module RequestBlock2CH_PE
               .data_req_o    ( data_req_CH0       ),
               .data_add_o    ( data_add_CH0       ),
               .data_wen_o    ( data_wen_CH0       ),
+              .data_atop_o   ( data_atop_CH0      ),
               .data_wdata_o  ( data_wdata_CH0     ),
               .data_be_o     ( data_be_CH0        ),
               .data_ID_o     ( data_ID_CH0        ),
@@ -349,6 +366,7 @@ module RequestBlock2CH_PE
                   .data_req_i     ( data_req_CH1_int   ),
                   .data_add_i     ( data_add_CH1_int   ),
                   .data_wen_i     ( data_wen_CH1_int   ),
+                  .data_atop_i    ( data_atop_CH1_int  ),
                   .data_wdata_i   ( data_wdata_CH1_int ),
                   .data_be_i      ( data_be_CH1_int    ),
                   .data_ID_i      ( data_ID_CH1_int    ),
@@ -361,6 +379,7 @@ module RequestBlock2CH_PE
                   .data_req_o     ( data_req_CH1       ),
                   .data_add_o     ( data_add_CH1       ),
                   .data_wen_o     ( data_wen_CH1       ),
+                  .data_atop_o    ( data_atop_CH1      ),
                   .data_wdata_o   ( data_wdata_CH1     ),
                   .data_be_o      ( data_be_CH1        ),
                   .data_ID_o      ( data_ID_CH1        ),
@@ -389,6 +408,7 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i   (  data_req_CH0_int   ),
                     .data_add_CH0_i   (  data_add_CH0_int   ),
                     .data_wen_CH0_i   (  data_wen_CH0_int   ),
+                    .data_atop_CH0_i  (  data_atop_CH0_int  ),
                     .data_wdata_CH0_i (  data_wdata_CH0_int ),
                     .data_be_CH0_i    (  data_be_CH0_int    ),
                     .data_ID_CH0_i    (  data_ID_CH0_int    ),
@@ -401,6 +421,7 @@ module RequestBlock2CH_PE
                     .data_req_CH1_i   (  data_req_CH1_int   ),
                     .data_add_CH1_i   (  data_add_CH1_int   ),
                     .data_wen_CH1_i   (  data_wen_CH1_int   ),
+                    .data_atop_CH1_i  (  data_atop_CH1_int  ),
                     .data_wdata_CH1_i (  data_wdata_CH1_int ),
                     .data_be_CH1_i    (  data_be_CH1_int    ),
                     .data_ID_CH1_i    (  data_ID_CH1_int    ),
@@ -413,6 +434,7 @@ module RequestBlock2CH_PE
                     .data_req_o       (  data_req_o        ),
                     .data_add_o       (  data_add_o        ),
                     .data_wen_o       (  data_wen_o        ),
+                    .data_atop_o      (  data_atop_o       ),
                     .data_wdata_o     (  data_wdata_o      ),
                     .data_be_o        (  data_be_o         ),
                     .data_ID_o        (  data_ID_o         ), 
@@ -440,6 +462,7 @@ module RequestBlock2CH_PE
                       .data_req_CH0_i   ( data_req_CH0       ),
                       .data_add_CH0_i   ( data_add_CH0       ),
                       .data_wen_CH0_i   ( data_wen_CH0       ),
+                      .data_atop_CH0_i  ( data_atop_CH0      ),
                       .data_wdata_CH0_i ( data_wdata_CH0     ),
                       .data_be_CH0_i    ( data_be_CH0        ),
                       .data_ID_CH0_i    ( data_ID_CH0        ),
@@ -452,6 +475,7 @@ module RequestBlock2CH_PE
                       .data_req_CH1_i   ( data_req_CH1_int   ),
                       .data_add_CH1_i   ( data_add_CH1_int   ),
                       .data_wen_CH1_i   ( data_wen_CH1_int   ),
+                      .data_atop_CH1_i  ( data_atop_CH1_int  ),
                       .data_wdata_CH1_i ( data_wdata_CH1_int ),
                       .data_be_CH1_i    ( data_be_CH1_int    ),
                       .data_ID_CH1_i    ( data_ID_CH1_int    ),
@@ -464,6 +488,7 @@ module RequestBlock2CH_PE
                       .data_req_o       ( data_req_o        ),
                       .data_add_o       ( data_add_o        ),
                       .data_wen_o       ( data_wen_o        ),
+                      .data_atop_o      ( data_atop_o       ),
                       .data_wdata_o     ( data_wdata_o      ),
                       .data_be_o        ( data_be_o         ),
                       .data_ID_o        ( data_ID_o         ),
@@ -494,6 +519,7 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i    ( data_req_CH0_int     ),
                     .data_add_CH0_i    ( data_add_CH0_int     ),
                     .data_wen_CH0_i    ( data_wen_CH0_int     ),
+                    .data_atop_CH0_i   ( data_atop_CH0_int    ),
                     .data_wdata_CH0_i  ( data_wdata_CH0_int   ),
                     .data_be_CH0_i     ( data_be_CH0_int      ),
                     .data_ID_CH0_i     ( data_ID_CH0_int      ),
@@ -506,6 +532,7 @@ module RequestBlock2CH_PE
                     .data_req_CH1_i    ( data_req_CH1       ),
                     .data_add_CH1_i    ( data_add_CH1       ),
                     .data_wen_CH1_i    ( data_wen_CH1       ),
+                    .data_atop_CH1_i   ( data_atop_CH1      ),
                     .data_wdata_CH1_i  ( data_wdata_CH1     ),
                     .data_be_CH1_i     ( data_be_CH1        ),
                     .data_ID_CH1_i     ( data_ID_CH1        ),
@@ -518,6 +545,7 @@ module RequestBlock2CH_PE
                     .data_req_o        ( data_req_o         ),
                     .data_add_o        ( data_add_o         ),
                     .data_wen_o        ( data_wen_o         ),
+                    .data_atop_o       ( data_atop_o        ),
                     .data_wdata_o      ( data_wdata_o       ),
                     .data_be_o         ( data_be_o          ),
                     .data_ID_o         ( data_ID_o          ),
@@ -545,6 +573,7 @@ module RequestBlock2CH_PE
                     .data_req_CH0_i     ( data_req_CH0     ),
                     .data_add_CH0_i     ( data_add_CH0     ),
                     .data_wen_CH0_i     ( data_wen_CH0     ),
+                    .data_atop_CH0_i    ( data_atop_CH0    ),
                     .data_wdata_CH0_i   ( data_wdata_CH0   ),
                     .data_be_CH0_i      ( data_be_CH0      ),
                     .data_ID_CH0_i      ( data_ID_CH0      ),
@@ -557,6 +586,7 @@ module RequestBlock2CH_PE
                     .data_req_CH1_i     ( data_req_CH1     ),
                     .data_add_CH1_i     ( data_add_CH1     ),
                     .data_wen_CH1_i     ( data_wen_CH1     ),
+                    .data_atop_CH1_i    ( data_atop_CH1    ),
                     .data_wdata_CH1_i   ( data_wdata_CH1   ),
                     .data_be_CH1_i      ( data_be_CH1      ),
                     .data_ID_CH1_i      ( data_ID_CH1      ),
@@ -569,6 +599,7 @@ module RequestBlock2CH_PE
                     .data_req_o         ( data_req_o       ),
                     .data_add_o         ( data_add_o       ),
                     .data_wen_o         ( data_wen_o       ),
+                    .data_atop_o        ( data_atop_o      ),
                     .data_wdata_o       ( data_wdata_o     ),
                     .data_be_o          ( data_be_o        ),
                     .data_ID_o          ( data_ID_o        ),
