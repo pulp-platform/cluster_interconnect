@@ -33,6 +33,7 @@
 // Revision:                                                                  //
 // Revision v0.1 - File Created                                               //
 // Revision v0.2 - Code Restyling (19/02/2015)                                //
+//          v0.4 20/04/2018  - Supporting non power of 2 N_SLAVE              //
 //                                                                            //
 // Additional Comments:                                                       //
 //                                                                            //
@@ -42,7 +43,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 `include "parameters.v"
-`include "pulp_soc_defines.sv"
+`include "ulpsoc_defines.sv"
 
 module AddressDecoder_PE_Req 
 #(
@@ -96,22 +97,37 @@ module AddressDecoder_PE_Req
       `else
           if( ( data_add_i[31:20] >= PE_START ) && ( data_add_i[31:20] < PE_END ) )
       `endif
-            ROUTING_ADDR = data_add_i[PE_ROUTING_MSB:PE_ROUTING_LSB];
-        else
-            ROUTING_ADDR = '1;
+              ROUTING_ADDR = data_add_i[PE_ROUTING_MSB:PE_ROUTING_LSB];
+          else
+              ROUTING_ADDR = '1;
       end
-   
+
       always_comb
       begin : Combinational_ADDR_DEC_REQ
          //DEFAULT VALUES
          data_req_o = '0;
+
          // Apply the rigth value
-         data_req_o[ROUTING_ADDR] = data_req_i;
-      `ifdef GNT_BASED_FC
-         data_gnt_o = data_gnt_i[ROUTING_ADDR];
-      `else
-         data_stall_o = data_stall_i[ROUTING_ADDR];
-      `endif
+         if(ROUTING_ADDR >= N_SLAVE-1)
+         begin
+          data_req_o[N_SLAVE-1] = data_req_i;
+
+        `ifdef GNT_BASED_FC
+           data_gnt_o = data_gnt_i[N_SLAVE-1];
+        `else
+           data_stall_o = data_stall_i[N_SLAVE-1];
+        `endif
+          
+         end
+         else
+         begin
+            data_req_o[ROUTING_ADDR] = data_req_i;
+        `ifdef GNT_BASED_FC
+           data_gnt_o = data_gnt_i[ROUTING_ADDR];
+        `else
+           data_stall_o = data_stall_i[ROUTING_ADDR];
+        `endif
+         end
       end
 
 endmodule

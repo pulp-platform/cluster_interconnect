@@ -35,6 +35,8 @@
 // Revision v0.1 02/07/2011  - File Created                                   //
 //          v0.2 15/08/2012  - Improved the Interface Structure,              //
 //                             Changed the routing mechanism                  //
+// Revision v0.3 - Improved identation (19/04/2018)                           //
+//                                                                            //
 // Additional Comments:                                                       //
 //                                                                            //
 //                                                                            //
@@ -82,8 +84,8 @@ module ResponseTree_PE
             .data_r_rdata1_i ( data_r_rdata_i[1] ),
             .data_r_valid0_i ( data_r_valid_i[0] ),
             .data_r_valid1_i ( data_r_valid_i[1] ),
-            .data_r_opc0_i   ( data_r_opc_i[0]   ),
-            .data_r_opc1_i   ( data_r_opc_i[1]   ),
+            .data_r_opc0_i   ( data_r_opc_i  [0] ),
+            .data_r_opc1_i   ( data_r_opc_i  [1] ),
             // LEFT SIDE
             .data_r_rdata_o  ( data_r_rdata_o    ),
             .data_r_valid_o  ( data_r_valid_o    ),
@@ -95,9 +97,9 @@ module ResponseTree_PE
             //// ---------------------------------------------------------------------- ////
             //// -------               REQ ARBITRATION TREE WIRES           ----------- ////
             //// ---------------------------------------------------------------------- ////    
-            logic [DATA_WIDTH-1:0]              data_r_rdata_LEVEL[N_WIRE-1:0];
-            logic                               data_r_valid_LEVEL[N_WIRE-1:0];
-            logic                               data_r_opc_LEVEL[N_WIRE-1:0];
+            logic [N_WIRE-1:0][DATA_WIDTH-1:0]              data_r_rdata_LEVEL;
+            logic [N_WIRE-1:0]                              data_r_valid_LEVEL;
+            logic [N_WIRE-1:0]                              data_r_opc_LEVEL;
           
               for(j=0; j < LOG_SLAVE; j++) // Iteration for the number of the stages minus one
                 begin : STAGE
@@ -113,16 +115,16 @@ module ResponseTree_PE
                           i_FanInPrimitive_PE_Resp
                           (
                              // RIGTH SIDE
-                             .data_r_rdata0_i(data_r_rdata_LEVEL[2*k]),
-                             .data_r_rdata1_i(data_r_rdata_LEVEL[2*k+1]),
-                             .data_r_valid0_i(data_r_valid_LEVEL[2*k]),
-                             .data_r_valid1_i(data_r_valid_LEVEL[2*k+1]),
-                             .data_r_opc0_i(data_r_opc_LEVEL[2*k]),
-                             .data_r_opc1_i(data_r_opc_LEVEL[2*k+1]),                        
+                             .data_r_rdata0_i ( data_r_rdata_LEVEL [2*k]   ),
+                             .data_r_rdata1_i ( data_r_rdata_LEVEL [2*k+1] ),
+                             .data_r_valid0_i ( data_r_valid_LEVEL [2*k]   ),
+                             .data_r_valid1_i ( data_r_valid_LEVEL [2*k+1] ),
+                             .data_r_opc0_i   ( data_r_opc_LEVEL   [2*k]   ),
+                             .data_r_opc1_i   ( data_r_opc_LEVEL   [2*k+1] ),                        
                              // RIGTH SIDE
-                             .data_r_rdata_o(data_r_rdata_o),
-                             .data_r_valid_o(data_r_valid_o),
-                             .data_r_opc_o(data_r_opc_o)
+                             .data_r_rdata_o  ( data_r_rdata_o             ),
+                             .data_r_valid_o  ( data_r_valid_o             ),
+                             .data_r_opc_o    ( data_r_opc_o               )
                           );
                       end 
                       else if ( j < LOG_SLAVE - 1) // Middle Nodes
@@ -134,16 +136,16 @@ module ResponseTree_PE
                                   i_FanInPrimitive_PE_Resp
                                   (
                                      // RIGTH SIDE                           
-                                     .data_r_rdata0_i(data_r_rdata_LEVEL[((2**j)*2-2) + 2*k]),
-                                     .data_r_rdata1_i(data_r_rdata_LEVEL[((2**j)*2-2) + 2*k +1]),
-                                     .data_r_valid0_i(data_r_valid_LEVEL[((2**j)*2-2) + 2*k]),
-                                     .data_r_valid1_i(data_r_valid_LEVEL[((2**j)*2-2) + 2*k+1]),
-                                     .data_r_opc0_i(data_r_opc_LEVEL[((2**j)*2-2) + 2*k]),
-                                     .data_r_opc1_i(data_r_opc_LEVEL[((2**j)*2-2) + 2*k+1]),                                                         
+                                     .data_r_rdata0_i ( data_r_rdata_LEVEL [((2**j)*2-2) + 2*k]    ),
+                                     .data_r_rdata1_i ( data_r_rdata_LEVEL [((2**j)*2-2) + 2*k +1] ),
+                                     .data_r_valid0_i ( data_r_valid_LEVEL [((2**j)*2-2) + 2*k]    ),
+                                     .data_r_valid1_i ( data_r_valid_LEVEL [((2**j)*2-2) + 2*k+1]  ),
+                                     .data_r_opc0_i   ( data_r_opc_LEVEL   [((2**j)*2-2) + 2*k]    ),
+                                     .data_r_opc1_i   ( data_r_opc_LEVEL   [((2**j)*2-2) + 2*k+1]  ),                                                         
                                      // LEFT SIDE
-                                     .data_r_rdata_o(data_r_rdata_LEVEL[((2**(j-1))*2-2) + k]),
-                                     .data_r_valid_o(data_r_valid_LEVEL[((2**(j-1))*2-2) + k]),
-                                     .data_r_opc_o(data_r_opc_LEVEL[((2**(j-1))*2-2) + k])
+                                     .data_r_rdata_o  ( data_r_rdata_LEVEL [((2**(j-1))*2-2) + k]  ),
+                                     .data_r_valid_o  ( data_r_valid_LEVEL [((2**(j-1))*2-2) + k]  ),
+                                     .data_r_opc_o    ( data_r_opc_LEVEL   [((2**(j-1))*2-2) + k]  )
                                   );
                               end  // END of MIDDLE LEVELS Nodes   
                            else // First stage (connected with the Main inputs ) --> ( j == N_SLAVE - 1 )
@@ -155,16 +157,16 @@ module ResponseTree_PE
                                   i_FanInPrimitive_PE_Resp
                                   (
                                      // RIGTH SIDE 
-                                     .data_r_rdata0_i(data_r_rdata_i[2*k]),
-                                     .data_r_rdata1_i(data_r_rdata_i[2*k+1]),
-                                     .data_r_valid0_i(data_r_valid_i[2*k]),
-                                     .data_r_valid1_i(data_r_valid_i[2*k+1]),
-                                     .data_r_opc0_i(data_r_opc_i[2*k]),
-                                     .data_r_opc1_i(data_r_opc_i[2*k+1]),  
+                                     .data_r_rdata0_i ( data_r_rdata_i[2*k]                       ),
+                                     .data_r_rdata1_i ( data_r_rdata_i[2*k+1]                     ),
+                                     .data_r_valid0_i ( data_r_valid_i[2*k]                       ),
+                                     .data_r_valid1_i ( data_r_valid_i[2*k+1]                     ),
+                                     .data_r_opc0_i   ( data_r_opc_i  [2*k]                       ),
+                                     .data_r_opc1_i   ( data_r_opc_i  [2*k+1]                     ),  
                                      // LEFT SIDE
-                                     .data_r_rdata_o(data_r_rdata_LEVEL[((2**(j-1))*2-2) + k]),
-                                     .data_r_valid_o(data_r_valid_LEVEL[((2**(j-1))*2-2) + k]),
-                                     .data_r_opc_o(data_r_opc_LEVEL[((2**(j-1))*2-2) + k])
+                                     .data_r_rdata_o  ( data_r_rdata_LEVEL [((2**(j-1))*2-2) + k] ),
+                                     .data_r_valid_o  ( data_r_valid_LEVEL [((2**(j-1))*2-2) + k] ),
+                                     .data_r_opc_o    ( data_r_opc_LEVEL   [((2**(j-1))*2-2) + k] )
                                   );
                               end // End of FIRST LEVEL Nodes (LEAF)
                     end

@@ -33,6 +33,7 @@
 //          v0.2 15/08/2012  - Improved the Interface Structure,              //
 //                             Changed the routing mechanism                  //
 //          v0.3 09/03/2015  - Improved identation                            //
+//          v0.4 20/04/2018  - Supporting non power of 2 N_SLAVE              //
 //                                                                            //
 // Additional Comments:                                                       //
 //                                                                            //
@@ -45,12 +46,12 @@
 
 module XBAR_PE 
 #(
-    parameter N_CH0          = 16, //--> CH0
-    parameter N_CH1          = 0,  //--> CH1
-    parameter N_SLAVE        = 16,
+    parameter N_CH0          = 8, //--> CH0
+    parameter N_CH1          = 1,  //--> CH1
+    parameter N_SLAVE        = 9,
     parameter ID_WIDTH       = N_CH0+N_CH1,
 
-    parameter PE_LSB         = 2,
+    parameter PE_LSB         = 0,
     parameter PE_MSB         = 31,
 
     parameter LOG_CLUSTER    = 5,
@@ -58,8 +59,8 @@ module XBAR_PE
     parameter DATA_WIDTH     = 32,
     parameter BE_WIDTH       = DATA_WIDTH/8,
 
-    parameter PE_ROUTING_LSB = 16,
-    parameter PE_ROUTING_MSB = 19,
+    parameter PE_ROUTING_LSB = 10,
+    parameter PE_ROUTING_MSB = PE_ROUTING_LSB+$clog2(N_SLAVE)-1,
 
     parameter CLUSTER_ALIAS_BASE = 12'h000,
 
@@ -157,60 +158,60 @@ module XBAR_PE
            begin : CH0_CH1
               RequestBlock2CH_PE   
               #( 
-                  .ADDR_WIDTH(ADDR_PE_WIDTH), 
-                  .N_CH0(N_CH0),
-                  .N_CH1(N_CH1),
-                  .ID_WIDTH(ID_WIDTH),
-                  .DATA_WIDTH(DATA_WIDTH),
-                  .BE_WIDTH(DATA_WIDTH/8)
+                  .ADDR_WIDTH ( ADDR_PE_WIDTH ), 
+                  .N_CH0      ( N_CH0         ),
+                  .N_CH1      ( N_CH1         ),
+                  .ID_WIDTH   ( ID_WIDTH      ),
+                  .DATA_WIDTH ( DATA_WIDTH    ),
+                  .BE_WIDTH   ( DATA_WIDTH/8  )
               )
               i_RequestBlock2CH_PE
               (
                 // CHANNEL CH0 --> (example: Used for cores) 
-                .data_req_CH0_i(data_req_to_MEM[j][N_CH0-1:0]),
-                .data_add_CH0_i(data_add[N_CH0-1:0]),
-                .data_wen_CH0_i(data_wen_i[N_CH0-1:0]),
-                .data_wdata_CH0_i(data_wdata_i[N_CH0-1:0]),
-                .data_be_CH0_i(data_be_i[N_CH0-1:0]),
-                .data_ID_CH0_i(data_ID[N_CH0-1:0]),
+                .data_req_CH0_i      ( data_req_to_MEM[j]    [N_CH0-1:0]             ),
+                .data_add_CH0_i      ( data_add              [N_CH0-1:0]             ),
+                .data_wen_CH0_i      ( data_wen_i            [N_CH0-1:0]             ),
+                .data_wdata_CH0_i    ( data_wdata_i          [N_CH0-1:0]             ),
+                .data_be_CH0_i       ( data_be_i             [N_CH0-1:0]             ),
+                .data_ID_CH0_i       ( data_ID               [N_CH0-1:0]             ),
           `ifdef GNT_BASED_FC
-                .data_gnt_CH0_o(data_gnt_from_MEM[j][N_CH0-1:0]),
+                .data_gnt_CH0_o      ( data_gnt_from_MEM[j]  [N_CH0-1:0]             ),
           `else
-                 .data_stall_CH0_o(data_stall_from_MEM[j][N_CH0-1:0]),
+                 .data_stall_CH0_o   ( data_stall_from_MEM[j][N_CH0-1:0]             ),
           `endif                 
-                // CHANNEL CH1 --> (example: Used for DMAs)
-                .data_req_CH1_i(data_req_to_MEM[j][N_CH1+N_CH0-1:N_CH0]),
-                .data_add_CH1_i(data_add[N_CH1+N_CH0-1:N_CH0]),
-                .data_wen_CH1_i(data_wen_i[N_CH1+N_CH0-1:N_CH0]),
-                .data_wdata_CH1_i(data_wdata_i[N_CH1+N_CH0-1:N_CH0]),
-                .data_be_CH1_i(data_be_i[N_CH1+N_CH0-1:N_CH0]),
-                .data_ID_CH1_i(data_ID[N_CH1+N_CH0-1:N_CH0]),
+                // CHANNEL CH1 --> ( example: Used for DMAs )
+                .data_req_CH1_i      ( data_req_to_MEM[j]    [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_add_CH1_i      ( data_add              [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_wen_CH1_i      ( data_wen_i            [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_wdata_CH1_i    ( data_wdata_i          [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_be_CH1_i       ( data_be_i             [N_CH1+N_CH0-1:N_CH0]   ),
+                .data_ID_CH1_i       ( data_ID               [N_CH1+N_CH0-1:N_CH0]   ),
           `ifdef GNT_BASED_FC
-                 .data_gnt_CH1_o(data_gnt_from_MEM[j][N_CH1+N_CH0-1:N_CH0]),
+                 .data_gnt_CH1_o     ( data_gnt_from_MEM[j]  [N_CH1+N_CH0-1:N_CH0]   ),
           `else
-                .data_stall_CH1_o(data_stall_from_MEM[j][N_CH1+N_CH0-1:N_CH0]),
+                .data_stall_CH1_o    ( data_stall_from_MEM[j][N_CH1+N_CH0-1:N_CH0]   ),
           `endif                  
                 // -----------------             MEMORY                    -------------------
                 // ---------------- RequestBlock OUTPUT (Connected to MEMORY) ----------------
-                .data_req_o(data_req_o[j]),
-                .data_add_o(data_add_o[j]),
-                .data_wen_o(data_wen_o[j]),
-                .data_wdata_o(data_wdata_o[j]),
-                .data_be_o(data_be_o[j]),
-                .data_ID_o(data_ID_o[j]),
+                .data_req_o          ( data_req_o[j]                                 ),
+                .data_add_o          ( data_add_o[j]                                 ),
+                .data_wen_o          ( data_wen_o[j]                                 ),
+                .data_wdata_o        ( data_wdata_o[j]                               ),
+                .data_be_o           ( data_be_o[j]                                  ),
+                .data_ID_o           ( data_ID_o[j]                                  ),
           `ifdef GNT_BASED_FC
-                .data_gnt_i(data_gnt_i[j]),          
+                .data_gnt_i          ( data_gnt_i[j]                                 ),          
           `else
-                 .data_stall_i(data_stall_i[j]),         
+                 .data_stall_i       ( data_stall_i[j]                               ),         
           `endif   
-                .data_r_valid_i(data_r_valid_i[j]),
-                .data_r_ID_i(data_r_ID_i[j]),
+                .data_r_valid_i      ( data_r_valid_i[j]                             ),
+                .data_r_ID_i         ( data_r_ID_i[j]                                ),
 
                 // GEN VALID_SIGNALS in the response path
-                .data_r_valid_CH0_o(data_r_valid_from_MEM[j][N_CH0-1:0]), // N_CH0 Bit
-                .data_r_valid_CH1_o(data_r_valid_from_MEM[j][N_CH0+N_CH1-1:N_CH0]), // N_CH1 Bit
-                .clk(clk),
-                .rst_n(rst_n)
+                .data_r_valid_CH0_o  ( data_r_valid_from_MEM[j][N_CH0-1:0]           ), // N_CH0 Bit
+                .data_r_valid_CH1_o  ( data_r_valid_from_MEM[j][N_CH0+N_CH1-1:N_CH0] ), // N_CH1 Bit
+                .clk                 ( clk                                           ),
+                .rst_n               ( rst_n                                         )
             );
            end
            else
