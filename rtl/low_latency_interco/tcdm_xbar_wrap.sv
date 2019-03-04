@@ -13,8 +13,8 @@
 // Description: wrapper for TCDM_XBAR
 
 module tcdm_xbar_wrap #(
-    parameter NumMaster      = 64,          // number of initiator ports
-    parameter NumSlave       = 128,         // number of TCDM banks
+    parameter NumMaster      = 8,           // number of initiator ports
+    parameter NumSlave       = 16,          // number of TCDM banks
     parameter AddrWidth      = 32,          // address width on initiator side
     parameter DataWidth      = 32,          // word width of data
     parameter BeWidth        = DataWidth/8, // width of corresponding byte enables

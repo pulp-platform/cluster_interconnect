@@ -22,7 +22,7 @@ module addr_dec_resp_mux #(
   input  logic                                    rst_ni,
   // master side
   input  logic                                    req_i,    // request from this master
-  input  logic [$clog2(NumSlave)-1:0]             sel_i,    // bank selection index to be decoded
+  input  logic [$clog2(NumSlave)-1:0]             add_i,    // bank selection index to be decoded
   input  logic [ReqDataWidth-1:0]                 data_i,   // data to be transported to slaves
   output logic                                    gnt_o,    // grant to master
   output logic                                    rvld_o,   // read response is valid
@@ -40,7 +40,7 @@ logic [RespLat-1:0]                       vld_d, vld_q;
 // address decoder
 always_comb begin : p_addr_dec
   req_o        = '0;
-  req_o[sel_i] = req_i;
+  req_o[add_i] = req_i;
 end
 
 // connect data outputs
@@ -50,10 +50,10 @@ assign data_o = {NumSlave{data_i}};
 assign gnt_o = |gnt_i;
 
 if (RespLat > 1) begin
-  assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], sel_i};
+  assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
   assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o};
 end else begin
-  assign bank_sel_d = sel_i;
+  assign bank_sel_d = add_i;
   assign vld_d      = gnt_o;
 end
 

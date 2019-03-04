@@ -32,9 +32,9 @@ module tb;
   timeprecision 1ps;
 
   // tcdm configuration
-  localparam string MutImpl = "newLic"; // {"oldLic", "newLic", "newBfly"}
-  localparam NumBanks       = 128;
-  localparam NumMaster      = 64;
+  localparam string MutImpl = "newBfly"; // {"oldLic", "newLic", "newBfly"}
+  localparam NumBanks       = 32;
+  localparam NumMaster      = 16;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
   localparam TestCycles     = 10000;

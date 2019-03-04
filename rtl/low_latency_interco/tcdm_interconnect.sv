@@ -13,32 +13,32 @@
 // Description: logarithmic interconnect for TCDM.
 
 module tcdm_interconnect #(
-    parameter int unsigned NumMaster      = 256,          // number of initiator ports
-    parameter int unsigned NumSlave       = 512,          // number of TCDM banks
-    parameter int unsigned AddrWidth      = 32,           // address width on initiator side
-    parameter int unsigned DataWidth      = 32,           // word width of data
-    parameter int unsigned BeWidth        = DataWidth/8,  // width of corresponding byte enables
-    parameter int unsigned AddrMemWidth   = 12,           // number of address bits per TCDM bank
-    parameter int unsigned Topology       = 0             // 0 = lic, 1 = bfly
+  parameter int unsigned NumMaster     = 512,          // number of initiator ports
+  parameter int unsigned NumSlave      = 1024,         // number of TCDM banks
+  parameter int unsigned AddrWidth     = 32,           // address width on initiator side
+  parameter int unsigned DataWidth     = 32,           // word width of data
+  parameter int unsigned BeWidth       = DataWidth/8,  // width of corresponding byte enables
+  parameter int unsigned AddrMemWidth  = 12,           // number of address bits per TCDM bank
+  parameter int unsigned Topology      = 0             // 0 = lic, 1 = bfly
 ) (
-    input  logic                                    clk_i,
-    input  logic                                    rst_ni,
-    // master side
-    input  logic [NumMaster-1:0]                    req_i,     // Data request
-    input  logic [NumMaster-1:0][AddrWidth-1:0]     add_i,     // Data request Address
-    input  logic [NumMaster-1:0]                    wen_i,     // Data request type : 0--> Store, 1 --> Load
-    input  logic [NumMaster-1:0][DataWidth-1:0]     wdata_i,   // Data request Write data
-    input  logic [NumMaster-1:0][BeWidth-1:0]       be_i,      // Data request Byte enable
-    output logic [NumMaster-1:0]                    gnt_o,     // Grant Incoming Request
-    output logic [NumMaster-1:0]                    rvld_o,    // Data Response Valid (For LOAD/STORE commands)
-    output logic [NumMaster-1:0][DataWidth-1:0]     rdata_o,   // Data Response DATA (For LOAD commands)
-    // slave side
-    output  logic [NumSlave-1:0]                    cs_o,      // Chip select for bank
-    output  logic [NumSlave-1:0][AddrMemWidth-1:0]  add_o,     // Data request Address
-    output  logic [NumSlave-1:0]                    wen_o,     // Data request type : 0--> Store, 1 --> Load
-    output  logic [NumSlave-1:0][DataWidth-1:0]     wdata_o,   // Data request Wire data
-    output  logic [NumSlave-1:0][BeWidth-1:0]       be_o,      // Data request Byte enable
-    input   logic [NumSlave-1:0][DataWidth-1:0]     rdata_i    // Data Response DATA (For LOAD commands)
+  input  logic                                    clk_i,
+  input  logic                                    rst_ni,
+  // master side
+  input  logic [NumMaster-1:0]                    req_i,     // Data request
+  input  logic [NumMaster-1:0][AddrWidth-1:0]     add_i,     // Data request Address
+  input  logic [NumMaster-1:0]                    wen_i,     // Data request type : 0--> Store, 1 --> Load
+  input  logic [NumMaster-1:0][DataWidth-1:0]     wdata_i,   // Data request Write data
+  input  logic [NumMaster-1:0][BeWidth-1:0]       be_i,      // Data request Byte enable
+  output logic [NumMaster-1:0]                    gnt_o,     // Grant Incoming Request
+  output logic [NumMaster-1:0]                    rvld_o,    // Data Response Valid (For LOAD/STORE commands)
+  output logic [NumMaster-1:0][DataWidth-1:0]     rdata_o,   // Data Response DATA (For LOAD commands)
+  // slave side
+  output  logic [NumSlave-1:0]                    cs_o,      // Chip select for bank
+  output  logic [NumSlave-1:0][AddrMemWidth-1:0]  add_o,     // Data request Address
+  output  logic [NumSlave-1:0]                    wen_o,     // Data request type : 0--> Store, 1 --> Load
+  output  logic [NumSlave-1:0][DataWidth-1:0]     wdata_o,   // Data request Wire data
+  output  logic [NumSlave-1:0][BeWidth-1:0]       be_o,      // Data request Byte enable
+  input   logic [NumSlave-1:0][DataWidth-1:0]     rdata_i    // Data Response DATA (For LOAD commands)
 );
 
   localparam int unsigned SlaveSelWidth = $clog2(NumSlave);
@@ -99,7 +99,7 @@ module tcdm_interconnect #(
         .clk_i  ( clk_i          ),
         .rst_ni ( rst_ni         ),
         .req_i  ( req_i[j]       ),
-        .sel_i  ( bank_sel[j]    ),
+        .add_i  ( bank_sel[j]    ),
         .data_i ( data_agg_in[j] ),
         .gnt_o  ( gnt_o[j]       ),
         .rvld_o ( rvld_o[j]      ),
@@ -130,12 +130,12 @@ module tcdm_interconnect #(
       .rst_ni   ( rst_ni       ),
       .req_i    ( req_i        ),
       .gnt_o    ( gnt_o        ),
-      .sel_i    ( bank_sel     ),
+      .add_i    ( bank_sel     ),
       .data_i   ( data_agg_in  ),
       .rdata_o  ( rdata_o      ),
       .rvld_o   ( rvld_o       ),
       .req_o    ( cs_o         ),
-      .gnt_i    ( '1           ),
+      .gnt_i    ( cs_o         ), // TCDM is always ready
       .data_o   ( data_agg_out ),
       .rdata_i  ( rdata_i      )
     );
