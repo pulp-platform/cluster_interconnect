@@ -1,4 +1,4 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright 2019 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -9,8 +9,9 @@
 // specific language governing permissions and limitations under the License.
 //
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
-// Date: 19.03.2017
-// Description: logarithmic interconnect for TCDM.
+// Date: 06.03.2019
+// Description: TCDM interconnect with different network topologies 
+// (logarithmic interconnect and radix-2 butterflies)
 
 module tcdm_interconnect #(
 	// make sure NumMaster and NumSlave are aligned to powers of two at the moment
@@ -193,6 +194,7 @@ module tcdm_interconnect #(
 	      .rvld_o   ( rvld_o       ),
 	      .req_o    ( cs_o         ),
 	      .gnt_i    ( cs_o         ), // TCDM is always ready
+	      .add_o    (              ),
 	      .data_o   ( data_agg_out ),
 	      .rdata_i  ( rdata_i      )
 	    );

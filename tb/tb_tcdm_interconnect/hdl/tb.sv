@@ -1,4 +1,4 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright 2019 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -9,17 +9,9 @@
 // specific language governing permissions and limitations under the License.
 //
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
-// Date: 15.08.2018
-// Description: testbench for piton_icache. includes the following tests:
+// Date: 06.03.2019
+// Description: testbench for tcdm_interconnect with random and linear access patterns.
 //
-// 0) random accesses with disabled cache
-// 1) random accesses with enabled cache to cacheable and noncacheable memory
-// 2) linear, wrapping sweep with enabled cache
-// 3) 1) with random stalls on the memory side and TLB side
-// 4) nr 3) with random invalidations
-//
-// note that we use a simplified address translation scheme to emulate the TLB.
-// (random offsets).
 
 `include "tb.svh"
 

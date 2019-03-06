@@ -1,4 +1,4 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
+// Copyright 2019 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
 // compliance with the License.  You may obtain a copy of the License at
@@ -9,8 +9,8 @@
 // specific language governing permissions and limitations under the License.
 //
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
-// Date: 01.03.2019
-// Description: routing primitive for radix-2 butterfly network.
+// Date: 06.03.2019
+// Description: Routing primitive for radix-2 butterfly network.
 
 module bfly_router #(
   parameter int unsigned AddWidth      = 4,

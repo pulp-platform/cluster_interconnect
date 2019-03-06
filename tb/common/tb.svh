@@ -1,4 +1,4 @@
-// Copyright (c) 2018 ETH Zurich, University of Bologna
+// Copyright (c) 2019 ETH Zurich, University of Bologna
 // All rights reserved.
 //
 // This code is under development and not yet released to the public.
