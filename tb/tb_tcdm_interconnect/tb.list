@@ -15,10 +15,10 @@
 ../../rtl/low_latency_interco/TestAndSet.sv
 ../../rtl/low_latency_interco/XBAR_TCDM.sv
 ../../rtl/low_latency_interco/tcdm_xbar_wrap.sv
-../../rtl/low_latency_interco/addr_dec_resp_mux.sv
-../../rtl/low_latency_interco/rr_arb_tree.sv
-../../rtl/low_latency_interco/bfly_router.sv
-../../rtl/low_latency_interco/bfly_net.sv
-../../rtl/low_latency_interco/tcdm_interconnect.sv
+../../rtl/tcdm_interconnect/addr_dec_resp_mux.sv
+../../rtl/tcdm_interconnect/rr_arb_tree.sv
+../../rtl/tcdm_interconnect/bfly_router.sv
+../../rtl/tcdm_interconnect/bfly_net.sv
+../../rtl/tcdm_interconnect/tcdm_interconnect.sv
 hdl/tb_pkg.sv
 hdl/tb.sv
