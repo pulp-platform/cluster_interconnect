@@ -42,8 +42,8 @@ module rr_arb_tree #(
   assign req_o        = (NumLevels > 0)             ? req_nodes[0]   : 1'b0;
   assign data_o       = (NumLevels > 0)             ? data_nodes[0]  : '0;
   assign idx_o        = (NumLevels > 0 & SelIdxOut) ? index_nodes[0] : '0;
-  //assign rr_d         = (gnt_i & req_o)             ? ((rr_q == NumReq-1) ? '0 : rr_q + 1) : rr_q;
-  assign rr_d         = (gnt_i & req_o)             ? index_nodes[0] : rr_q;
+  assign rr_d         = (gnt_i & req_o)             ? ((rr_q == NumReq-1) ? '0 : rr_q + 1) : rr_q;
+  // assign rr_d         = (gnt_i & req_o)             ? index_nodes[0] : rr_q;
   assign gnt_nodes[0] = gnt_i;
 
   // arbiter tree
@@ -58,11 +58,11 @@ module rr_arb_tree #(
       // uppermost level where data is fed in from the inputs
       if (unsigned'(level) == NumLevels-1) begin : g_first_level
         // if two successive indices are still in the vector...
-        if (l * 2 < NumReq-1) begin
+        if (unsigned'(l) * 2 < NumReq-1) begin
           assign req_nodes[idx0]   = req_i[l*2] | req_i[l*2+1];
 
           // arbitration: round robin
-          assign sel =  ~req_i[l*2] | req_i[l*2+1] & ~rr_q[NumLevels-1-level];
+          assign sel =  ~req_i[l*2] | req_i[l*2+1] & rr_q[NumLevels-1-level];
 
           assign index_nodes[idx0] = sel;
           assign data_nodes[idx0]  = (sel) ? data_i[l*2+1] : data_i[l*2];
@@ -70,14 +70,14 @@ module rr_arb_tree #(
           assign gnt_o[l*2+1]      = gnt_nodes[idx0] & req_i[l*2+1] & sel;
         end
         // if only the first index is still in the vector...
-        if (l * 2 == NumReq-1) begin
+        if (unsigned'(l) * 2 == NumReq-1) begin
           assign req_nodes[idx0]   = req_i[l*2];
           assign index_nodes[idx0] = '0;// always zero in this case
           assign data_nodes[idx0]  = data_i[l*2];
           assign gnt_o[l*2]        = gnt_nodes[idx0] & req_i[l*2];
         end
         // if index is out of range, fill up with zeros (will get pruned)
-        if (l * 2 > NumReq-1) begin
+        if (unsigned'(l) * 2 > NumReq-1) begin
           assign req_nodes[idx0]   = 1'b0;
           assign index_nodes[idx0] = '0;
           assign data_nodes[idx0]  = '0;
@@ -88,7 +88,7 @@ module rr_arb_tree #(
         assign req_nodes[idx0]   = req_nodes[idx1] | req_nodes[idx1+1];
 
         // arbitration: round robin
-        assign sel =  ~req_nodes[idx1] | req_nodes[idx1+1] & ~rr_q[NumLevels-1-level];
+        assign sel =  ~req_nodes[idx1] | req_nodes[idx1+1] & rr_q[NumLevels-1-level];
 
         assign index_nodes[idx0] = (sel) ? {1'b1, index_nodes[idx1+1][NumLevels-level-2:0]} : {1'b0, index_nodes[idx1][NumLevels-level-2:0]};
         assign data_nodes[idx0]  = (sel) ? data_nodes[idx1+1] : data_nodes[idx1];

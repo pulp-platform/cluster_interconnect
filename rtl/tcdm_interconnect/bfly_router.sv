@@ -16,14 +16,14 @@ module bfly_router #(
   parameter int unsigned AddWidth      = 4,
   parameter int unsigned ReqDataWidth  = 32,
   parameter int unsigned RespDataWidth = 32,
-  parameter bit unsigned Redundant     = 0
+  parameter bit unsigned IsRedundant   = 0
 ) (
   input  logic                           clk_i,
   input  logic                           rst_ni,
   // request ports
   input  logic [1:0]                     req_i,
   output logic [1:0]                     gnt_o,
-  input  logic [1:0]                     sel_i,
+  input  logic                           prio_i,
   input  logic [1:0][AddWidth-1:0]       add_i,
   input  logic [1:0][ReqDataWidth-1:0]   data_i,
   output logic [1:0][RespDataWidth-1:0]  rdata_o,
@@ -36,10 +36,17 @@ module bfly_router #(
 );
 
   logic sel_d, sel_q;
-	logic [8:0] lfsr_d, lfsr_q;
+	logic [23:0] lfsr_d, lfsr_q;
 
-  assign add_o[0]   = (sel_d) ? add_i[1]   : add_i[0];
-  assign add_o[1]   = (sel_d) ? add_i[0]   : add_i[1];
+	if (IsRedundant) begin
+		// leave routing address unchanged in this case
+	  assign add_o[0]   = (sel_d) ? add_i[1]   : add_i[0];
+	  assign add_o[1]   = (sel_d) ? add_i[0]   : add_i[1];
+	end else begin
+  	assign add_o[0]   = (sel_d) ? add_i[1]<<1   : add_i[0]<<1;
+	  assign add_o[1]   = (sel_d) ? add_i[0]<<1   : add_i[1]<<1;
+	end
+
   assign data_o[0]  = (sel_d) ? data_i[1]  : data_i[0];
   assign data_o[1]  = (sel_d) ? data_i[0]  : data_i[1];
   assign gnt_o[0]   = (sel_d) ? gnt_i[1]   : gnt_i[0];
@@ -49,8 +56,8 @@ module bfly_router #(
   assign rdata_o[1] = (sel_q) ? rdata_i[0] : rdata_i[1];
 
 	always_comb begin : p_router
-  	if (Redundant) begin
-    	sel_d       = lfsr_q[0];
+  	if (IsRedundant) begin
+    	sel_d       = prio_i;
 			req_o[0]    = (sel_d) ? req_i[1]   : req_i[0];
 			req_o[1]    = (sel_d) ? req_i[0]   : req_i[1];
 		end else begin	
@@ -58,17 +65,17 @@ module bfly_router #(
 	    sel_d = 1'b0;
 
 	    // propagate requests
-	    req_o[0] = (req_i[0] & ~sel_i[0]) |
-	               (req_i[1] & ~sel_i[1]);
-	    req_o[1] = (req_i[0] & sel_i[0])  |
-	               (req_i[1] & sel_i[1]);
+	    req_o[0] = (req_i[0] & ~add_i[0][AddWidth-1]) |
+	               (req_i[1] & ~add_i[1][AddWidth-1]);
+	    req_o[1] = (req_i[0] & add_i[0][AddWidth-1])  |
+	               (req_i[1] & add_i[1][AddWidth-1]);
 
 	    // routing logic
-	    unique casez ({~sel_q,
+	    unique casez ({prio_i,
 	                   req_i[0],
 	                   req_i[1],
-	                   sel_i[0],
-	                   sel_i[1]})
+	                   add_i[0][AddWidth-1],
+	                   add_i[1][AddWidth-1]})
 	      // only request from input 0
 	      5'b?101?: sel_d  = 1'b1;
 	      // only request from input 1
@@ -83,32 +90,14 @@ module bfly_router #(
 	  end  
   end
 
-	always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
+ 	always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs1
 	  if(~rst_ni) begin
-	    sel_q <= '0;
+	  	sel_q <= '0;
 	  end else begin
-	    if (|req_i) begin
-	      sel_q <= sel_d;
-	    end
+	   	if (|req_i) begin
+	    	sel_q <= sel_d;
+	    end	
 	  end
 	end
-
-  if (Redundant) begin : g_lfsr
-  	
-  	assign lfsr_d = ~lfsr_q;	
-  	// assign lfsr_d[0]   = lfsr_q[8] ^ lfsr_q[4];
-  	// assign lfsr_d[8:1] = lfsr_q[7:0];
-  
-	  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-	    if(~rst_ni) begin
-	      lfsr_q <= '1;
-	    end else begin
-	      if (|req_i) begin
-	        lfsr_q <= lfsr_d;
-	      end
-	    end
-	  end
-	end 
-	
 
 endmodule // rr_arb_tree

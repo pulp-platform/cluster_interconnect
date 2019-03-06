@@ -21,7 +21,7 @@ module tcdm_interconnect #(
   parameter int unsigned DataWidth       = 32,           // word width of data
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter int unsigned Topology        = 1,            // 0 = lic, 1 = bfly
+  parameter int unsigned Topology        = 0,            // 0 = lic, 1 = bfly
 	// TCDM read latency, usually 1 cycle
   // has no effect on butterfly topology (fixed to 1 in that case)
   parameter int unsigned MemLatency      = 1,            
@@ -91,7 +91,7 @@ module tcdm_interconnect #(
         .gnt_i  ( 1'b1            ),// TCDM is always ready
         .req_o  ( cs_o[k]         ),
         .data_o ( data_agg_out[k] ),
-        .idx_o  (                 )
+        .idx_o  (                 )// disabled
       );
     end
 
