@@ -13,9 +13,10 @@
 // Description: routing primitive for radix-2 butterfly network.
 
 module bfly_router #(
-  parameter int unsigned NumLevels     = 4,
+  parameter int unsigned AddWidth      = 4,
   parameter int unsigned ReqDataWidth  = 32,
-  parameter int unsigned RespDataWidth = 32
+  parameter int unsigned RespDataWidth = 32,
+  parameter bit unsigned Redundant     = 0
 ) (
   input  logic                           clk_i,
   input  logic                           rst_ni,
@@ -23,18 +24,19 @@ module bfly_router #(
   input  logic [1:0]                     req_i,
   output logic [1:0]                     gnt_o,
   input  logic [1:0]                     sel_i,
-  input  logic [1:0][NumLevels-1:0]      add_i,
+  input  logic [1:0][AddWidth-1:0]       add_i,
   input  logic [1:0][ReqDataWidth-1:0]   data_i,
   output logic [1:0][RespDataWidth-1:0]  rdata_o,
   // target ports
   output logic [1:0]                     req_o,
   input  logic [1:0]                     gnt_i,
-  output logic [1:0][NumLevels-1:0]      add_o,
+  output logic [1:0][AddWidth-1:0]       add_o,
   output logic [1:0][ReqDataWidth-1:0]   data_o,
   input  logic [1:0][RespDataWidth-1:0]  rdata_i
 );
 
   logic sel_d, sel_q;
+	logic [8:0] lfsr_d, lfsr_q;
 
   assign add_o[0]   = (sel_d) ? add_i[1]   : add_i[0];
   assign add_o[1]   = (sel_d) ? add_i[0]   : add_i[1];
@@ -46,43 +48,67 @@ module bfly_router #(
   assign rdata_o[0] = (sel_q) ? rdata_i[1] : rdata_i[0];
   assign rdata_o[1] = (sel_q) ? rdata_i[0] : rdata_i[1];
 
-  always_comb begin : p_router
-    // default
-    sel_d = 1'b0;
+	always_comb begin : p_router
+  	if (Redundant) begin
+    	sel_d       = lfsr_q[0];
+			req_o[0]    = (sel_d) ? req_i[1]   : req_i[0];
+			req_o[1]    = (sel_d) ? req_i[0]   : req_i[1];
+		end else begin	
+	    // default
+	    sel_d = 1'b0;
 
-    // propagate requests
-    req_o[0] = (req_i[0] & ~sel_i[0]) |
-               (req_i[1] & ~sel_i[1]);
-    req_o[1] = (req_i[0] & sel_i[0])  |
-               (req_i[1] & sel_i[1]);
+	    // propagate requests
+	    req_o[0] = (req_i[0] & ~sel_i[0]) |
+	               (req_i[1] & ~sel_i[1]);
+	    req_o[1] = (req_i[0] & sel_i[0])  |
+	               (req_i[1] & sel_i[1]);
 
-    // routing logic
-    unique casez ({~sel_q,
-                   req_i[0],
-                   req_i[1],
-                   sel_i[0],
-                   sel_i[1]})
-      // only request from input 0
-      5'b?101?: sel_d  = 1'b1;
-      // only request from input 1
-      5'b?01?0: sel_d  = 1'b1;
-      // in this case we can route both at once
-      5'b?1110: sel_d  = 1'b1;
-      // conflicts, need to arbitrate
-      5'b01111: sel_d  = 1'b1;
-      5'b11100: sel_d  = 1'b1;
-      default: ;
-    endcase
+	    // routing logic
+	    unique casez ({~sel_q,
+	                   req_i[0],
+	                   req_i[1],
+	                   sel_i[0],
+	                   sel_i[1]})
+	      // only request from input 0
+	      5'b?101?: sel_d  = 1'b1;
+	      // only request from input 1
+	      5'b?01?0: sel_d  = 1'b1;
+	      // in this case we can route both at once
+	      5'b?1110: sel_d  = 1'b1;
+	      // conflicts, need to arbitrate
+	      5'b01111: sel_d  = 1'b1;
+	      5'b11100: sel_d  = 1'b1;
+	      default: ;
+	    endcase
+	  end  
   end
 
-  always_ff @(posedge clk_i) begin : p_regs
-    if(~rst_ni) begin
-      sel_q <= '0;
-    end else begin
-      if (|gnt_i) begin
-        sel_q <= sel_d;
-      end
-    end
-  end
+	always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
+	  if(~rst_ni) begin
+	    sel_q <= '0;
+	  end else begin
+	    if (|req_i) begin
+	      sel_q <= sel_d;
+	    end
+	  end
+	end
+
+  if (Redundant) begin : g_lfsr
+  	
+  	assign lfsr_d = ~lfsr_q;	
+  	// assign lfsr_d[0]   = lfsr_q[8] ^ lfsr_q[4];
+  	// assign lfsr_d[8:1] = lfsr_q[7:0];
+  
+	  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
+	    if(~rst_ni) begin
+	      lfsr_q <= '1;
+	    end else begin
+	      if (|req_i) begin
+	        lfsr_q <= lfsr_d;
+	      end
+	    end
+	  end
+	end 
+	
 
 endmodule // rr_arb_tree

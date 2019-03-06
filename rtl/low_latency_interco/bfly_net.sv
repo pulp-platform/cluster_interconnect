@@ -13,39 +13,41 @@
 // Description: logarithmic arbitration tree for TCDM with round robin arbitration.
 
 module bfly_net #(
-  parameter int unsigned NumIn         = 32,
-  parameter int unsigned NumOut        = 32,
-  parameter int unsigned ReqDataWidth  = 32,
-  parameter int unsigned RespDataWidth = 32,
+  parameter int unsigned NumIn           = 32,
+  parameter int unsigned NumOut          = 32,
+  parameter int unsigned ReqDataWidth    = 32,
+  parameter int unsigned RespDataWidth   = 32,
+  parameter int unsigned RedundantStages = 0,
   // routers per level, do not change (max operation)
-  parameter int unsigned NumRouters    = 2**$clog2((NumIn > NumOut) * NumIn + (NumIn <= NumOut) * NumOut)/2,
-  parameter int unsigned NumLevels     = $clog2(NumOut)
-
+  parameter int unsigned NumRouters      = 2**$clog2((NumIn > NumOut) * NumIn + (NumIn <= NumOut) * NumOut)/2,
+  parameter int unsigned AddWidth        = $clog2(NumOut)
 ) (
   input  logic                                 clk_i,
   input  logic                                 rst_ni,
   // master ports
   input  logic [NumIn-1:0]                     req_i,
   output logic [NumIn-1:0]                     gnt_o,
-  input  logic [NumIn-1:0][NumLevels-1:0]      add_i,
+  input  logic [NumIn-1:0][AddWidth-1:0]       add_i,
   input  logic [NumIn-1:0][ReqDataWidth-1:0]   data_i,
   output logic [NumIn-1:0][RespDataWidth-1:0]  rdata_o,
   output logic [NumIn-1:0]                     rvld_o,
   // slave ports
   output logic [NumOut-1:0]                    req_o,
   input  logic [NumOut-1:0]                    gnt_i,
+  output logic [NumOut-1:0][AddWidth-1:0]      add_o,
   output logic [NumOut-1:0][ReqDataWidth-1:0]  data_o,
   input  logic [NumOut-1:0][RespDataWidth-1:0] rdata_i
 );
 
   localparam int unsigned BankingFact = NumOut/NumIn;
-
+  localparam NumLevels = $clog2(NumOut)*(RedundantStages==0) + (RedundantStages>0)*RedundantStages;
+  
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_in;
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_out;
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_gnt_in;
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_gnt_out;
-  logic [NumLevels-1:0][NumRouters-1:0][1:0][NumLevels-1:0]     router_add_in;
-  logic [NumLevels-1:0][NumRouters-1:0][1:0][NumLevels-1:0]     router_add_out;
+  logic [NumLevels-1:0][NumRouters-1:0][1:0][AddWidth-1:0]      router_add_in;
+  logic [NumLevels-1:0][NumRouters-1:0][1:0][AddWidth-1:0]      router_add_out;
   logic [NumLevels-1:0][NumRouters-1:0][1:0][ReqDataWidth-1:0]  router_data_in;
   logic [NumLevels-1:0][NumRouters-1:0][1:0][ReqDataWidth-1:0]  router_data_out;
   logic [NumLevels-1:0][NumRouters-1:0][1:0][RespDataWidth-1:0] router_resp_data_in;
@@ -58,7 +60,7 @@ module bfly_net #(
 
   // // inputs are on first level
   // make sure to evenly distribute masters in case of BankingFactors > 1
-  for (genvar j = 0; unsigned'(j) < 2*NumRouters; j++) begin
+  for (genvar j = 0; unsigned'(j) < 2*NumRouters; j++) begin : g_inputs
     if(j % BankingFact == 0) begin
       // req
       assign router_req_in[0][j/2][j%2]  = req_i[j/BankingFact];
@@ -76,12 +78,13 @@ module bfly_net #(
   end
 
   // outputs are on last level
-  for (genvar j = 0; unsigned'(j) < 2*NumRouters; j++) begin
+  for (genvar j = 0; unsigned'(j) < 2*NumRouters; j++) begin : g_outputs
     if (j < NumOut) begin
       // req
       assign req_o[j]                                   = router_req_out[NumLevels-1][j/2][j%2];
       assign router_gnt_in[NumLevels-1][j/2][j%2]       = gnt_i[j];
       assign data_o[j]                                  = router_data_out[NumLevels-1][j/2][j%2];
+      assign add_o[j]                                   = router_add_out[NumLevels-1][j/2][j%2];
       // resp
       assign router_resp_data_in[NumLevels-1][j/2][j%2] = rdata_i[j];
     end else begin
@@ -125,12 +128,13 @@ module bfly_net #(
   end
 
   // instantiate butterfly routers
-  for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin
-    for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin
+  for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
+    for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
       bfly_router #(
-        .NumLevels     ( NumLevels     ),
-        .ReqDataWidth  ( ReqDataWidth  ),
-        .RespDataWidth ( RespDataWidth )
+        .AddWidth      ( AddWidth          ),
+        .ReqDataWidth  ( ReqDataWidth      ),
+        .RespDataWidth ( RespDataWidth     ),
+        .Redundant     ( RedundantStages>0 )
       ) i_bfly_router (
         .clk_i  ( clk_i                      ),
         .rst_ni ( rst_ni                     ),
@@ -152,7 +156,7 @@ module bfly_net #(
   assign rvld_d = gnt_o;
   assign rvld_o = rvld_q;
 
-  always_ff @(posedge clk_i) begin : p_regs
+  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
     if(~rst_ni) begin
       rvld_q <= '0;
     end else begin

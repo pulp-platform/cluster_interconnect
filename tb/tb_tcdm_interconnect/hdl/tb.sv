@@ -68,6 +68,8 @@ module tb;
   logic clk_i, rst_ni;
   logic end_of_sim;
   logic [NumMaster-1:0] pending_req_d, pending_req_q;
+  logic [NumMaster-1:0] reset_gnt_cnt_local;
+  // int   gnt_cnt_local_d[0:NumMaster-1], gnt_cnt_local_q[0:NumMaster-1];
   int   gnt_cnt_d[0:NumMaster-1], gnt_cnt_q[0:NumMaster-1];
   int   req_cnt_d[0:NumMaster-1], req_cnt_q[0:NumMaster-1];
   int   wait_cnt_d[0:NumMaster-1], wait_cnt_q[0:NumMaster-1];
@@ -118,6 +120,47 @@ module tb;
     req_i = '0;
     add_i = '0;
   endtask : randomUniformTest
+
+  // linear read requests with probability p
+  task automatic linearTest(input int NumCycles, input real p);
+    automatic int unsigned val;
+    automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
+    // reset the interconnect state, set number of vectors
+    `APPL_WAIT_CYC(clk_i,100)
+    num_cycles  = NumCycles;
+    req_prob    = p;
+    rst_ni      = 1'b0;
+    wen_i       = '0;
+    wdata_i     = '0;
+    be_i        = '0;
+    req_i       = '0;
+    add_i       = '0;
+    `APPL_WAIT_CYC(clk_i,1)
+    rst_ni      = 1'b1;
+    `APPL_WAIT_CYC(clk_i,100)
+
+    // only do reads for the moment
+    repeat(NumCycles) begin
+      `APPL_WAIT_CYC(clk_i,1)
+      for (int m=0; m<NumMaster; m++) begin
+        if (~pending_req_q[m]) begin
+          // decide whether to request
+          void'(randomize(val) with {val>=0; val<1000;});
+          if (val <= int'(p*1000.0)) begin
+            // increment address
+            add_i[m] = add_i[m] + 4;
+            req_i[m] = 1'b1;
+          end else begin
+            req_i[m] = 1'b0;
+          end
+        end
+      end
+    end
+    `APPL_WAIT_CYC(clk_i,1)
+    req_i = '0;
+    add_i = '0;
+  endtask : linearTest
+
 
   function automatic void printStats();
     $display("---------------------------------------");
@@ -186,6 +229,8 @@ module tb;
   assign pending_req_d = (pending_req_q | req_i) & ~gnt_o;
 
   for (genvar m=0; m<NumMaster; m++) begin
+    // assign gnt_cnt_local_q[m]  = (gnt_o[m])       ? ((reset_gnt_cnt_local) ? 1 : gnt_cnt_local_d[m]  + 1) :
+    //                                                 ((reset_gnt_cnt_local) ? 0 : gnt_cnt_local_q[m]);
     assign gnt_cnt_d[m]  = (gnt_o[m])             ? gnt_cnt_q[m]  + 1 : gnt_cnt_q[m];
     assign req_cnt_d[m]  = (req_i[m])             ? req_cnt_q[m]  + 1 : req_cnt_q[m];
     assign wait_cnt_d[m] = (req_i[m] & ~gnt_o[m]) ? wait_cnt_q[m] + 1 : wait_cnt_q[m];
@@ -193,15 +238,17 @@ module tb;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_req_pending
     if(~rst_ni) begin
-      pending_req_q <= '0;
-      gnt_cnt_q     <= '{default:0};
-      req_cnt_q     <= '{default:0};
-      wait_cnt_q    <= '{default:0};
+      pending_req_q   <= '0;
+      gnt_cnt_q       <= '{default:0};
+      req_cnt_q       <= '{default:0};
+      wait_cnt_q      <= '{default:0};
+      // gnt_cnt_local_q <= '{default:0};
     end else begin
-      pending_req_q <= pending_req_d;
-      gnt_cnt_q     <= gnt_cnt_d;
-      req_cnt_q     <= req_cnt_d;
-      wait_cnt_q    <= wait_cnt_d;
+      pending_req_q   <= pending_req_d;
+      gnt_cnt_q       <= gnt_cnt_d;
+      req_cnt_q       <= req_cnt_d;
+      wait_cnt_q      <= wait_cnt_d;
+      // gnt_cnt_local_q <= gnt_cnt_local_d;
     end
   end
 
@@ -331,7 +378,18 @@ end
     // apply each test until seq_num_resp memory
     // requests have successfully completed
     ///////////////////////////////////////////////
+    $display("TB> random uniform test");
+    randomUniformTest(TestCycles, 0.125);
+    printStats();
+    randomUniformTest(TestCycles, 0.25);
+    printStats();
+    randomUniformTest(TestCycles, 0.5);
+    printStats();
     randomUniformTest(TestCycles, 1.0);
+    printStats();
+    ///////////////////////////////////////////////
+    $display("TB> linear test");
+    linearTest(TestCycles, 1.0);
     printStats();
     ///////////////////////////////////////////////
     end_of_sim = 1;

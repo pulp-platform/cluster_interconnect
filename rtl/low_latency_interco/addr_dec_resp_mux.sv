@@ -60,7 +60,7 @@ end
 assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
 assign rvld_o  = vld_q[$high(vld_q)];
 
-always_ff @(posedge clk_i) begin : p_reg
+always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
   if(~rst_ni) begin
     bank_sel_q <= '0;
     vld_q      <= '0;

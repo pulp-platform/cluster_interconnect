@@ -99,7 +99,7 @@ module rr_arb_tree #(
     end
   end
 
-  always_ff @(posedge clk_i) begin : p_regs
+  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
     if(~rst_ni) begin
       rr_q <= '0;
     end else begin
