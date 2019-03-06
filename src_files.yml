@@ -38,3 +38,13 @@ peripheral_interco:
     rtl/peripheral_interco/ResponseTree_PE.sv,
     rtl/peripheral_interco/XBAR_PE.sv,
   ]
+tcdm_interconnect:
+  incdirs: [
+  ]
+  files: [
+    rtl/tcdm_interconnect/addr_dec_resp_mux.sv,
+    rtl/tcdm_interconnect/rr_arb_tree.sv,
+    rtl/tcdm_interconnect/bfly_router.sv,
+    rtl/tcdm_interconnect/bfly_net.sv,
+    rtl/tcdm_interconnect/tcdm_interconnect.sv,
+  ]
