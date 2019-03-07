@@ -24,12 +24,12 @@ module tb;
   timeprecision 1ps;
 
   // tcdm configuration
-  localparam string MutImpl = "newBfly"; // {"oldLic", "newLic", "newBfly"}
+  localparam string MutImpl = "newLic"; // {"oldLic", "newLic", "newBfly"}
   localparam NumBanks       = 32;
   localparam NumMaster      = 16;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
-  localparam TestCycles     = 10000;
+  localparam TestCycles     = 1000;
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
 
@@ -43,7 +43,7 @@ module tb;
   logic [NumMaster-1:0][DataWidth-1:0] wdata_i;
   logic [NumMaster-1:0][DataWidth/8-1:0] be_i;
   logic [NumMaster-1:0] gnt_o;
-  logic [NumMaster-1:0] rvld_o;
+  logic [NumMaster-1:0] vld_o;
   logic [NumMaster-1:0][DataWidth-1:0] rdata_o;
 
   logic [NumBanks-1:0] cs_o;
@@ -197,12 +197,12 @@ module tb;
           		add_i[m]    = add_i[m]+4;
 							req_i[m]    = 1'b1;
 							cnt_set[m]  = 1'b0;
-						end	
+						end
           end else begin
           	req_i[m]    = 1'b0;
           	cnt_set[m]  = 1'b0;
-          end	
-        end  
+          end
+        end
       end
     end
     `APPL_WAIT_CYC(clk_i,1)
@@ -325,7 +325,7 @@ module tb;
     assign cnt_d[m]      = (cnt_set[m])             ? cnt_val[m]-1 :
                            (gnt_o[m] && cnt_q[m]>0) ? cnt_q[m]-1   :
                                                       cnt_q[m];
-                                                   
+
     assign gnt_cnt_d[m]  = (gnt_o[m])              ? gnt_cnt_q[m]  + 1 : gnt_cnt_q[m];
     assign req_cnt_d[m]  = (req_i[m])              ? req_cnt_q[m]  + 1 : req_cnt_q[m];
     assign wait_cnt_d[m] = (req_i[m] & ~gnt_o[m])  ? wait_cnt_q[m] + 1 : wait_cnt_q[m];
@@ -358,7 +358,7 @@ module tb;
     assign bank_addr[m] = add_i[m][$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:$clog2(NumBanks)+AddrWordOff];
 
     bank_read : assert property(
-        @(posedge clk_i) disable iff (~rst_ni) req_i[m] |-> gnt_o[m] |=> rvld_o[m] && ($past(mem_array[bank_sel[m]][bank_addr[m]],1) == rdata_o[m]))
+        @(posedge clk_i) disable iff (~rst_ni) req_i[m] |-> gnt_o[m] |=> vld_o[m] && ($past(mem_array[bank_sel[m]][bank_addr[m]],1) == rdata_o[m]))
           else $fatal (1, "rdata mismatch on master %0d: exp %08X != act %06X.", m, $past(mem_array[bank_sel[m]][bank_addr[m]],1), rdata_o[m]);
   end
 
@@ -383,7 +383,7 @@ if (MutImpl== "oldLic") begin
     .wdata_i ( wdata_i ),
     .be_i    ( be_i    ),
     .gnt_o   ( gnt_o   ),
-    .rvld_o  ( rvld_o  ),
+    .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
     .cs_o    ( cs_o    ),
     .add_o   ( add_o   ),
@@ -409,7 +409,7 @@ end else if (MutImpl == "newLic") begin
     .wdata_i ( wdata_i ),
     .be_i    ( be_i    ),
     .gnt_o   ( gnt_o   ),
-    .rvld_o  ( rvld_o  ),
+    .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
     .cs_o    ( cs_o    ),
     .add_o   ( add_o   ),
@@ -435,7 +435,7 @@ end else if (MutImpl == "newBfly") begin
     .wdata_i ( wdata_i ),
     .be_i    ( be_i    ),
     .gnt_o   ( gnt_o   ),
-    .rvld_o  ( rvld_o  ),
+    .vld_o   ( vld_o  ),
     .rdata_o ( rdata_o ),
     .cs_o    ( cs_o    ),
     .add_o   ( add_o   ),

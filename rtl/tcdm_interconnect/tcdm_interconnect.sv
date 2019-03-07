@@ -10,7 +10,7 @@
 //
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
 // Date: 06.03.2019
-// Description: TCDM interconnect with different network topologies 
+// Description: TCDM interconnect with different network topologies
 // (logarithmic interconnect and radix-2 butterflies)
 
 module tcdm_interconnect #(
@@ -22,9 +22,10 @@ module tcdm_interconnect #(
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
   parameter int unsigned Topology        = 0,            // 0 = lic, 1 = bfly
-	// TCDM read latency, usually 1 cycle
+	parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
+  // TCDM read latency, usually 1 cycle
   // has no effect on butterfly topology (fixed to 1 in that case)
-  parameter int unsigned MemLatency      = 1,            
+  parameter int unsigned MemLatency      = 1,
   // redundant stages are not fully supported yet
   parameter int unsigned RedundantStages = 0             // number of redundant butterfly stages
 ) (
@@ -33,21 +34,21 @@ module tcdm_interconnect #(
   // master side
   input  logic [NumMaster-1:0]                    req_i,     // Request signal
   input  logic [NumMaster-1:0][AddrWidth-1:0]     add_i,     // Address
-  input  logic [NumMaster-1:0]                    wen_i,     // 0--> Store, 1 --> Load
+  input  logic [NumMaster-1:0]                    wen_i,     // 1: Store, 0: Load
   input  logic [NumMaster-1:0][DataWidth-1:0]     wdata_i,   // Write data
   input  logic [NumMaster-1:0][BeWidth-1:0]       be_i,      // Byte enable
   output logic [NumMaster-1:0]                    gnt_o,     // Grant (combinationally dependent on req_i and add_i)
-  output logic [NumMaster-1:0]                    rvld_o,    // Response valid
+  output logic [NumMaster-1:0]                    vld_o,     // Response valid, also asserted if write responses are enabled
   output logic [NumMaster-1:0][DataWidth-1:0]     rdata_o,   // Data Response DATA (For LOAD commands)
   // slave side
   output  logic [NumSlave-1:0]                    cs_o,      // Chip select for bank
-  output  logic [NumSlave-1:0][AddrMemWidth-1:0]  add_o,     // Data request Address
-  output  logic [NumSlave-1:0]                    wen_o,     // Data request type : 0--> Store, 1 --> Load
-  output  logic [NumSlave-1:0][DataWidth-1:0]     wdata_o,   // Data request Wire data
-  output  logic [NumSlave-1:0][BeWidth-1:0]       be_o,      // Data request Byte enable
-  input   logic [NumSlave-1:0][DataWidth-1:0]     rdata_i    // Data Response DATA (For LOAD commands)
+  output  logic [NumSlave-1:0][AddrMemWidth-1:0]  add_o,     // Address
+  output  logic [NumSlave-1:0]                    wen_o,     // 1: Store, 0: Load
+  output  logic [NumSlave-1:0][DataWidth-1:0]     wdata_o,   // Write data
+  output  logic [NumSlave-1:0][BeWidth-1:0]       be_o,      // Byte enable
+  input   logic [NumSlave-1:0][DataWidth-1:0]     rdata_i    // Read data
 );
-	
+
   localparam int unsigned SlaveSelWidth = $clog2(NumSlave);
   localparam int unsigned AddrWordOff   = $clog2(DataWidth-1)-3;
   localparam int unsigned AggDataWidth  = 1+BeWidth+AddrMemWidth+DataWidth;
@@ -76,9 +77,41 @@ module tcdm_interconnect #(
     logic [NumSlave-1:0][NumMaster-1:0] sl_gnt, sl_req;
     logic [NumMaster-1:0][NumSlave-1:0] ma_gnt, ma_req;
 
+     // loop over masters and instantiate bank address decoder/resp mux for each master
+    for (genvar j=0; unsigned'(j)<NumMaster; j++) begin : g_masters
+      addr_dec_resp_mux #(
+        .NumSlave      ( NumSlave      ),
+        .ReqDataWidth  ( AggDataWidth  ),
+        .RespDataWidth ( DataWidth     ),
+        .RespLat       ( MemLatency    ),
+        .WriteRespOn   ( WriteRespOn   )
+      ) i_addr_dec_resp_mux (
+        .clk_i  ( clk_i          ),
+        .rst_ni ( rst_ni         ),
+        .req_i  ( req_i[j]       ),
+        .add_i  ( bank_sel[j]    ),
+        .wen_i  ( wen_i[j]       ),
+        .data_i ( data_agg_in[j] ),
+        .gnt_o  ( gnt_o[j]       ),
+        .vld_o  ( vld_o[j]       ),
+        .rdata_o( rdata_o[j]     ),
+        .req_o  ( ma_req[j]      ),
+        .gnt_i  ( ma_gnt[j]      ),
+        .data_o ( ma_data[j]     ),
+        .rdata_i( rdata_i        )
+      );
+
+      // reshape connections between M/S
+      for (genvar k=0; unsigned'(k)<NumSlave; k++) begin : g_reshape
+        assign sl_req[k][j]  = ma_req[j][k];
+        assign ma_gnt[j][k]  = sl_gnt[k][j];
+        assign sl_data[k][j] = ma_data[j][k];
+      end
+    end
+
     // loop over slaves (endpoints)
     // instantiate an RR arbiter for each endpoint
-    for (genvar k=0; unsigned'(k)<NumSlave; k++) begin : g_masters
+    for (genvar k=0; unsigned'(k)<NumSlave; k++) begin : g_slaves
       rr_arb_tree #(
         .NumReq    ( NumMaster    ),
         .DataWidth ( AggDataWidth )
@@ -95,35 +128,6 @@ module tcdm_interconnect #(
       );
     end
 
-    // loop over masters and instantiate bank address decoder/resp mux for each master
-    for (genvar j=0; unsigned'(j)<NumMaster; j++) begin : g_slaves
-      addr_dec_resp_mux #(
-        .NumSlave      ( NumSlave     ),
-        .ReqDataWidth  ( AggDataWidth ),
-        .RespDataWidth ( DataWidth    ),
-        .RespLat       ( MemLatency   )
-      ) i_addr_dec_resp_mux (
-        .clk_i  ( clk_i          ),
-        .rst_ni ( rst_ni         ),
-        .req_i  ( req_i[j]       ),
-        .add_i  ( bank_sel[j]    ),
-        .data_i ( data_agg_in[j] ),
-        .gnt_o  ( gnt_o[j]       ),
-        .rvld_o ( rvld_o[j]      ),
-        .rdata_o( rdata_o[j]     ),
-        .req_o  ( ma_req[j]      ),
-        .gnt_i  ( ma_gnt[j]      ),
-        .data_o ( ma_data[j]     ),
-        .rdata_i( rdata_i        )
-      );
-
-      // reshape connections between M/S
-      for (genvar k=0; unsigned'(k)<NumSlave; k++) begin : g_reshape
-        assign sl_req[k][j]  = ma_req[j][k];
-        assign ma_gnt[j][k]  = sl_gnt[k][j];
-        assign sl_data[k][j] = ma_data[j][k];
-      end
-    end
   /////////////////////////////////////////////////////////////////////
   // scalable interconnect using a (redundant) butterfly network
   end else if (Topology==1) begin : g_bfly
@@ -136,26 +140,28 @@ module tcdm_interconnect #(
 
 	  	// redundant stage
 	    bfly_net #(
-	      .NumIn(NumMaster),
-	      .NumOut(NumSlave),
-	      .ReqDataWidth(AggDataWidth),
-	      .RespDataWidth(DataWidth),
-	      .RedundantStages(RedundantStages)
+	      .NumIn           ( NumMaster       ),
+	      .NumOut          ( NumSlave        ),
+	      .ReqDataWidth    ( AggDataWidth    ),
+	      .RespDataWidth   ( DataWidth       ),
+        .WriteRespOn     ( WriteRespOn     ),
+        .RedundantStages ( RedundantStages )
 	    ) i_bfly_net_red (
 	      .clk_i    ( clk_i        ),
 	      .rst_ni   ( rst_ni       ),
 	      .req_i    ( req_i        ),
 	      .gnt_o    ( gnt_o        ),
 	      .add_i    ( bank_sel     ),
+        .wen_i    ( wen_i        ),
 	      .data_i   ( data_agg_in  ),
 	      .rdata_o  ( rdata_o      ),
-	      .rvld_o   ( rvld_o       ),
+	      .vld_o    ( vld_o        ),
 	      .req_o    ( bfly_req     ),
 	      .gnt_i    ( bfly_gnt     ), // TCDM is always ready
 	      .add_o    ( bfly_bank    ),
 	      .data_o   ( bfly_wdata   ),
 	      .rdata_i  ( bfly_rdata   )
-	    );  	
+	    );
 
 	    bfly_net #(
 	      .NumIn(NumSlave),
@@ -168,9 +174,10 @@ module tcdm_interconnect #(
 	      .req_i    ( bfly_req     ),
 	      .gnt_o    ( bfly_gnt     ),
 	      .add_i    ( bfly_bank    ),
-	      .data_i   ( bfly_wdata   ),
+	      .wen_i    ( '0           ),
+        .data_i   ( bfly_wdata   ),
 	      .rdata_o  ( bfly_rdata   ),
-	      .rvld_o   (              ),
+	      .vld_o    (              ),
 	      .req_o    ( cs_o         ),
 	      .gnt_i    ( cs_o         ), // TCDM is always ready
 	      .add_o    (              ),
@@ -179,26 +186,28 @@ module tcdm_interconnect #(
 	    );
 	  end	else begin : g_normal
 	    bfly_net #(
-	      .NumIn(NumMaster),
-	      .NumOut(NumSlave),
-	      .ReqDataWidth(AggDataWidth),
-	      .RespDataWidth(DataWidth)
-	    ) i_bfly_net (
+	      .NumIn           ( NumMaster       ),
+	      .NumOut          ( NumSlave        ),
+	      .ReqDataWidth    ( AggDataWidth    ),
+	      .RespDataWidth   ( DataWidth       ),
+        .WriteRespOn     ( WriteRespOn     )
+      ) i_bfly_net (
 	      .clk_i    ( clk_i        ),
 	      .rst_ni   ( rst_ni       ),
 	      .req_i    ( req_i        ),
 	      .gnt_o    ( gnt_o        ),
 	      .add_i    ( bank_sel     ),
-	      .data_i   ( data_agg_in  ),
+        .wen_i    ( wen_i        ),
+        .data_i   ( data_agg_in  ),
 	      .rdata_o  ( rdata_o      ),
-	      .rvld_o   ( rvld_o       ),
+	      .vld_o    ( vld_o        ),
 	      .req_o    ( cs_o         ),
 	      .gnt_i    ( cs_o         ), // TCDM is always ready
 	      .add_o    (              ),
 	      .data_o   ( data_agg_out ),
 	      .rdata_i  ( rdata_i      )
 	    );
-	  end  
+	  end
   /////////////////////////////////////////////////////////////////////
   end else begin : g_unknown
     // pragma translate_off

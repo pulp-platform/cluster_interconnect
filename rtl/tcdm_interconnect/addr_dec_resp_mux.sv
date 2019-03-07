@@ -16,16 +16,18 @@ module addr_dec_resp_mux #(
     parameter int unsigned NumSlave      = 32,
     parameter int unsigned ReqDataWidth  = 32,
     parameter int unsigned RespDataWidth = 32,
-    parameter int unsigned RespLat       = 1   // read latency of slaves
+    parameter int unsigned RespLat       = 1,  // read latency of slaves
+    parameter bit          WriteRespOn   = 1
 ) (
   input  logic                                    clk_i,
   input  logic                                    rst_ni,
   // master side
   input  logic                                    req_i,    // request from this master
   input  logic [$clog2(NumSlave)-1:0]             add_i,    // bank selection index to be decoded
+  input  logic                                    wen_i,    // write enable
   input  logic [ReqDataWidth-1:0]                 data_i,   // data to be transported to slaves
   output logic                                    gnt_o,    // grant to master
-  output logic                                    rvld_o,   // read response is valid
+  output logic                                    vld_o,    // read/write response
   output logic [RespDataWidth-1:0]                rdata_o,  // read response
   // slave side
   output logic [NumSlave-1:0]                     req_o,    // request signals after decoding
@@ -51,14 +53,14 @@ assign gnt_o = |gnt_i;
 
 if (RespLat > 1) begin
   assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
-  assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o};
+  assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
 end else begin
   assign bank_sel_d = add_i;
-  assign vld_d      = gnt_o;
+  assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
 end
 
 assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
-assign rvld_o  = vld_q[$high(vld_q)];
+assign vld_o   = vld_q[$high(vld_q)];
 
 always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
   if(~rst_ni) begin
