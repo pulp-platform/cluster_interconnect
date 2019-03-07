@@ -43,7 +43,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 `include "parameters.v"
-`include "pulp_soc_defines.sv"
 
 module AddressDecoder_PE_Req 
 #(
@@ -54,6 +53,7 @@ module AddressDecoder_PE_Req
     parameter int ADDR_WIDTH           = 32,
     parameter int PE_ROUTING_LSB       = 16,
     parameter int PE_ROUTING_MSB       = 19,
+    parameter bit CLUSTER_ALIAS        = 1'b0,
     parameter int CLUSTER_ALIAS_BASE   = 12'h000
 ) 
 (
@@ -85,17 +85,17 @@ module AddressDecoder_PE_Req
       assign PE_START   = 12'h100 + (CLUSTER_ID << 2) + 2;
       assign PE_END     = 12'h100 + (CLUSTER_ID << 2) + 3;
 
-      // FIXME -- Not parameteric
-      always_comb
-      begin
-      `ifdef CLUSTER_ALIAS
-          if( ( data_add_i[31:20] >= PE_START) && ( data_add_i[31:20] < PE_END ) ||  ( data_add_i[31:20] >= (CLUSTER_ALIAS_BASE+2) ) && ( data_add_i[31:20] < (CLUSTER_ALIAS_BASE+3) ) )
-      `else
-          if( ( data_add_i[31:20] >= PE_START ) && ( data_add_i[31:20] < PE_END ) )
-      `endif
+      always_comb begin
+         if (data_add_i[31:20] >= PE_START && data_add_i[31:20] < PE_END
+            || (CLUSTER_ALIAS
+               && data_add_i[31:20] >= CLUSTER_ALIAS_BASE+2
+               && data_add_i[31:20] < (CLUSTER_ALIAS_BASE+3)
+            )
+         ) begin
             ROUTING_ADDR = data_add_i[PE_ROUTING_MSB:PE_ROUTING_LSB];
-        else
+         end else begin
             ROUTING_ADDR = '1;
+         end
       end
    
       always_comb
