@@ -1,7 +1,11 @@
 .bender
 Bender.lock
+Bender.local
 build/
 deps
 *dvt*
 .project
 tech/*
+.*
+!.git*
+*.out
