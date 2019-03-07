@@ -82,12 +82,8 @@ module AddressDecoder_PE_Req
 
       assign data_ID_o = ID;            // ID is simply attached to the ID_OUT
 
-      always_comb
-      begin
-        PE_START          = 12'h100 + (CLUSTER_ID << 2) + 2;
-        PE_END            = 12'h100 + (CLUSTER_ID << 2) + 3;
-      end
- 
+      assign PE_START   = 12'h100 + (CLUSTER_ID << 2) + 2;
+      assign PE_END     = 12'h100 + (CLUSTER_ID << 2) + 3;
 
       // FIXME -- Not parameteric
       always_comb
