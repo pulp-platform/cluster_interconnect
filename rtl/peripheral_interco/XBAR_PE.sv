@@ -46,26 +46,26 @@
 
 module XBAR_PE 
 #(
-    parameter N_CH0          = 8, //--> CH0
-    parameter N_CH1          = 1,  //--> CH1
-    parameter N_SLAVE        = 9,
-    parameter ID_WIDTH       = N_CH0+N_CH1,
+    parameter int N_CH0                 = 16, //--> CH0
+    parameter int N_CH1                 = 0,  //--> CH1
+    parameter int N_SLAVE               = 16,
+    parameter int ID_WIDTH              = N_CH0+N_CH1,
 
-    parameter PE_LSB         = 0,
-    parameter PE_MSB         = 31,
+    parameter int PE_LSB                = 2,
+    parameter int PE_MSB                = 31,
 
-    parameter LOG_CLUSTER    = 5,
-    parameter ADDR_WIDTH     = 32,
-    parameter DATA_WIDTH     = 32,
-    parameter BE_WIDTH       = DATA_WIDTH/8,
+    parameter int LOG_CLUSTER           = 5,
+    parameter int ADDR_WIDTH            = 32,
+    parameter int DATA_WIDTH            = 32,
+    parameter int BE_WIDTH              = DATA_WIDTH/8,
 
-    parameter PE_ROUTING_LSB = 10,
-    parameter PE_ROUTING_MSB = PE_ROUTING_LSB+$clog2(N_SLAVE)-1,
+    parameter int PE_ROUTING_LSB        = 16,
+    parameter int PE_ROUTING_MSB        = PE_ROUTING_LSB+$clog2(N_SLAVE)-1,
 
-    parameter CLUSTER_ALIAS  = 1'b0,
-    parameter CLUSTER_ALIAS_BASE = 12'h000,
+    parameter bit CLUSTER_ALIAS         = 1'b0,
+    parameter int CLUSTER_ALIAS_BASE    = 12'h000,
 
-    parameter ADDR_PE_WIDTH = PE_MSB - PE_LSB + 1
+    parameter int ADDR_PE_WIDTH         = PE_MSB - PE_LSB + 1
 )
 (
     input [LOG_CLUSTER-1:0]                                CLUSTER_ID,
