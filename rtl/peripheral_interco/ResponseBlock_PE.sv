@@ -47,18 +47,18 @@
 
 module ResponseBlock_PE
 #(
-    parameter ID             = 1,
-    parameter ID_WIDTH       = 17,
-    parameter N_SLAVE        = 16,
+    parameter int ID                    = 1,
+    parameter int ID_WIDTH              = 17,
+    parameter int N_SLAVE               = 16,
 
-    parameter DATA_WIDTH     = 32,
+    parameter int DATA_WIDTH            = 32,
 
-    parameter LOG_CLUSTER    = 5,
-    parameter ADDR_WIDTH     = 32,
-    parameter PE_ROUTING_LSB = 16,
-    parameter PE_ROUTING_MSB = 19,
-    parameter CLUSTER_ALIAS  = 1'b0,
-    parameter CLUSTER_ALIAS_BASE = 12'h000
+    parameter int LOG_CLUSTER           = 5,
+    parameter int ADDR_WIDTH            = 32,
+    parameter int PE_ROUTING_LSB        = 16,
+    parameter int PE_ROUTING_MSB        = 19,
+    parameter bit CLUSTER_ALIAS         = 1'b0,
+    parameter int CLUSTER_ALIAS_BASE    = 12'h000
 )
 (
         input  logic [LOG_CLUSTER-1:0]                  CLUSTER_ID,
