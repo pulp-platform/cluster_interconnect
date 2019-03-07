@@ -47,14 +47,14 @@
 
 module AddressDecoder_PE_Req 
 #(
-    parameter ID_WIDTH       = 17,                        // ID WIDTH (number of bits) --> see ID comment
-    parameter ID             = 1,                        // ID routed with REQUEST used to backroute response
-    parameter N_SLAVE        = 16,                        // Number of Memory cuts
-    parameter LOG_CLUSTER    = 5,
-    parameter ADDR_WIDTH     = 32,
-    parameter PE_ROUTING_LSB = 16,
-    parameter PE_ROUTING_MSB = 19,
-    parameter CLUSTER_ALIAS_BASE = 12'h000
+    parameter int ID_WIDTH             = 17,    // ID WIDTH (number of bits) --> see ID comment
+    parameter int ID                   = 1,     // ID routed with REQUEST used to backroute response
+    parameter int N_SLAVE              = 16,    // Number of Memory cuts
+    parameter int LOG_CLUSTER          = 5,
+    parameter int ADDR_WIDTH           = 32,
+    parameter int PE_ROUTING_LSB       = 16,
+    parameter int PE_ROUTING_MSB       = 19,
+    parameter int CLUSTER_ALIAS_BASE   = 12'h000
 ) 
 (
     input  logic [LOG_CLUSTER-1:0]               CLUSTER_ID,
