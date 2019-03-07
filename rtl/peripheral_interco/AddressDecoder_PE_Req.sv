@@ -85,12 +85,17 @@ module AddressDecoder_PE_Req
       assign PE_START   = 12'h100 + (CLUSTER_ID << 2) + 2;
       assign PE_END     = 12'h100 + (CLUSTER_ID << 2) + 3;
 
-      always_comb
-      begin
-          if( ( data_add_i[31:20] >= PE_START ) && ( data_add_i[31:20] < PE_END ) || ( CLUSTER_ALIAS && ( ( data_add_i[31:20] >= (CLUSTER_ALIAS_BASE+2) ) && ( data_add_i[31:20] < (CLUSTER_ALIAS_BASE+3) ) ) ) )
-              ROUTING_ADDR = data_add_i[PE_ROUTING_MSB:PE_ROUTING_LSB];
-          else
-              ROUTING_ADDR = '1;
+      always_comb begin
+         if (data_add_i[31:20] >= PE_START && data_add_i[31:20] < PE_END
+            || (CLUSTER_ALIAS
+               && data_add_i[31:20] >= CLUSTER_ALIAS_BASE+2
+               && data_add_i[31:20] < (CLUSTER_ALIAS_BASE+3)
+            )
+         ) begin
+            ROUTING_ADDR = data_add_i[PE_ROUTING_MSB:PE_ROUTING_LSB];
+         end else begin
+            ROUTING_ADDR = '1;
+         end
       end
 
       always_comb
