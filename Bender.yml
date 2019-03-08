@@ -2,6 +2,11 @@ package:
   name: cluster_interconnect
 
 sources:
+  - rtl/interfaces/tcdm_bank_mem_bus.sv
+  - rtl/interfaces/xbar_demux_bus.sv
+  - rtl/interfaces/xbar_periph_bus.sv
+  - rtl/interfaces/xbar_tcdm_bus_64.sv
+  - rtl/interfaces/xbar_tcdm_bus.sv
   - include_dirs:
       - rtl/low_latency_interco
     files:
