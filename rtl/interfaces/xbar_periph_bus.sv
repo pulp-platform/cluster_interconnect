@@ -9,7 +9,7 @@
 // specific language governing permissions and limitations under the License.
 
 interface XBAR_PERIPH_BUS #(
-  parameter int ID_WIDTH = 9, // typically number of cores plus one
+  parameter int ID_WIDTH = 9  // typically number of cores plus one
 );
 
   // Request Channel
