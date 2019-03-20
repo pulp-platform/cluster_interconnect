@@ -19,6 +19,9 @@
 ../../rtl/tcdm_interconnect/rr_arb_tree.sv
 ../../rtl/tcdm_interconnect/bfly_router.sv
 ../../rtl/tcdm_interconnect/bfly_net.sv
+../../rtl/tcdm_interconnect/clos_node.sv
+../../rtl/tcdm_interconnect/clos_net.sv
 ../../rtl/tcdm_interconnect/tcdm_interconnect.sv
+hdl/lzc.sv
 hdl/tb_pkg.sv
 hdl/tb.sv

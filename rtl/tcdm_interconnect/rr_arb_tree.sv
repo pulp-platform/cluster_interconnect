@@ -13,24 +13,24 @@
 // Description: logarithmic arbitration tree for TCDM with round robin arbitration.
 
 module rr_arb_tree #(
-  parameter int unsigned NumReq     = 32,
+  parameter int unsigned NumIn      = 32,
   parameter int unsigned DataWidth  = 32,
   parameter bit          SelIdxOut  = 1'b0  // outputs selected index
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
   // input requests and data
-  input  logic [NumReq-1:0]                req_i,
-  output logic [NumReq-1:0]                gnt_o,
-  input  logic [NumReq-1:0][DataWidth-1:0] data_i,
+  input  logic [NumIn-1:0]                 req_i,
+  output logic [NumIn-1:0]                 gnt_o,
+  input  logic [NumIn-1:0][DataWidth-1:0]  data_i,
   // arbitrated output
   input  logic                             gnt_i,
   output logic                             req_o,
   output logic [DataWidth-1:0]             data_o,
-  output logic [$clog2(NumReq)-1:0]        idx_o
+  output logic [$clog2(NumIn)-1:0]         idx_o
 );
 
-  localparam int unsigned NumLevels = $clog2(NumReq);
+  localparam int unsigned NumLevels = $clog2(NumIn);
 
   logic [2**NumLevels-2:0][NumLevels-1:0]  index_nodes; // used to propagate the indices
   logic [2**NumLevels-2:0][DataWidth-1:0]  data_nodes;  // used to propagate the data
@@ -42,7 +42,7 @@ module rr_arb_tree #(
   assign req_o        = (NumLevels > 0)             ? req_nodes[0]   : 1'b0;
   assign data_o       = (NumLevels > 0)             ? data_nodes[0]  : '0;
   assign idx_o        = (NumLevels > 0 & SelIdxOut) ? index_nodes[0] : '0;
-  assign rr_d         = (gnt_i & req_o)             ? ((rr_q == NumReq-1) ? '0 : rr_q + 1) : rr_q;
+  assign rr_d         = (gnt_i & req_o)             ? ((rr_q == NumIn-1) ? '0 : rr_q + 1) : rr_q;
   // assign rr_d         = (gnt_i & req_o)             ? index_nodes[0] : rr_q;
   assign gnt_nodes[0] = gnt_i;
 
@@ -58,7 +58,7 @@ module rr_arb_tree #(
       // uppermost level where data is fed in from the inputs
       if (unsigned'(level) == NumLevels-1) begin : g_first_level
         // if two successive indices are still in the vector...
-        if (unsigned'(l) * 2 < NumReq-1) begin
+        if (unsigned'(l) * 2 < NumIn-1) begin
           assign req_nodes[idx0]   = req_i[l*2] | req_i[l*2+1];
 
           // arbitration: round robin
@@ -70,14 +70,14 @@ module rr_arb_tree #(
           assign gnt_o[l*2+1]      = gnt_nodes[idx0] & req_i[l*2+1] & sel;
         end
         // if only the first index is still in the vector...
-        if (unsigned'(l) * 2 == NumReq-1) begin
+        if (unsigned'(l) * 2 == NumIn-1) begin
           assign req_nodes[idx0]   = req_i[l*2];
           assign index_nodes[idx0] = '0;// always zero in this case
           assign data_nodes[idx0]  = data_i[l*2];
           assign gnt_o[l*2]        = gnt_nodes[idx0] & req_i[l*2];
         end
         // if index is out of range, fill up with zeros (will get pruned)
-        if (unsigned'(l) * 2 > NumReq-1) begin
+        if (unsigned'(l) * 2 > NumIn-1) begin
           assign req_nodes[idx0]   = 1'b0;
           assign index_nodes[idx0] = '0;
           assign data_nodes[idx0]  = '0;
