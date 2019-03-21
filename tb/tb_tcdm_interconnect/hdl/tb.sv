@@ -26,25 +26,29 @@ module tb;
 `ifdef BATCH_SIM
   // tcdm configuration
   localparam MutImpl        = `MUT_IMPL;
-  localparam NumBanks       = `NUM_BANKS;
+  localparam NumBanks       = `NUM_MASTER * `BANK_FACT;
   localparam NumMaster      = `NUM_MASTER;
   localparam DataWidth      = `DATA_WIDTH;
   localparam MemAddrBits    = `MEM_ADDR_BITS;
   localparam TestCycles     = `TEST_CYCLES;
 `else
   localparam MutImpl        = 1; // {"oldLic", "newLic", "newBfly", "newClos"}
-  localparam NumBanks       = 128;
-  localparam NumMaster      = 16;
+  localparam NumBanks       = 16;
+  localparam NumMaster      = 8;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
   localparam TestCycles     = 10000;
 `endif
+
+	localparam StatsFile      = "statistics.log";
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
 
   localparam int unsigned ClosN = 2**$clog2(int'($ceil($sqrt(real'(NumBanks) / 2.0))));
   localparam int unsigned ClosM = 2*ClosN;
   localparam int unsigned ClosR = 2**$clog2(NumBanks / ClosN);
+
+  localparam string impl[] = {"oldLic", "newLic", "newBfly", "newClos"};
 
 ///////////////////////////////////////////////////////////////////////////////
 // MUT signal declarations
@@ -70,16 +74,20 @@ module tb;
 // TB signal declarations
 ///////////////////////////////////////////////////////////////////////////////
 
-  logic clk_i, rst_ni;
-  logic end_of_sim;
-  logic [NumMaster-1:0] pending_req_d, pending_req_q;
-  logic [NumMaster-1:0] cnt_set;
-  int   cnt_val[0:NumMaster-1];
-  int   cnt_d[0:NumMaster-1], cnt_q[0:NumMaster-1];
-  int   gnt_cnt_d[0:NumMaster-1], gnt_cnt_q[0:NumMaster-1];
-  int   req_cnt_d[0:NumMaster-1], req_cnt_q[0:NumMaster-1];
-  int   wait_cnt_d[0:NumMaster-1], wait_cnt_q[0:NumMaster-1];
-  int   num_cycles;
+  logic        clk_i, rst_ni;
+  logic        end_of_sim;
+  logic        [NumMaster-1:0] pending_req_d, pending_req_q;
+  logic        [NumMaster-1:0] cnt_set;
+  int unsigned cnt_val[0:NumMaster-1];
+  int unsigned cnt_d[0:NumMaster-1], cnt_q[0:NumMaster-1];
+  int unsigned gnt_cnt_d[0:NumMaster-1], gnt_cnt_q[0:NumMaster-1];
+  int unsigned req_cnt_d[0:NumMaster-1], req_cnt_q[0:NumMaster-1];
+  int unsigned bank_req_cnt_d[0:NumBanks-1], bank_req_cnt_q[0:NumBanks-1];
+  int unsigned wait_cnt_d[0:NumMaster-1], wait_cnt_q[0:NumMaster-1];
+  int unsigned num_cycles;
+  string       name_t;
+  real         pReq_t;
+  int unsigned maxLen_t;
   
 ///////////////////////////////////////////////////////////////////////////////
 // helper tasks
@@ -89,7 +97,9 @@ module tb;
   task automatic randomUniformTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    $display("random uniform traffic\nrequest prob=%.2f", p);
+    name_t   = "random uniform";
+    pReq_t   = p;
+    maxLen_t = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -132,7 +142,9 @@ module tb;
   task automatic linearTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    $display("linear sweep test\nrequest prob=%.2f", p);
+    name_t   = "linear sweep";
+    pReq_t   = p;
+    maxLen_t = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -174,7 +186,9 @@ module tb;
   task automatic linearRandTest(input int NumCycles, input real p, input int maxLen);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    $display("linear bursts with random length and offset\nrequest prob=%.2f, max burst len=%0d", p, maxLen);
+    name_t   = "random linear bursts";
+    pReq_t   = p;
+    maxLen_t = maxLen;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -226,7 +240,9 @@ module tb;
   task automatic constantTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    $display("all-to-one bank access\nrequest prob=%.2f", p);
+    name_t   = "all-to-one bank access";
+    pReq_t   = p;
+    maxLen_t = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -268,7 +284,9 @@ module tb;
   task automatic randPermTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic int unsigned addr [0:NumBanks-1];
-    $display("random permutation test, no banking conflicts\nrequest prob=%.2f", p);
+    name_t   = "random permutation test";
+    pReq_t   = p;
+    maxLen_t = 0;
     // fill with unique bank IDs
     for (int m=0; m<NumBanks; m++) begin
     	addr[m] = m<<AddrWordOff;
@@ -310,15 +328,32 @@ module tb;
     add_i = '0;
   endtask : randPermTest
 
-
-  function automatic void printStats();
+  function automatic void printStats(string file);
+    // append
+    int fp = $fopen(file,"a");
+    // print test configuration
+    $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", impl[MutImpl], NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, name_t, pReq_t, maxLen_t); 
+    $display(name_t);
+    if (maxLen_t>0) $display("p=%.2f, maxLen=%02d", pReq_t, maxLen_t);
+    else            $display("p=%.2f", pReq_t);
+    $display("sim cycles: %03d", num_cycles);
     $display("---------------------------------------");
-    $display("Stats over %03d cycles:", num_cycles);
-    for (int m=0; m<NumMaster; m++) begin
-      $display("Port %03d, num reqs: %05d, granted: %05d (estimated grant p= %.2f, avg wait cycles c= %.2f)",
+		for (int m=0; m<NumMaster; m++) begin
+      $fdisplay(fp, "Port %03d: Req=%05d Gnt=%05d p=%e Wait=%e", 
+      	m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]));
+      $display("Port %03d: Req=%05d Gnt=%05d p=%.2f Wait=%.2f", 
         m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]));
     end
+    $display("");
+    for (int s=0; s<NumBanks; s++) begin
+      $fdisplay(fp,"Bank %03d: Req=%05d Load=%e", 
+      	s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
+      $display("Bank %03d: Req=%05d Load=%.2f", 
+        s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
+    end
     $display("---------------------------------------");
+    $fdisplay(fp,"");
+    $fclose(fp);
   endfunction : printStats
 
 
@@ -387,17 +422,24 @@ module tb;
     assign wait_cnt_d[m] = (req_i[m] & ~gnt_o[m])  ? wait_cnt_q[m] + 1 : wait_cnt_q[m];
   end
 
+  // assumes that banks always grant requests
+  for (genvar s=0; s<NumBanks; s++) begin
+    assign bank_req_cnt_d[s]  = (cs_o[s])          ? bank_req_cnt_q[s]  + 1 : bank_req_cnt_q[s];
+  end
+
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_req_pending
     if(~rst_ni) begin
       pending_req_q   <= '0;
       gnt_cnt_q       <= '{default:0};
       req_cnt_q       <= '{default:0};
+      bank_req_cnt_q  <= '{default:0};
       wait_cnt_q      <= '{default:0};
       cnt_q           <= '{default:0};
     end else begin
       pending_req_q   <= pending_req_d;
       gnt_cnt_q       <= gnt_cnt_d;
       req_cnt_q       <= req_cnt_d;
+      bank_req_cnt_q  <= bank_req_cnt_d;
       wait_cnt_q      <= wait_cnt_d;
       cnt_q           <= cnt_d;
     end
@@ -536,8 +578,6 @@ end
 ///////////////////////////////////////////////////////////////////////////////
 
   initial begin : p_stim
-    automatic string impl[] = {"oldLic", "newLic", "newBfly", "newClos"};
-    
     // seq_done
     end_of_sim       = 0;
     rst_ni           = 0;
@@ -553,6 +593,7 @@ end
     $display("DataWidth:      %0d",  DataWidth    );
     $display("MemAddrBits:    %0d",  MemAddrBits  );
     $display("TestCycles:     %0d",  TestCycles   );
+    $display("StatsFile:      %s",   StatsFile    );
 
     // reset cycles
     `APPL_WAIT_CYC(clk_i,1)
@@ -567,38 +608,38 @@ end
     ///////////////////////////////////////////////
     // uniform traffic
     randomUniformTest(TestCycles, 0.125);
-    printStats();
+    printStats(StatsFile);
     randomUniformTest(TestCycles, 0.25);
-    printStats();
+    printStats(StatsFile);
     randomUniformTest(TestCycles, 0.5);
-    printStats();
+    printStats(StatsFile);
     randomUniformTest(TestCycles, 1.0);
-    printStats();
+    printStats(StatsFile);
     ///////////////////////////////////////////////
     // random permutations (no banking conflicts)
     randPermTest(TestCycles, 0.125);
-    printStats();
+    printStats(StatsFile);
     randPermTest(TestCycles, 0.25);
-    printStats();
+    printStats(StatsFile);
     randPermTest(TestCycles, 0.5);
-    printStats();
+    printStats(StatsFile);
     randPermTest(TestCycles, 1.0);
-    printStats();
+    printStats(StatsFile);
     ///////////////////////////////////////////////
 		linearRandTest(TestCycles, 0.125, 100);
-    printStats();
+    printStats(StatsFile);
     linearRandTest(TestCycles, 0.25, 100);
-    printStats();
+    printStats(StatsFile);
     linearRandTest(TestCycles, 0.5, 100);
-    printStats();
+    printStats(StatsFile);
     linearRandTest(TestCycles, 1.0, 100);
-    printStats();
+    printStats(StatsFile);
     ///////////////////////////////////////////////
   	// some special cases
     linearTest(TestCycles, 1.0);
-    printStats();
+    printStats(StatsFile);
     constantTest(TestCycles, 1.0);
-    printStats();
+    printStats(StatsFile);
     ///////////////////////////////////////////////
     end_of_sim = 1;
     $display("end test sequences");

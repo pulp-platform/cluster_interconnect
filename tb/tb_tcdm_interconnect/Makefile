@@ -1,4 +1,4 @@
-# Copyright 2018 ETH Zurich and University of Bologna.
+# Copyright 2019 ETH Zurich and University of Bologna.
 # Copyright and related rights are licensed under the Solderpad Hardware
 # License, Version 0.51 (the "License"); you may not use this file except in
 # compliance with the License.  You may obtain a copy of the License at
@@ -9,23 +9,25 @@
 # specific language governing permissions and limitations under the License.
 #
 # Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
-# Date: 15.08.2018
-# Description: Makefile for the dcache testbench.
+# Date: 21.03.2019
+# Description: Makefile for the interconnect testbench.
 
 
-library      ?= work
-toplevel     ?= tb
+batch-list   ?= batch.list
+results      ?= sim-results
+library      := work
+toplevel     := tb
 src-list     := tb.list
-batch-list   := batch.list
-results      := sim-results
 src          := $(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-)
 compile_flag += +cover+i_dut -incr -64 -nologo
 sim_opts     += -64 -coverage -classdebug -voptargs="+acc"
 questa_version ?= ${QUESTASIM_VERSION}
 incdir       +="../common/"+"../../rtl/low_latency_interco"
 #batch-name   := $(shell awk -F .  '{ print $1 }' $(batch-list))
-batch-name   := $(subst \#, , $(shell xargs printf '\n%s' < $(batch-list) | cut -d - -f 1 ))
-batch-config := $(shell xargs printf '\n%s' < $(batch-list))
+
+# filter the batch-list first
+batch-name   := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1)
+batch-config := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1-)
 
 build: clean
 	vlib${questa_version} $(library)
@@ -42,11 +44,11 @@ simc: build
 
 clean:
 	rm -rf $(library)
-
-batch-clean:
 	rm -rf $(batch-name)
 	rm -rf $(results)
+	rm -rf transcript statistics.log vsim.wlf 
 
+# runs the configurations defined in the batch-list file and gathers the statistics logs
 $(batch-name):
 	mkdir $@
 	vlib${questa_version} $@/$(library)
@@ -54,11 +56,12 @@ $(batch-name):
 	@echo $@ started
 	cd $@ && vsim${questa_version} -lib $(library) $(toplevel) -c -do "run -all; exit" $(sim_opts) > /dev/null
 	@echo $@ finished
-	cp $@/transcript $(results)/$@.log
-		
+	cp $@/transcript     $(results)/$@_transcript.log
+	cp $@/statistics.log $(results)/$@_statistics.log
 
-batch: batch-clean
-	mkdir $(results)
+
+batch: clean
+	mkdir -p $(results)
 	$(MAKE) $(batch-name)
 
-.PHONY: clean batch-clean simc sim build batch
+.PHONY: clean sim simc build batch
