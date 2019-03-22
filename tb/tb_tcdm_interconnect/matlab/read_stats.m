@@ -5,9 +5,8 @@ function [stats] = read_stats(directory)
         
     fprintf('\nreading statistics files...\n\n');
     
-    idx = 1;
-    nFiles=0;
-    stats={};
+    idx      = 1;
+    numFiles = 0;
     
     for k=1:length(statFiles)
         if ~isfile(statFiles{k})
@@ -18,46 +17,62 @@ function [stats] = read_stats(directory)
         while ~feof(fp)
             % read config
             stats.network{idx}      = fscanf(fp, 'test config:\nnet: %s\n');
-            stats.numMaster{idx}    = fscanf(fp, 'numMaster: %5d\n',1);
-            stats.numBanks{idx}     = fscanf(fp, 'numBanks: %5d\n',1);
-            stats.dataWidth{idx}    = fscanf(fp, 'dataWidth: %5d\n',1);
-            stats.memAddrBits{idx}  = fscanf(fp, 'memAddrBits:%5d\n',1);
-            stats.testCycles{idx}   = fscanf(fp, 'testCycles: %5d\n',1);
+            stats.numMaster(idx)    = fscanf(fp, 'numMaster: %5d\n',1);
+            stats.numBanks(idx)     = fscanf(fp, 'numBanks: %5d\n',1);
+            stats.dataWidth(idx)    = fscanf(fp, 'dataWidth: %5d\n',1);
+            stats.memAddrBits(idx)  = fscanf(fp, 'memAddrBits:%5d\n',1);
+            stats.testCycles(idx)   = fscanf(fp, 'testCycles: %5d\n',1);
             fscanf(fp, 'testName:\n');
             stats.testName{idx}     = '';
             c=fscanf(fp, '%c',1);
-            while c~=char(10)
+            while c~=newline
                 stats.testName{idx} = [stats.testName{idx} c];
                 c=fscanf(fp, '%c',1);
             end    
-            stats.pReq{idx}         = fscanf(fp, 'pReq: %e\n',1);
-            stats.maxLen{idx}       = fscanf(fp, 'maxLen: %d\n',1);
+            stats.pReq(idx)         = fscanf(fp, 'pReq: %e\n',1);
+            stats.maxLen(idx)       = fscanf(fp, 'maxLen: %d\n',1);
+            % append to make name unique
+            if stats.maxLen(idx) > 0
+                stats.testNameFull{idx} = [stats.testName{idx} ' (p_{req}=' num2str(stats.pReq(idx),'%.2f') ', len_{max}=' num2str(stats.maxLen(idx),'%.2f') ')'];
+            else
+                stats.testNameFull{idx} = [stats.testName{idx} ' (p_{req}=' num2str(stats.pReq(idx),'%.2f') ')'];
+            end
             % read test statistics
-            stats.ports{idx}        = fscanf(fp, 'Port %3d: Req=%5d Gnt=%5d p=%e Wait=%e\n',5*stats.numMaster{idx});
-            stats.banks{idx}        = fscanf(fp, 'Bank %03d: Req=%05d Load=%e\n',3*stats.numBanks{idx});
+            stats.ports{idx}        = reshape(fscanf(fp, 'Port %3d: Req=%5d Gnt=%5d p=%e Wait=%e\n',5*stats.numMaster(idx))',5,[])';
+            stats.ports{idx}        = stats.ports{idx}(:,2:end);
+            stats.banks{idx}        = reshape(fscanf(fp, 'Bank %03d: Req=%05d Load=%e\n',3*stats.numBanks(idx))',3,[])';
+            stats.banks{idx}        = stats.banks{idx}(:,2:end);
             fscanf(fp, '\n');
             idx=idx+1;
         end
         fclose(fp);
-        nFiles=nFiles+1;
+        numFiles=numFiles+1;
     end 
     
     % get some meta info
     % network types and number of runs
     stats.netTypes = sortrows(unique(stats.network)')';
-    stats.nFiles   = nFiles;
+    stats.numNetTypes = length(stats.netTypes);
+    
+    stats.testNames         = sortrows(unique(stats.testName)')';
+    stats.numTestNames      = length(stats.testNames);
+    stats.testNamesFull     = sortrows(unique(stats.testNameFull)')';
+    stats.numTestNamesFull  = length(stats.testNamesFull);
+    
+    stats.numFiles = numFiles;
     stats.numRuns  = idx-1;
     stats.configs  = {};
     order=[];
     % network configurations in terms of nMaster x nBanks
     for k=1:stats.numRuns
-        stats.configs  = [stats.configs {[num2str(stats.numMaster{k}) 'x' num2str(stats.numBanks{k})]}];
-        order(k)       = stats.numMaster{k}*stats.numBanks{k};
+        stats.configs  = [stats.configs {[num2str(stats.numMaster(k)) 'x' num2str(stats.numBanks(k))]}];
+        order(k)       = stats.numMaster(k)*1e6 + stats.numBanks(k);
     end    
     % sort the configs
     [stats.configLabels, idx, ~] = unique(stats.configs);
     [~,idx]                      = sortrows(order(idx)');
     stats.configLabels           = stats.configLabels(idx);
+    stats.numConfigs             = length(stats.configLabels);
     
     % sort according to networks
     [~,idx]                 = sortrows(stats.network');
@@ -68,12 +83,14 @@ function [stats] = read_stats(directory)
     stats.memAddrBits       = stats.memAddrBits(idx);
     stats.testCycles        = stats.testCycles(idx);
     stats.testName          = stats.testName(idx);
+    stats.testNameFull      = stats.testNameFull(idx);
     stats.pReq              = stats.pReq(idx);
     stats.maxLen            = stats.maxLen(idx);
     stats.ports             = stats.ports(idx);
     stats.banks             = stats.banks(idx);
     stats.configs           = stats.configs(idx);
     order                   = order(idx);
+    
     % sort nMaster x nBank configs within network type
     for k = 1:length(stats.netTypes)
         tst     = strcmp(stats.netTypes{k}, stats.network);
@@ -92,6 +109,8 @@ function [stats] = read_stats(directory)
         stats.testCycles(tst)  = tmp(idx);
         tmp                    = stats.testName(tst);
         stats.testName(tst)    = tmp(idx);
+        tmp                    = stats.testNameFull(tst);
+        stats.testNameFull(tst)= tmp(idx);
         tmp                    = stats.pReq(tst);
         stats.pReq(tst)        = tmp(idx);
         tmp                    = stats.maxLen(tst);
@@ -102,7 +121,45 @@ function [stats] = read_stats(directory)
         stats.banks(tst)       = tmp(idx);
         tmp                    = stats.configs(tst);
         stats.configs(tst)     = tmp(idx);
-    end    
+    end
+    
+    % sort tests names
+    for k = 1:length(stats.netTypes)
+        for l = 1:length(stats.numTestNamesFull)
+            tst     = strcmp(stats.netTypes{k}, stats.network) & ... 
+                      strcmp(stats.testNamesFull{l}, stats.testNameFull); 
+                      
+            [~,idx] = sortrows(stats.testNameFull(tst)');
+            tmp                    = stats.network(tst);
+            stats.network(tst)     = tmp(idx);
+            tmp                    = stats.numMaster(tst);
+            stats.numMaster(tst)   = tmp(idx);
+            tmp                    = stats.numBanks(tst);
+            stats.numBanks(tst)    = tmp(idx);
+            tmp                    = stats.dataWidth(tst);
+            stats.dataWidth(tst)   = tmp(idx);
+            tmp                    = stats.memAddrBits(tst);
+            stats.memAddrBits(tst) = tmp(idx);
+            tmp                    = stats.testCycles(tst);
+            stats.testCycles(tst)  = tmp(idx);
+            tmp                    = stats.testName(tst);
+            stats.testName(tst)    = tmp(idx);
+            tmp                    = stats.testNameFull(tst);
+            stats.testNameFull(tst)= tmp(idx);
+            tmp                    = stats.pReq(tst);
+            stats.pReq(tst)        = tmp(idx);
+            tmp                    = stats.maxLen(tst);
+            stats.maxLen(tst)      = tmp(idx);
+            tmp                    = stats.ports(tst);
+            stats.ports(tst)       = tmp(idx);
+            tmp                    = stats.banks(tst);
+            stats.banks(tst)       = tmp(idx);
+            tmp                    = stats.configs(tst);
+            stats.configs(tst)     = tmp(idx);
+        end    
+    end
+    
+    
 
-    fprintf('\nread %d files with %d simulation runs\n\n', stats.nFiles, stats.numRuns);
+    fprintf('\nread %d files with %d simulation runs\n\n', stats.numFiles, stats.numRuns);
 end

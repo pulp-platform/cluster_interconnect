@@ -240,7 +240,7 @@ module tb;
   task automatic constantTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    name_t   = "all-to-one bank access";
+    name_t   = "all-to-one";
     pReq_t   = p;
     maxLen_t = 0;
     // reset the interconnect state, set number of vectors
