@@ -46,7 +46,7 @@ simc: build
 clean:
 	rm -rf $(library)
 	rm -rf $(batch-name)
-	rm -rf transcript statistics.log vsim.wlf 
+	rm -rf transcript statistics.log vsim.wlf modelsim.ini
 
 clean-all: clean
 	rm -rf $(results)
