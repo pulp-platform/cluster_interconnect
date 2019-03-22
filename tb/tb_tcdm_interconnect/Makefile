@@ -12,18 +12,19 @@
 # Date: 21.03.2019
 # Description: Makefile for the interconnect testbench.
 
+batch-list     ?= batch.list
+results        ?= sim-results
+library        := work
+toplevel       := tb
+src-list       := tb.list
+src            := $(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-)
 
-batch-list   ?= batch.list
-results      ?= sim-results
-library      := work
-toplevel     := tb
-src-list     := tb.list
-src          := $(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-)
-compile_flag += +cover+i_dut -incr -64 -nologo
-sim_opts     += -64 -coverage -classdebug -voptargs="+acc"
-questa_version ?= ${QUESTASIM_VERSION}
-incdir       +="../common/"+"../../rtl/low_latency_interco"
-#batch-name   := $(shell awk -F .  '{ print $1 }' $(batch-list))
+matlab_version ?= -2018b
+
+questa_version ?= -10.7b
+compile_flag   += +cover+i_dut -incr -64 -nologo
+sim_opts       += -64 -coverage -classdebug -voptargs="+acc"
+incdir         +="../common/"+"../../rtl/low_latency_interco"
 
 # filter the batch-list first
 batch-name   := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1)
@@ -45,9 +46,11 @@ simc: build
 clean:
 	rm -rf $(library)
 	rm -rf $(batch-name)
-	rm -rf $(results)
 	rm -rf transcript statistics.log vsim.wlf 
 
+clean-all: clean
+	rm -rf $(results)
+	
 # runs the configurations defined in the batch-list file and gathers the statistics logs
 $(batch-name):
 	mkdir $@
@@ -64,4 +67,7 @@ batch: clean
 	mkdir -p $(results)
 	$(MAKE) $(batch-name)
 
-.PHONY: clean sim simc build batch
+plot: 
+	matlab$(matlab_version) -nosplash -nodesktop -r "addpath(genpath('./matlab')); run plot_sims.m"
+
+.PHONY: clean sim simc build batch plot

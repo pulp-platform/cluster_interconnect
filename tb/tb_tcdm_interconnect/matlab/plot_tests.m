@@ -1,7 +1,24 @@
-function [] = plot_tests(stats, configFilter)
+function [] = plot_tests(stats, configLabels)
+    
+    fprintf('\n');
 
     if nargin < 2
-        configFilter = [];
+        configLabels = stats.configLabels;
+    else
+        % check whether these exist
+        tmp = {};
+        order = [];
+        for k = 1:length(configLabels)
+            if any(strcmp(configLabels{k},stats.configLabels))
+                tmp = [tmp configLabels(k)];
+                y=sscanf(configLabels{k},'%dx%d');
+                order = [order y(1)*1e6+y(2)];
+            else
+                warning('config %s not found in batch results, skipping config...', configLabels{k});
+            end    
+        end
+        [~,idx]=sortrows(order');
+        configLabels = tmp(idx);
     end
 
     skip = 0.5;
@@ -10,6 +27,8 @@ function [] = plot_tests(stats, configFilter)
     close;
     
     figure;
+    totalP   = [];
+    totalW   = [];
     totalRes = [];
     totalX   = [];
     labels   = {};
@@ -17,18 +36,14 @@ function [] = plot_tests(stats, configFilter)
     pReq     = [];
     pReqPos  = [];
     for k=1:stats.numTestNamesFull
+        p=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
+        w=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
         res=[];
-        for c=1:stats.numConfigs
+        for c=1:length(configLabels)
             for n=1:stats.numNetTypes
-                if any(configFilter) 
-                    if ~strcmp(stats.configLabels{c}, configFilter)
-                        continue;
-                    end
-                end
-                
-                tst = strcmp(stats.testNamesFull{k}, stats.testNameFull)   & ...
-                      strcmp(stats.configLabels{c}, stats.configs)         & ...
-                      strcmp(stats.netTypes{n}, stats.network)             ;
+                tst = strcmp(stats.testNamesFull{k}, stats.testNameFull)& ...
+                      strcmp(configLabels{c}, stats.configs)            & ...
+                      strcmp(stats.netTypes{n}, stats.network)          ;
                     
                 if sum(tst)>2
                     error('selection not unique');
@@ -37,12 +52,16 @@ function [] = plot_tests(stats, configFilter)
                 idx = find(tst,1);  
                 res(c,n,1) = mean(stats.ports{idx}(:,3));
                 res(c,n,2) = mean(stats.ports{idx}(:,4));
+                p(n+(c-1)*stats.numNetTypes,1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
+                w(n+(c-1)*stats.numNetTypes,1:length(stats.ports{idx}(:,4))) = stats.ports{idx}(:,4);
             end
             tests  = [tests stats.testName{idx}];
-            labels = [labels stats.configLabels{c}]; 
+            labels = [labels configLabels{c}]; 
         end
         totalRes = cat(1, totalRes, res);
-        x = (1:stats.numConfigs)+(k-1)*(stats.numConfigs+skip);
+        totalP   = cat(1, totalP, p);
+        totalW   = cat(1, totalW, w);
+        x = (1:length(configLabels))+(k-1)*(length(configLabels)+skip);
         totalX = [totalX x];
         pReq     = [pReq  stats.pReq(idx)];
         pReqPos  = [pReqPos mean(x)];
@@ -70,16 +89,16 @@ function [] = plot_tests(stats, configFilter)
     box on;
     
     % plot black lines
-    ax=axis();
-    ax(1) = totalX(1)-1;
-    ax(2) = totalX(end)+1;
-    ax(3) = 0;
-    ax(4) = yMax;
-    axis(ax);
+    a=axis();
+    a(1) = totalX(1)-1;
+    a(2) = totalX(end)+1;
+    a(3) = 0;
+    a(4) = yMax;
+    axis(a);
     for k=0:0.2:1
-        plot(ax(1:2),[1 1].*k,':k');
+        plot(a(1:2),[1 1].*k,':k');
     end
-    plot(ax(1:2),[1 1],'k');
+    plot(a(1:2),[1 1],'k');
     
     % print request probs
     for k=1:length(pReq)
@@ -97,6 +116,10 @@ function [] = plot_tests(stats, configFilter)
         end
     end
     
+    % boxplot
+%     b=boxplot(totalP');
+    
+    set(gca,'FontSize',8);
     ylabel('p');
     title('average grant probability');
     xticks(totalX);
@@ -107,7 +130,7 @@ function [] = plot_tests(stats, configFilter)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% avg wait cycles
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-    yMax = 2;
+    yMax = 100;
     subplot(2,1,2);
     hold on;
     
@@ -126,19 +149,23 @@ function [] = plot_tests(stats, configFilter)
     box on;
     
     % plot black lines
-    ax=axis();
-    ax(1) = totalX(1)-1;
-    ax(2) = totalX(end)+1;
-    ax(3) = 0.01;
-    ax(4) = yMax;
-    axis(ax);
-    for k=0:0.1:1
-        plot(ax(1:2),[1 1].*k,':k');
-    end
-    for k=0:0.01:0.1
-        plot(ax(1:2),[1 1].*k,':k');
-    end
-    plot(ax(1:2),[1 1],'k');
+    a=axis();
+    a(1) = totalX(1)-1;
+    a(2) = totalX(end)+1;
+    a(3) = 0.01;
+    a(4) = yMax;
+    axis(a);
+    for j=log10(a(3)):log10(a(4))
+        for k=10^j:10^j:10^(j+1)
+            % leave some space for the text
+            if k > max(max(max(totalRes(:,:,2))))
+                continue;
+            end    
+            plot(a(1:2),[1 1].*k,':k');
+        end
+    end    
+    
+    plot(a(1:2),[1 1],'k');
     
     % print request probs
     for k=1:length(pReq)
@@ -156,6 +183,7 @@ function [] = plot_tests(stats, configFilter)
         end
     end
     
+    set(gca,'FontSize',8);
     ylabel('cycles')
     title('average wait cycles');
     set(gca,'yscale','log')
@@ -168,7 +196,7 @@ function [] = plot_tests(stats, configFilter)
     %% avg wait cycles
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    set(gcf,'position',[200,300,100+1400,300+600]);
+    set(gcf,'position',[0,0,1600,1000]);
     
     
 end
