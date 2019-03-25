@@ -24,6 +24,16 @@ module tb;
   timeprecision 1ps;
 
 `ifdef BATCH_SIM
+	`ifndef DATA_WIDTH
+		`define DATA_WIDTH 32
+	`endif
+	`ifndef MEM_ADDR_BITS
+		`define MEM_ADDR_BITS 12
+	`endif
+	`ifndef TEST_CYCLES
+		`define TEST_CYCLES 2000
+	`endif
+
   // tcdm configuration
   localparam MutImpl        = `MUT_IMPL;
   localparam NumBanks       = `NUM_MASTER * `BANK_FACT;
@@ -32,12 +42,12 @@ module tb;
   localparam MemAddrBits    = `MEM_ADDR_BITS;
   localparam TestCycles     = `TEST_CYCLES;
 `else
-  localparam MutImpl        = 1; // {"oldLic", "newLic", "newBfly", "newClos"}
-  localparam NumBanks       = 16;
-  localparam NumMaster      = 8;
+  localparam MutImpl        = 3; // {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
+  localparam NumBanks       = 32;
+  localparam NumMaster      = 16;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
-  localparam TestCycles     = 10000;
+  localparam TestCycles     = 2000;
 `endif
 
 	localparam StatsFile      = "statistics.log";
@@ -48,7 +58,7 @@ module tb;
   localparam int unsigned ClosM = 2*ClosN;
   localparam int unsigned ClosR = 2**$clog2(NumBanks / ClosN);
 
-  localparam string impl[] = {"oldLic", "newLic", "newBfly", "newClos"};
+  localparam string impl[] = {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
 
 ///////////////////////////////////////////////////////////////////////////////
 // MUT signal declarations
@@ -465,7 +475,7 @@ module tb;
 // MUT
 ///////////////////////////////////////////////////////////////////////////////
 
-if (MutImpl==0)  begin : g_oldLic
+if (MutImpl==0)  begin : g_lic_old
   tcdm_xbar_wrap #(
     .NumMaster     ( NumMaster   ),
     .NumSlave      ( NumBanks    ),
@@ -483,14 +493,15 @@ if (MutImpl==0)  begin : g_oldLic
     .gnt_o   ( gnt_o   ),
     .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
-    .cs_o    ( cs_o    ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
     .add_o   ( add_o   ),
     .wen_o   ( wen_o   ),
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
   );
-end else if (MutImpl == 1) begin : g_newLic
+end else if (MutImpl == 1) begin : g_lic
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -509,14 +520,15 @@ end else if (MutImpl == 1) begin : g_newLic
     .gnt_o   ( gnt_o   ),
     .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
-    .cs_o    ( cs_o    ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
     .add_o   ( add_o   ),
     .wen_o   ( wen_o   ),
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
   );
-end else if (MutImpl == 2) begin : g_newBfly
+end else if (MutImpl == 2) begin : g_bfly
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -533,16 +545,17 @@ end else if (MutImpl == 2) begin : g_newBfly
     .wdata_i ( wdata_i ),
     .be_i    ( be_i    ),
     .gnt_o   ( gnt_o   ),
-    .vld_o   ( vld_o  ),
+    .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
-    .cs_o    ( cs_o    ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
     .add_o   ( add_o   ),
     .wen_o   ( wen_o   ),
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
   );
-end else if (MutImpl == 3) begin : g_newClos
+end else if (MutImpl == 3) begin : g_clos_m2n
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -550,9 +563,7 @@ end else if (MutImpl == 3) begin : g_newClos
     .DataWidth     ( DataWidth   ),
     .AddrMemWidth  ( MemAddrBits ),
     .Topology      ( 2           ),
-    .ClosN         ( ClosN       ),
-    .ClosM         ( ClosM       ),
-    .ClosR         ( ClosR       )
+    .ClosRedFact   ( 2.0         )
   ) i_tcdm_interconnect (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),
@@ -562,15 +573,72 @@ end else if (MutImpl == 3) begin : g_newClos
     .wdata_i ( wdata_i ),
     .be_i    ( be_i    ),
     .gnt_o   ( gnt_o   ),
-    .vld_o   ( vld_o  ),
+    .vld_o   ( vld_o   ),
     .rdata_o ( rdata_o ),
-    .cs_o    ( cs_o    ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
     .add_o   ( add_o   ),
     .wen_o   ( wen_o   ),
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
   );
+end else if (MutImpl == 4) begin : g_clos_m1n
+  tcdm_interconnect #(
+    .NumIn         ( NumMaster   ),
+    .NumOut        ( NumBanks    ),
+    .AddrWidth     ( DataWidth   ),
+    .DataWidth     ( DataWidth   ),
+    .AddrMemWidth  ( MemAddrBits ),
+    .Topology      ( 2           ),
+    .ClosRedFact   ( 1.0         )
+  ) i_tcdm_interconnect (
+    .clk_i   ( clk_i   ),
+    .rst_ni  ( rst_ni  ),
+    .req_i   ( req_i   ),
+    .add_i   ( add_i   ),
+    .wen_i   ( wen_i   ),
+    .wdata_i ( wdata_i ),
+    .be_i    ( be_i    ),
+    .gnt_o   ( gnt_o   ),
+    .vld_o   ( vld_o   ),
+    .rdata_o ( rdata_o ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
+    .add_o   ( add_o   ),
+    .wen_o   ( wen_o   ),
+    .wdata_o ( wdata_o ),
+    .be_o    ( be_o    ),
+    .rdata_i ( rdata_i )
+  );  
+end else if (MutImpl == 5) begin : g_clos_m0p5n
+  tcdm_interconnect #(
+    .NumIn         ( NumMaster   ),
+    .NumOut        ( NumBanks    ),
+    .AddrWidth     ( DataWidth   ),
+    .DataWidth     ( DataWidth   ),
+    .AddrMemWidth  ( MemAddrBits ),
+    .Topology      ( 2           ),
+    .ClosRedFact   ( 0.5         )
+  ) i_tcdm_interconnect (
+    .clk_i   ( clk_i   ),
+    .rst_ni  ( rst_ni  ),
+    .req_i   ( req_i   ),
+    .add_i   ( add_i   ),
+    .wen_i   ( wen_i   ),
+    .wdata_i ( wdata_i ),
+    .be_i    ( be_i    ),
+    .gnt_o   ( gnt_o   ),
+    .vld_o   ( vld_o   ),
+    .rdata_o ( rdata_o ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
+    .add_o   ( add_o   ),
+    .wen_o   ( wen_o   ),
+    .wdata_o ( wdata_o ),
+    .be_o    ( be_o    ),
+    .rdata_i ( rdata_i )
+  );    
 end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -607,8 +675,8 @@ end
     // requests have successfully completed
     ///////////////////////////////////////////////
     // uniform traffic
-    randomUniformTest(TestCycles, 0.125);
-    printStats(StatsFile);
+    // randomUniformTest(TestCycles, 0.125);
+    // printStats(StatsFile);
     randomUniformTest(TestCycles, 0.25);
     printStats(StatsFile);
     randomUniformTest(TestCycles, 0.5);
@@ -617,8 +685,8 @@ end
     printStats(StatsFile);
     ///////////////////////////////////////////////
     // random permutations (no banking conflicts)
-    randPermTest(TestCycles, 0.125);
-    printStats(StatsFile);
+    // randPermTest(TestCycles, 0.125);
+    // printStats(StatsFile);
     randPermTest(TestCycles, 0.25);
     printStats(StatsFile);
     randPermTest(TestCycles, 0.5);
@@ -626,8 +694,8 @@ end
     randPermTest(TestCycles, 1.0);
     printStats(StatsFile);
     ///////////////////////////////////////////////
-		linearRandTest(TestCycles, 0.125, 100);
-    printStats(StatsFile);
+		// linearRandTest(TestCycles, 0.125, 100);
+  //   printStats(StatsFile);
     linearRandTest(TestCycles, 0.25, 100);
     printStats(StatsFile);
     linearRandTest(TestCycles, 0.5, 100);

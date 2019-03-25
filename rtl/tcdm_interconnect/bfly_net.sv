@@ -164,12 +164,12 @@ module bfly_net #(
 		    assign prio[l][r] = lfsr_q[r][0];
 		  end else begin
 		    // rotating prio arbiter
-		    assign prio[l][r] = cnt_q[l];
+		    assign prio[l][r] = cnt_q[NumLevels-l-1];
 	    end
 	  end
 	end
 
-  assign cnt_d = cnt_q + 1;
+  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
 
   for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_lfsr
 	  assign lfsr_d[r][0]    = lfsr_q[r][23] ^ lfsr_q[r][22] ^ lfsr_q[r][21] ^ lfsr_q[r][16];

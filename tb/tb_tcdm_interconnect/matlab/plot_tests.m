@@ -35,6 +35,7 @@ function [] = plot_tests(stats, configLabels)
     tests    = {};
     pReq     = [];
     pReqPos  = [];
+    
     for k=1:stats.numTestNamesFull
         p=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
         w=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
@@ -50,6 +51,9 @@ function [] = plot_tests(stats, configLabels)
                 end
                 
                 idx = find(tst,1);  
+                idx
+                configLabels{c}
+                stats.netTypes{n}
                 res(c,n,1) = mean(stats.ports{idx}(:,3));
                 res(c,n,2) = mean(stats.ports{idx}(:,4));
                 p(n+(c-1)*stats.numNetTypes,1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);

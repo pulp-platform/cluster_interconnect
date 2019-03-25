@@ -39,9 +39,10 @@ module tcdm_interconnect #(
   // 128 Banks -> N = 8,
   // 256 Banks -> N = 16,
   // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 8,
+  parameter real ClosRedFact             = 2.0,
+  parameter int unsigned ClosN           = 2**$clog2((NumOut / 2)>>1),
   // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
-  parameter int unsigned ClosM           = 2*ClosN,
+  parameter int unsigned ClosM           = int'(ClosRedFact*real'(ClosN)),
   // determined by number of outputs and N
   parameter int unsigned ClosR           = 2**$clog2(NumOut / ClosN)
 
@@ -58,7 +59,8 @@ module tcdm_interconnect #(
   output logic [NumIn-1:0]                      vld_o,     // Response valid, also asserted if write responses are enabled
   output logic [NumIn-1:0][DataWidth-1:0]       rdata_o,   // Data Response DATA (For LOAD commands)
   // slave side
-  output  logic [NumOut-1:0]                    cs_o,      // Chip select for bank
+  output  logic [NumOut-1:0]                    req_o,     // Bank request
+  input   logic [NumOut-1:0]                    gnt_i,     // Bank grant
   output  logic [NumOut-1:0][AddrMemWidth-1:0]  add_o,     // Address
   output  logic [NumOut-1:0]                    wen_o,     // 1: Store, 0: Load
   output  logic [NumOut-1:0][DataWidth-1:0]     wdata_o,   // Write data
@@ -106,8 +108,8 @@ module tcdm_interconnect #(
       .gnt_o   ( gnt_o        ),
       .rdata_o ( rdata_o      ),
       .vld_o   ( vld_o        ),
-      .gnt_i   ( '1           ),// TCDM is always ready
-      .req_o   ( cs_o         ),
+      .gnt_i   ( gnt_i        ),
+      .req_o   ( req_o        ),
       .wdata_o ( data_agg_out ),
       .rdata_i ( rdata_i      )
     );
@@ -140,7 +142,7 @@ module tcdm_interconnect #(
         .rdata_o  ( rdata_o      ),
         .vld_o    ( vld_o        ),
         .req_o    ( bfly_req     ),
-        .gnt_i    ( bfly_gnt     ), // TCDM is always ready
+        .gnt_i    ( bfly_gnt     ), 
         .add_o    ( bfly_bank    ),
         .data_o   ( bfly_wdata   ),
         .rdata_i  ( bfly_rdata   )
@@ -161,8 +163,8 @@ module tcdm_interconnect #(
         .data_i   ( bfly_wdata   ),
         .rdata_o  ( bfly_rdata   ),
         .vld_o    (              ),
-        .req_o    ( cs_o         ),
-        .gnt_i    ( cs_o         ), // TCDM is always ready
+        .req_o    ( req_o        ),
+        .gnt_i    ( gnt_i        ), 
         .add_o    (              ),
         .data_o   ( data_agg_out ),
         .rdata_i  ( rdata_i      )
@@ -184,8 +186,8 @@ module tcdm_interconnect #(
         .data_i   ( data_agg_in  ),
         .rdata_o  ( rdata_o      ),
         .vld_o    ( vld_o        ),
-        .req_o    ( cs_o         ),
-        .gnt_i    ( cs_o         ), // TCDM is always ready
+        .req_o    ( req_o        ),
+        .gnt_i    ( gnt_i        ), 
         .add_o    (              ),
         .data_o   ( data_agg_out ),
         .rdata_i  ( rdata_i      )
@@ -214,8 +216,8 @@ module tcdm_interconnect #(
       .wdata_i  ( data_agg_in  ),
       .rdata_o  ( rdata_o      ),
       .vld_o    ( vld_o        ),
-      .req_o    ( cs_o         ),
-      .gnt_i    ( cs_o         ), // TCDM is always ready
+      .req_o    ( req_o        ),
+      .gnt_i    ( gnt_i        ), 
       .wdata_o  ( data_agg_out ),
       .rdata_i  ( rdata_i      )
     );
@@ -229,9 +231,9 @@ module tcdm_interconnect #(
   end
   /////////////////////////////////////////////////////////////////////
 
-
   // pragma translate_off
   initial begin
+  	$display("Clos configuration: NumIn: %d, NumOut: %d, m=%d, n=%d, r=%d", NumIn, NumOut, ClosM, ClosN, ClosR);
     assert(AddrMemWidth+BandAddWidth+AddrMemWidth <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
     assert(2**$clog2(NumIn) == NumIn) else
