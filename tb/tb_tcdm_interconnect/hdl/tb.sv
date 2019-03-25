@@ -42,7 +42,7 @@ module tb;
   localparam MemAddrBits    = `MEM_ADDR_BITS;
   localparam TestCycles     = `TEST_CYCLES;
 `else
-  localparam MutImpl        = 3; // {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
+  localparam MutImpl        = 5; // {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
   localparam NumBanks       = 32;
   localparam NumMaster      = 16;
   localparam DataWidth      = 32;
@@ -53,10 +53,6 @@ module tb;
 	localparam StatsFile      = "statistics.log";
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
-
-  localparam int unsigned ClosN = 2**$clog2(int'($ceil($sqrt(real'(NumBanks) / 2.0))));
-  localparam int unsigned ClosM = 2*ClosN;
-  localparam int unsigned ClosR = 2**$clog2(NumBanks / ClosN);
 
   localparam string impl[] = {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
 
@@ -350,9 +346,9 @@ module tb;
     $display("---------------------------------------");
 		for (int m=0; m<NumMaster; m++) begin
       $fdisplay(fp, "Port %03d: Req=%05d Gnt=%05d p=%e Wait=%e", 
-      	m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]));
+      	m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
       $display("Port %03d: Req=%05d Gnt=%05d p=%.2f Wait=%.2f", 
-        m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]));
+        m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
     end
     $display("");
     for (int s=0; s<NumBanks; s++) begin
@@ -556,14 +552,22 @@ end else if (MutImpl == 2) begin : g_bfly
     .rdata_i ( rdata_i )
   );
 end else if (MutImpl == 3) begin : g_clos_m2n
-  tcdm_interconnect #(
+
+  localparam real         ClosRedFact = 2.0;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+  localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
+  localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
+
+	tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
     .AddrWidth     ( DataWidth   ),
     .DataWidth     ( DataWidth   ),
     .AddrMemWidth  ( MemAddrBits ),
     .Topology      ( 2           ),
-    .ClosRedFact   ( 2.0         )
+    .ClosN         ( ClosN       ),
+    .ClosM         ( ClosM       ),
+    .ClosR         ( ClosR       )
   ) i_tcdm_interconnect (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),
@@ -584,6 +588,12 @@ end else if (MutImpl == 3) begin : g_clos_m2n
     .rdata_i ( rdata_i )
   );
 end else if (MutImpl == 4) begin : g_clos_m1n
+
+  localparam real         ClosRedFact = 1.0;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+  localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
+  localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
+
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -591,7 +601,9 @@ end else if (MutImpl == 4) begin : g_clos_m1n
     .DataWidth     ( DataWidth   ),
     .AddrMemWidth  ( MemAddrBits ),
     .Topology      ( 2           ),
-    .ClosRedFact   ( 1.0         )
+    .ClosN         ( ClosN       ),
+    .ClosM         ( ClosM       ),
+    .ClosR         ( ClosR       )
   ) i_tcdm_interconnect (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),
@@ -612,6 +624,12 @@ end else if (MutImpl == 4) begin : g_clos_m1n
     .rdata_i ( rdata_i )
   );  
 end else if (MutImpl == 5) begin : g_clos_m0p5n
+
+  localparam real         ClosRedFact = 0.5;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+  localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
+  localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
+
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -619,7 +637,9 @@ end else if (MutImpl == 5) begin : g_clos_m0p5n
     .DataWidth     ( DataWidth   ),
     .AddrMemWidth  ( MemAddrBits ),
     .Topology      ( 2           ),
-    .ClosRedFact   ( 0.5         )
+    .ClosN         ( ClosN       ),
+    .ClosM         ( ClosM       ),
+    .ClosR         ( ClosR       )
   ) i_tcdm_interconnect (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),

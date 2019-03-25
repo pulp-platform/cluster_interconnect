@@ -14,21 +14,23 @@
 // (logarithmic interconnect and radix-2 butterflies)
 
 module tcdm_interconnect #(
-	// make sure NumIn and NumOut are aligned to powers of two at the moment
-  parameter int unsigned NumIn           = 64,           // number of initiator ports
-  parameter int unsigned NumOut          = 256,          // number of TCDM banks
+	///////////////////////////
+	// global parameters
+  parameter int unsigned NumIn           = 16,           // number of initiator ports (must be aligned with power of 2)
+  parameter int unsigned NumOut          = 32,           // number of TCDM banks (must be aligned with power of 2)
   parameter int unsigned AddrWidth       = 32,           // address width on initiator side
   parameter int unsigned DataWidth       = 32,           // word width of data
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 2 = clos
-	parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
-  // TCDM read latency, usually 1 cycle
-  // has no effect on butterfly topology (fixed to 1 in that case)
+  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 2-5 = clos variants
+	parameter bit          WriteRespOn     = 2,            // defines whether the interconnect returns a write response
+  // TCDM read latency, usually 1 cycle, has no effect on butterfly topology (fixed to 1 in that case)
   parameter int unsigned MemLatency      = 1,
+  ///////////////////////////
   // butterfly parameters
   // redundant stages are not fully supported yet
   parameter int unsigned RedundantStages = 0,
+  ///////////////////////////
   // classic clos parameters, make sure they are aligned with powers of 2
   // good tradeoff in terms of router complexity (when M=2N):  N = sqrt(NumOut / 2)
   // some values:
@@ -39,13 +41,12 @@ module tcdm_interconnect #(
   // 128 Banks -> N = 8,
   // 256 Banks -> N = 16,
   // 512 Banks -> N = 16
-  parameter real ClosRedFact             = 2.0,
-  parameter int unsigned ClosN           = 2**$clog2((NumOut / 2)>>1),
+  parameter int unsigned ClosN           = 4,
   // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
-  parameter int unsigned ClosM           = int'(ClosRedFact*real'(ClosN)),
+  parameter int unsigned ClosM           = 2*ClosN,
   // determined by number of outputs and N
   parameter int unsigned ClosR           = 2**$clog2(NumOut / ClosN)
-
+  ///////////////////////////
 ) (
   input  logic                                  clk_i,
   input  logic                                  rst_ni,

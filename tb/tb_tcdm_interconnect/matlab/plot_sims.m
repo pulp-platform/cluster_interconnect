@@ -10,6 +10,9 @@ plot_tests(stats);
 
 export_fig 'sim-results/all' -png -pdf
 
+%% plot only clos
+plot_tests(stats, [], {'clos(m=0.5n)', 'clos(m=n)', 'clos(m=2n)'});
+
 %% plot only banking factor 2
 plot_tests(stats, {'8x16', '16x32', '32x64', '64x128', '128x256'});
 

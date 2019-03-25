@@ -1,24 +1,44 @@
-function [] = plot_tests(stats, configLabels)
+function [] = plot_tests(stats, configLabels, netLabels)
     
     fprintf('\n');
-
+    
     if nargin < 2
         configLabels = stats.configLabels;
+        netLabels    = stats.netTypes;
     else
-        % check whether these exist
-        tmp = {};
-        order = [];
-        for k = 1:length(configLabels)
-            if any(strcmp(configLabels{k},stats.configLabels))
-                tmp = [tmp configLabels(k)];
-                y=sscanf(configLabels{k},'%dx%d');
-                order = [order y(1)*1e6+y(2)];
-            else
-                warning('config %s not found in batch results, skipping config...', configLabels{k});
-            end    
+        
+        if ~isempty(configLabels)
+            % check whether these exist
+            tmp = {};
+            order = [];
+            for k = 1:length(configLabels)
+                if any(strcmp(configLabels{k},stats.configLabels))
+                    tmp = [tmp configLabels(k)];
+                    y=sscanf(configLabels{k},'%dx%d');
+                    order = [order y(1)*1e6+y(2)];
+                else
+                    warning('config %s not found in batch results, skipping config...', configLabels{k});
+                end    
+            end
+            [~,idx]=sortrows(order');
+            configLabels = tmp(idx);
+        else 
+            configLabels = stats.configLabels;
         end
-        [~,idx]=sortrows(order');
-        configLabels = tmp(idx);
+        
+        if ~isempty(netLabels)
+            tmp = {};
+            for k = 1:length(netLabels)
+                if any(strcmp(netLabels{k},stats.netTypes))
+                    tmp = [tmp netLabels(k)];
+                else
+                    warning('netType %s not found in batch results, skipping config...', netLabels{k});
+                end    
+            end
+            netLabels = tmp;
+        else
+            netLabels    = stats.netTypes;
+        end
     end
 
     skip = 0.5;
@@ -37,14 +57,14 @@ function [] = plot_tests(stats, configLabels)
     pReqPos  = [];
     
     for k=1:stats.numTestNamesFull
-        p=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
-        w=nan(length(configLabels)*stats.numNetTypes,max(stats.numMaster));
+        p=nan(length(configLabels)*length(netLabels),max(stats.numMaster));
+        w=nan(length(configLabels)*length(netLabels),max(stats.numMaster));
         res=[];
         for c=1:length(configLabels)
-            for n=1:stats.numNetTypes
+            for n=1:length(netLabels)
                 tst = strcmp(stats.testNamesFull{k}, stats.testNameFull)& ...
                       strcmp(configLabels{c}, stats.configs)            & ...
-                      strcmp(stats.netTypes{n}, stats.network)          ;
+                      strcmp(netLabels{n}, stats.network)          ;
                     
                 if sum(tst)>2
                     error('selection not unique');
@@ -53,11 +73,11 @@ function [] = plot_tests(stats, configLabels)
                 idx = find(tst,1);  
                 idx
                 configLabels{c}
-                stats.netTypes{n}
+                netLabels{n}
                 res(c,n,1) = mean(stats.ports{idx}(:,3));
                 res(c,n,2) = mean(stats.ports{idx}(:,4));
-                p(n+(c-1)*stats.numNetTypes,1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
-                w(n+(c-1)*stats.numNetTypes,1:length(stats.ports{idx}(:,4))) = stats.ports{idx}(:,4);
+                p(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
+                w(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,4))) = stats.ports{idx}(:,4);
             end
             tests  = [tests stats.testName{idx}];
             labels = [labels configLabels{c}]; 
@@ -112,11 +132,11 @@ function [] = plot_tests(stats, configLabels)
     % bar plot
     b=bar(totalX, totalRes(:,:,1));
     for l=1:length(b)
-        b(l).DisplayName = stats.netTypes{l};
+        b(l).DisplayName = netLabels{l};
         for j=1:size(b(l).CData,1)
             b(l).FaceColor = 'flat';
             b(l).LineStyle = 'none';
-            b(l).CData(j,:) = cols(mod(l-1,stats.numNetTypes)+1,:);
+            b(l).CData(j,:) = cols(mod(l-1,length(netLabels))+1,:);
         end
     end
     
@@ -179,11 +199,11 @@ function [] = plot_tests(stats, configLabels)
     % bar plot
     b=bar(totalX, totalRes(:,:,2));
     for l=1:length(b)
-        b(l).DisplayName = stats.netTypes{l};
+        b(l).DisplayName = netLabels{l};
         for j=1:size(b(l).CData,1)
             b(l).FaceColor = 'flat';
             b(l).LineStyle = 'none';
-            b(l).CData(j,:) = cols(mod(l-1,stats.numNetTypes)+1,:);
+            b(l).CData(j,:) = cols(mod(l-1,length(netLabels))+1,:);
         end
     end
     

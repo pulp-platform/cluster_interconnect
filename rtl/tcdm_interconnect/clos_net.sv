@@ -30,7 +30,7 @@ module clos_net #(
   // 128 Banks -> N = 8,
   // 256 Banks -> N = 16,
   // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 8,
+  parameter int unsigned ClosN           = 4,
   // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
   parameter int unsigned ClosM           = 2*ClosN,
   // determined by number of outputs and N
@@ -76,13 +76,13 @@ logic [ClosR-1:0][ClosM-1:0][ReqDataWidth-1:0]   egress_req_data;
 logic [ClosR-1:0][ClosM-1:0][RespDataWidth-1:0]  egress_resp_data;
 
 
-for (genvar k=0; k<NumIn; k++) begin : g_cat
+for (genvar k=0; unsigned'(k)<NumIn; k++) begin : g_cat
   assign add_wdata[k] = {add_i[k], wdata_i[k]};
 end
 
 // inter level connections
-for (genvar m=0; m<ClosM; m++) begin : g_connect1
-  for (genvar r=0; r<ClosR; r++) begin : g_connect2
+for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_connect1
+  for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_connect2
     // ingress to/from middle
     // get bank address slice for next stage (middle stage contains RxR routers)
     assign ingress_add[r][m]         = ingress_req_data[r][m][ReqDataWidth+$clog2(NumOut)-1 :
@@ -108,7 +108,7 @@ for (genvar m=0; m<ClosM; m++) begin : g_connect1
   end
 end
 
-for (genvar r=0; r<ClosR; r++) begin : g_ingress
+for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
 
   localparam NumInNode = ClosN / BankFact;
 
@@ -137,7 +137,7 @@ for (genvar r=0; r<ClosR; r++) begin : g_ingress
   );
 end
 
-for (genvar m=0; m<ClosM; m++) begin : g_middle
+for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   clos_node #(
   .NumIn         ( ClosR                          ),
   .NumOut        ( ClosR                          ),
@@ -162,7 +162,7 @@ for (genvar m=0; m<ClosM; m++) begin : g_middle
   );
 end
 
-for (genvar r=0; r<ClosR; r++) begin : g_egress
+for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   clos_node #(
   .NumIn         ( ClosM         ),
   .NumOut        ( ClosN         ),
