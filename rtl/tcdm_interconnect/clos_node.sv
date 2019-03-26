@@ -14,13 +14,14 @@
 // parameterized as ingress, middle and egress node.
 
 module clos_node #(
-  parameter int unsigned NumIn           = 4,            // Only powers of two permitted
-  parameter int unsigned NumOut          = 4,            // Only powers of two permitted
+  parameter int unsigned NumIn           = 4,            // only powers of two permitted
+  parameter int unsigned NumOut          = 4,            // only powers of two permitted
   parameter int unsigned ReqDataWidth    = 32,           // word width of data
   parameter int unsigned RespDataWidth   = 32,           // word width of data
   parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
   parameter int unsigned MemLatency      = 1,
-  parameter bit          NodeType        = 0             // 0: ingress type, 1: middle / egress type
+  parameter bit          NodeType        = 0,            // 0: ingress type, 1: middle / egress type
+  parameter bit          ExtPrio         = 1'b0          // enable external prio flag input
 ) (
   input  logic                                  clk_i,
   input  logic                                  rst_ni,
@@ -33,10 +34,11 @@ module clos_node #(
   output logic [NumIn-1:0]                      vld_o,     // Response valid, also asserted if write responses are enabled
   output logic [NumIn-1:0][RespDataWidth-1:0]   rdata_o,   // Data Response DATA (For LOAD commands)
   // slave side
-  input   logic [NumOut-1:0]                    gnt_i,     // Grant input
-  output  logic [NumOut-1:0]                    req_o,     // Request out
-  output  logic [NumOut-1:0][ReqDataWidth-1:0]  wdata_o,   // Data request Wire data
-  input   logic [NumOut-1:0][RespDataWidth-1:0] rdata_i    // Data Response DATA (For LOAD commands)
+  input  logic [NumOut-1:0][$clog2(NumIn)-1:0]  rr_i,      // External prio input
+  input  logic [NumOut-1:0]                     gnt_i,     // Grant input
+  output logic [NumOut-1:0]                     req_o,     // Request out
+  output logic [NumOut-1:0][ReqDataWidth-1:0]   wdata_o,   // Data request Wire data
+  input  logic [NumOut-1:0][RespDataWidth-1:0]  rdata_i    // Data Response DATA (For LOAD commands)
 );
 
   logic [NumOut-1:0][NumIn-1:0][ReqDataWidth-1:0] sl_data;
@@ -80,20 +82,28 @@ module clos_node #(
   // loop over slaves (endpoints)
   // instantiate an RR arbiter for each endpoint
   for (genvar k=0; unsigned'(k)<NumOut; k++) begin : g_outputs
-    rr_arb_tree #(
-      .NumIn     ( NumIn        ),
-      .DataWidth ( ReqDataWidth )
-    ) i_rr_arb_tree (
-      .clk_i  ( clk_i      ),
-      .rst_ni ( rst_ni     ),
-      .req_i  ( sl_req[k]  ),
-      .gnt_o  ( sl_gnt[k]  ),
-      .data_i ( sl_data[k] ),
-      .gnt_i  ( gnt_i[k]   ),
-      .req_o  ( req_o[k]   ),
-      .data_o ( wdata_o[k] ),
-      .idx_o  (            )// disabled
-    );
+    if(NumIn==1) begin
+      assign req_o[k]      = sl_req[k][0];
+      assign sl_gnt[k][0]  = gnt_i[k];
+      assign wdata_o[k]    = sl_data[k][0];
+    end else begin
+      rr_arb_tree #(
+        .NumIn     ( NumIn        ),
+        .DataWidth ( ReqDataWidth ),
+        .ExtPrio   ( ExtPrio      )
+      ) i_rr_arb_tree (
+        .clk_i  ( clk_i      ),
+        .rst_ni ( rst_ni     ),
+        .rr_i   ( rr_i[k]    ),
+        .req_i  ( sl_req[k]  ),
+        .gnt_o  ( sl_gnt[k]  ),
+        .data_i ( sl_data[k] ),
+        .gnt_i  ( gnt_i[k]   ),
+        .req_o  ( req_o[k]   ),
+        .data_o ( wdata_o[k] ),
+        .idx_o  (            )// disabled
+      );
+    end
   end
 
   // pragma translate_off

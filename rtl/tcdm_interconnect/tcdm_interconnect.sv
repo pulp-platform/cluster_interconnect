@@ -16,13 +16,13 @@
 module tcdm_interconnect #(
 	///////////////////////////
 	// global parameters
-  parameter int unsigned NumIn           = 16,           // number of initiator ports (must be aligned with power of 2)
-  parameter int unsigned NumOut          = 32,           // number of TCDM banks (must be aligned with power of 2)
+  parameter int unsigned NumIn           = 32,           // number of initiator ports (must be aligned with power of 2)
+  parameter int unsigned NumOut          = 64,           // number of TCDM banks (must be aligned with power of 2)
   parameter int unsigned AddrWidth       = 32,           // address width on initiator side
   parameter int unsigned DataWidth       = 32,           // word width of data
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 2-5 = clos variants
+  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 3 = clos
 	parameter bit          WriteRespOn     = 2,            // defines whether the interconnect returns a write response
   // TCDM read latency, usually 1 cycle, has no effect on butterfly topology (fixed to 1 in that case)
   parameter int unsigned MemLatency      = 1,
@@ -32,8 +32,8 @@ module tcdm_interconnect #(
   parameter int unsigned RedundantStages = 0,
   ///////////////////////////
   // classic clos parameters, make sure they are aligned with powers of 2
-  // good tradeoff in terms of router complexity (when M=2N):  N = sqrt(NumOut / 2)
-  // some values:
+  // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
+  // some values (banking factor of 2):
   // 8  Banks -> N = 2,
   // 16 Banks -> N = 4,
   // 32 Banks -> N = 4,
@@ -41,7 +41,7 @@ module tcdm_interconnect #(
   // 128 Banks -> N = 8,
   // 256 Banks -> N = 16,
   // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 4,
+  parameter int unsigned ClosN           = 8,
   // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
   parameter int unsigned ClosM           = 2*ClosN,
   // determined by number of outputs and N
@@ -108,6 +108,7 @@ module tcdm_interconnect #(
       .wdata_i ( data_agg_in  ),
       .gnt_o   ( gnt_o        ),
       .rdata_o ( rdata_o      ),
+      .rr_i    ( '0           ),
       .vld_o   ( vld_o        ),
       .gnt_i   ( gnt_i        ),
       .req_o   ( req_o        ),
@@ -143,7 +144,7 @@ module tcdm_interconnect #(
         .rdata_o  ( rdata_o      ),
         .vld_o    ( vld_o        ),
         .req_o    ( bfly_req     ),
-        .gnt_i    ( bfly_gnt     ), 
+        .gnt_i    ( bfly_gnt     ),
         .add_o    ( bfly_bank    ),
         .data_o   ( bfly_wdata   ),
         .rdata_i  ( bfly_rdata   )
@@ -165,7 +166,7 @@ module tcdm_interconnect #(
         .rdata_o  ( bfly_rdata   ),
         .vld_o    (              ),
         .req_o    ( req_o        ),
-        .gnt_i    ( gnt_i        ), 
+        .gnt_i    ( gnt_i        ),
         .add_o    (              ),
         .data_o   ( data_agg_out ),
         .rdata_i  ( rdata_i      )
@@ -188,7 +189,7 @@ module tcdm_interconnect #(
         .rdata_o  ( rdata_o      ),
         .vld_o    ( vld_o        ),
         .req_o    ( req_o        ),
-        .gnt_i    ( gnt_i        ), 
+        .gnt_i    ( gnt_i        ),
         .add_o    (              ),
         .data_o   ( data_agg_out ),
         .rdata_i  ( rdata_i      )
@@ -218,7 +219,7 @@ module tcdm_interconnect #(
       .rdata_o  ( rdata_o      ),
       .vld_o    ( vld_o        ),
       .req_o    ( req_o        ),
-      .gnt_i    ( gnt_i        ), 
+      .gnt_i    ( gnt_i        ),
       .wdata_o  ( data_agg_out ),
       .rdata_i  ( rdata_i      )
     );
@@ -234,13 +235,14 @@ module tcdm_interconnect #(
 
   // pragma translate_off
   initial begin
-  	$display("Clos configuration: NumIn: %d, NumOut: %d, m=%d, n=%d, r=%d", NumIn, NumOut, ClosM, ClosN, ClosR);
-    assert(AddrMemWidth+BandAddWidth+AddrMemWidth <= AddrWidth) else
+  	assert(AddrMemWidth+BandAddWidth+AddrMemWidth <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
     assert(2**$clog2(NumIn) == NumIn) else
       $fatal(1,"NumIn is not aligned with a power of 2.");
     assert(2**$clog2(NumOut) == NumOut) else
       $fatal(1,"NumOut is not aligned with a power of 2.");
+    assert(NumOut >= NumIn) else
+      $fatal(1,"NumOut < NumIn is not supported.");
   end
   // pragma translate_on
 

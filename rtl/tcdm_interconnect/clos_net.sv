@@ -21,8 +21,8 @@ module clos_net #(
   parameter int unsigned MemLatency      = 1,
   parameter int unsigned BankFact        = NumOut/NumIn, // leave as is
   // classic clos parameters, make sure they are aligned with powers of 2
-  // good tradeoff in terms of router complexity (when M=2N):  N = sqrt(NumOut / 2)
-  // some values:
+  // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
+  // some values (banking factor of 2):
   // 8  Banks -> N = 2,
   // 16 Banks -> N = 4,
   // 32 Banks -> N = 4,
@@ -75,7 +75,6 @@ logic [ClosR-1:0][ClosM-1:0][$clog2(ClosN)-1:0]  egress_add;
 logic [ClosR-1:0][ClosM-1:0][ReqDataWidth-1:0]   egress_req_data;
 logic [ClosR-1:0][ClosM-1:0][RespDataWidth-1:0]  egress_resp_data;
 
-
 for (genvar k=0; unsigned'(k)<NumIn; k++) begin : g_cat
   assign add_wdata[k] = {add_i[k], wdata_i[k]};
 end
@@ -108,10 +107,16 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_connect1
   end
 end
 
+localparam NumInNode = ClosN / BankFact;
+
+logic [ClosM-1:0][$clog2(NumInNode)-1:0] rr_ingress;
+if (NumInNode>1) begin
+  for (genvar m=0; m<ClosM; m++) begin
+    assign rr_ingress[m] = (m % NumInNode);
+  end
+end
+
 for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
-
-  localparam NumInNode = ClosN / BankFact;
-
   clos_node #(
   .NumIn         ( NumInNode                     ),
   .NumOut        ( ClosM                         ),
@@ -119,7 +124,8 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
   .RespDataWidth ( RespDataWidth                 ),
   .WriteRespOn   ( WriteRespOn                   ),
   .MemLatency    ( MemLatency                    ),
-  .NodeType      ( 0                             ) // ingress node
+  .NodeType      ( 0                             ), // ingress node
+  .ExtPrio       ( ClosM >= NumInNode            )
   ) i_ingress_node (
     .clk_i   ( clk_i                                 ),
     .rst_ni  ( rst_ni                                ),
@@ -130,6 +136,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
     .gnt_o   ( gnt_o[NumInNode * r +: NumInNode]     ),
     .vld_o   ( vld_o[NumInNode * r +: NumInNode]     ),
     .rdata_o ( rdata_o[NumInNode * r +: NumInNode]   ),
+    .rr_i    ( rr_ingress                            ),
     .gnt_i   ( ingress_gnt[r]                        ),
     .req_o   ( ingress_req[r]                        ),
     .wdata_o ( ingress_req_data[r]                   ),
@@ -144,7 +151,8 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
   .RespDataWidth ( RespDataWidth                  ),
   .MemLatency    ( MemLatency                     ),
-  .NodeType      ( 1                              ) // middle node
+  .NodeType      ( 1                              ), // middle node
+  .ExtPrio       ( 1'b0                           )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
@@ -155,6 +163,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
     .gnt_o   ( middle_gnt_out[m]       ),
     .vld_o   (                         ),
     .rdata_o ( middle_resp_data_out[m] ),
+    .rr_i    ( '0                      ),
     .gnt_i   ( middle_gnt_in[m]        ),
     .req_o   ( middle_req_out[m]       ),
     .wdata_o ( middle_req_data_out[m]  ),
@@ -169,7 +178,8 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   .ReqDataWidth  ( ReqDataWidth  ),
   .RespDataWidth ( RespDataWidth ),
   .MemLatency    ( MemLatency    ),
-  .NodeType      ( 1             ) // egress node
+  .NodeType      ( 1             ), // egress node
+  .ExtPrio       ( 1'b0          )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),
@@ -180,6 +190,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
     .gnt_o   ( egress_gnt[r]               ),
     .vld_o   (                             ),
     .rdata_o ( egress_resp_data[r]         ),
+    .rr_i    ( '0                          ),
     .gnt_i   ( gnt_i[ClosN * r +: ClosN]   ),
     .req_o   ( req_o[ClosN * r +: ClosN]   ),
     .wdata_o ( wdata_o[ClosN * r +: ClosN] ),
@@ -187,16 +198,18 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   );
 end
 
-  // pragma translate_off
-  initial begin
-    assert(2**$clog2(ClosN) == ClosN) else
-      $fatal(1,"ClosN is not aligned with a power of 2.");
-    assert(2**$clog2(ClosM) == ClosM) else
-      $fatal(1,"ClosM is not aligned with a power of 2.");
-    assert(2**$clog2(ClosR) == ClosR) else
-      $fatal(1,"ClosR is not aligned with a power of 2.");
-  end
-  // pragma translate_on
+// pragma translate_off
+initial begin
+	$display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
+
+  assert(2**$clog2(ClosN) == ClosN) else
+    $fatal(1,"ClosN is not aligned with a power of 2.");
+  assert(2**$clog2(ClosM) == ClosM) else
+    $fatal(1,"ClosM is not aligned with a power of 2.");
+  assert(2**$clog2(ClosR) == ClosR) else
+    $fatal(1,"ClosR is not aligned with a power of 2.");
+end
+// pragma translate_on
 
 
 endmodule

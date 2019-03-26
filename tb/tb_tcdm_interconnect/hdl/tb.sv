@@ -31,7 +31,7 @@ module tb;
 		`define MEM_ADDR_BITS 12
 	`endif
 	`ifndef TEST_CYCLES
-		`define TEST_CYCLES 2000
+		`define TEST_CYCLES 5000
 	`endif
 
   // tcdm configuration
@@ -43,18 +43,18 @@ module tb;
   localparam TestCycles     = `TEST_CYCLES;
 `else
   localparam MutImpl        = 5; // {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
-  localparam NumBanks       = 32;
+  localparam NumBanks       = 16;
   localparam NumMaster      = 16;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
-  localparam TestCycles     = 2000;
+  localparam TestCycles     = 5000;
 `endif
 
 	localparam StatsFile      = "statistics.log";
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
 
-  localparam string impl[] = {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
+  localparam string impl[] = {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(2m=n)"};
 
 ///////////////////////////////////////////////////////////////////////////////
 // MUT signal declarations
@@ -94,7 +94,7 @@ module tb;
   string       name_t;
   real         pReq_t;
   int unsigned maxLen_t;
-  
+
 ///////////////////////////////////////////////////////////////////////////////
 // helper tasks
 ///////////////////////////////////////////////////////////////////////////////
@@ -296,7 +296,7 @@ module tb;
     // fill with unique bank IDs
     for (int m=0; m<NumBanks; m++) begin
     	addr[m] = m<<AddrWordOff;
-    end	
+    end
 		// reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -338,23 +338,23 @@ module tb;
     // append
     int fp = $fopen(file,"a");
     // print test configuration
-    $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", impl[MutImpl], NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, name_t, pReq_t, maxLen_t); 
+    $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", impl[MutImpl], NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, name_t, pReq_t, maxLen_t);
     $display(name_t);
     if (maxLen_t>0) $display("p=%.2f, maxLen=%02d", pReq_t, maxLen_t);
     else            $display("p=%.2f", pReq_t);
     $display("sim cycles: %03d", num_cycles);
     $display("---------------------------------------");
 		for (int m=0; m<NumMaster; m++) begin
-      $fdisplay(fp, "Port %03d: Req=%05d Gnt=%05d p=%e Wait=%e", 
+      $fdisplay(fp, "Port %03d: Req=%05d Gnt=%05d p=%e Wait=%e",
       	m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
-      $display("Port %03d: Req=%05d Gnt=%05d p=%.2f Wait=%.2f", 
+      $display("Port %03d: Req=%05d Gnt=%05d p=%.2f Wait=%.2f",
         m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
     end
     $display("");
     for (int s=0; s<NumBanks; s++) begin
-      $fdisplay(fp,"Bank %03d: Req=%05d Load=%e", 
+      $fdisplay(fp,"Bank %03d: Req=%05d Load=%e",
       	s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
-      $display("Bank %03d: Req=%05d Load=%.2f", 
+      $display("Bank %03d: Req=%05d Load=%.2f",
         s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
     end
     $display("---------------------------------------");
@@ -553,8 +553,10 @@ end else if (MutImpl == 2) begin : g_bfly
   );
 end else if (MutImpl == 3) begin : g_clos_m2n
 
-  localparam real         ClosRedFact = 2.0;
-  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+	// calculate optimal clos config
+	localparam real         ClosRedFact = 2.0;
+  localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
   localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
   localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
 
@@ -589,8 +591,10 @@ end else if (MutImpl == 3) begin : g_clos_m2n
   );
 end else if (MutImpl == 4) begin : g_clos_m1n
 
+	// calculate optimal clos config
   localparam real         ClosRedFact = 1.0;
-  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+  localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
   localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
   localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
 
@@ -622,11 +626,13 @@ end else if (MutImpl == 4) begin : g_clos_m1n
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
-  );  
+  );
 end else if (MutImpl == 5) begin : g_clos_m0p5n
 
+	// calculate optimal clos config
   localparam real         ClosRedFact = 0.5;
-  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/2.0)));
+  localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
+  localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
   localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
   localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
 
@@ -658,7 +664,7 @@ end else if (MutImpl == 5) begin : g_clos_m0p5n
     .wdata_o ( wdata_o ),
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
-  );    
+  );
 end
 
 ///////////////////////////////////////////////////////////////////////////////

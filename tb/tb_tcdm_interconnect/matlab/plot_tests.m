@@ -1,5 +1,20 @@
 function [] = plot_tests(stats, configLabels, netLabels)
     
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% global plot configs
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    altGrey = [0.8, 0.9];
+    skip = 0.5;
+
+    cols=colormap('lines');
+    close;
+    figure;
+    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% preprocess args
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    
     fprintf('\n');
     
     if nargin < 2
@@ -41,12 +56,10 @@ function [] = plot_tests(stats, configLabels, netLabels)
         end
     end
 
-    skip = 0.5;
-
-    cols=colormap('lines');
-    close;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %% gather results
+    %%%%%%%%%%%%%%%%%%%%%%%%%%% 
     
-    figure;
     totalP   = [];
     totalW   = [];
     totalRes = [];
@@ -71,9 +84,6 @@ function [] = plot_tests(stats, configLabels, netLabels)
                 end
                 
                 idx = find(tst,1);  
-                idx
-                configLabels{c}
-                netLabels{n}
                 res(c,n,1) = mean(stats.ports{idx}(:,3));
                 res(c,n,2) = mean(stats.ports{idx}(:,4));
                 p(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
@@ -98,7 +108,6 @@ function [] = plot_tests(stats, configLabels, netLabels)
     subplot(2,1,1);
     hold on;
     
-    altGrey = [0.6, 0.8];
     % print test base name
     for t=1:stats.numTestNames
         tst=strcmp(stats.testNames{t},tests);
@@ -158,7 +167,6 @@ function [] = plot_tests(stats, configLabels, netLabels)
     subplot(2,1,2);
     hold on;
     
-    altGrey = [0.6, 0.8];
     % print test base name
     for t=1:stats.numTestNames
         tst=strcmp(stats.testNames{t},tests);
@@ -182,7 +190,7 @@ function [] = plot_tests(stats, configLabels, netLabels)
     for j=log10(a(3)):log10(a(4))
         for k=10^j:10^j:10^(j+1)
             % leave some space for the text
-            if k > max(max(max(totalRes(:,:,2))))
+            if k > max(max(max(totalRes(:,:,2))))+10^j
                 continue;
             end    
             plot(a(1:2),[1 1].*k,':k');

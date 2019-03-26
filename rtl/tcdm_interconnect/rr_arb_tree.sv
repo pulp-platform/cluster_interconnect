@@ -15,10 +15,13 @@
 module rr_arb_tree #(
   parameter int unsigned NumIn      = 32,
   parameter int unsigned DataWidth  = 32,
-  parameter bit          SelIdxOut  = 1'b0  // outputs selected index
+  parameter bit          SelIdxOut  = 1'b0, // outputs selected index
+  parameter bit          ExtPrio    = 1'b0
 ) (
   input  logic                             clk_i,
   input  logic                             rst_ni,
+  // external RR prio (needs to be enabled above)
+  input  logic [$clog2(NumIn)-1:0]         rr_i, 
   // input requests and data
   input  logic [NumIn-1:0]                 req_i,
   output logic [NumIn-1:0]                 gnt_o,
@@ -42,8 +45,22 @@ module rr_arb_tree #(
   assign req_o        = (NumLevels > 0)             ? req_nodes[0]   : 1'b0;
   assign data_o       = (NumLevels > 0)             ? data_nodes[0]  : '0;
   assign idx_o        = (NumLevels > 0 & SelIdxOut) ? index_nodes[0] : '0;
-  assign rr_d         = (gnt_i & req_o)             ? ((rr_q == NumIn-1) ? '0 : rr_q + 1) : rr_q;
-  // assign rr_d         = (gnt_i & req_o)             ? index_nodes[0] : rr_q;
+  
+  if (ExtPrio) begin
+  	assign rr_d       = rr_i;
+		assign rr_q       = rr_i;
+	end else begin
+		assign rr_d       = (gnt_i & req_o)             ? ((rr_q == NumIn-1) ? '0 : rr_q + 1) : rr_q;
+  	
+  	always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
+	    if(~rst_ni) begin
+	      rr_q <= '0;
+	    end else begin
+	      rr_q <= rr_d;
+	    end
+	  end  
+	end	
+
   assign gnt_nodes[0] = gnt_i;
 
   // arbiter tree
@@ -96,14 +113,6 @@ module rr_arb_tree #(
         assign gnt_nodes[idx1+1] = gnt_nodes[idx0] & sel;
       end
       //////////////////////////////////////////////////////////////
-    end
-  end
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if(~rst_ni) begin
-      rr_q <= '0;
-    end else begin
-      rr_q <= rr_d;
     end
   end
 
