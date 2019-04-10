@@ -29,15 +29,16 @@ module tcdm_xbar_wrap #(
     input  logic [NumMaster-1:0][DataWidth-1:0]    wdata_i,   // Data request Write data
     input  logic [NumMaster-1:0][BeWidth-1:0]      be_i,      // Data request Byte enable
     output logic [NumMaster-1:0]                   gnt_o,     // Grant Incoming Request
-    output logic [NumMaster-1:0]                   rvld_o,    // Data Response Valid (For LOAD/STORE commands)
+    output logic [NumMaster-1:0]                   vld_o,     // Data Response Valid (For LOAD/STORE commands)
     output logic [NumMaster-1:0][DataWidth-1:0]    rdata_o,   // Data Response DATA (For LOAD commands)
     // slave side
-    output  logic [NumSlave-1:0]                   cs_o,      // Chip select for bank
-    output  logic [NumSlave-1:0][AddrMemWidth-1:0] add_o,     // Data request Address
-    output  logic [NumSlave-1:0]                   wen_o,     // Data request type : 0--> Store, 1 --> Load
-    output  logic [NumSlave-1:0][DataWidth-1:0]    wdata_o,   // Data request Wire data
-    output  logic [NumSlave-1:0][BeWidth-1:0]      be_o,      // Data request Byte enable
-    input   logic [NumSlave-1:0][DataWidth-1:0]    rdata_i    // Data Response DATA (For LOAD commands)
+    output logic [NumSlave-1:0]                    req_o,      // Reuest for bank
+    input  logic [NumSlave-1:0]                    gnt_i,      // Grant input
+    output logic [NumSlave-1:0][AddrMemWidth-1:0]  add_o,      // Data request Address
+    output logic [NumSlave-1:0]                    wen_o,      // Data request type : 0--> Store, 1 --> Load
+    output logic [NumSlave-1:0][DataWidth-1:0]     wdata_o,    // Data request Wire data
+    output logic [NumSlave-1:0][BeWidth-1:0]       be_o,       // Data request Byte enable
+    input  logic [NumSlave-1:0][DataWidth-1:0]     rdata_i     // Data Response DATA (For LOAD commands)
 );
 
   logic [NumSlave-1:0][NumMaster-1:0] id_d, id_q;
@@ -45,7 +46,7 @@ module tcdm_xbar_wrap #(
   logic [NumMaster-1:0][AddrWidth:0] add;
 
 
-  assign vld_d = cs_o;
+  assign vld_d = req_o & gnt_i;
 
   // disable test and set
   for (genvar k=0; k<NumMaster; k++) begin
@@ -68,16 +69,16 @@ module tcdm_xbar_wrap #(
     .data_wdata_i      ( wdata_i       ),
     .data_be_i         ( be_i          ),
     .data_gnt_o        ( gnt_o         ),
-    .data_r_valid_o    ( rvld_o        ),
+    .data_r_valid_o    ( vld_o         ),
     .data_r_rdata_o    ( rdata_o       ),
-    .data_req_o        ( cs_o          ),
+    .data_req_o        ( req_o         ),
     .data_ts_set_o     (               ),
     .data_add_o        ( add_o         ),
     .data_wen_o        ( wen_o         ),
     .data_wdata_o      ( wdata_o       ),
     .data_be_o         ( be_o          ),
     .data_ID_o         ( id_d          ),
-    .data_gnt_i        ( '1            ), // TCDM is always ready
+    .data_gnt_i        ( gnt_i         ),
     .data_r_rdata_i    ( rdata_i       ),
     .data_r_valid_i    ( vld_q         ),
     .data_r_ID_i       ( id_q          ),

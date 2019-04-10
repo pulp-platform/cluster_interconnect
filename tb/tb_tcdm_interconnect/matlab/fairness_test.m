@@ -18,7 +18,7 @@ function [idx] = fairness_test(stats, tol)
         idx = [idx k];    
     end
     
-    if ~isempty(str)
+    if ~isempty(failingTests)
         fprintf(['\n\nSome tests have failed:\n', failingTests]);
     else
         fprintf('\n\nAll tests passed with tol=%.2f!\n', tol);

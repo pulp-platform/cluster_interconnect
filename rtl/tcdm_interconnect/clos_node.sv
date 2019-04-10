@@ -92,16 +92,17 @@ module clos_node #(
         .DataWidth ( ReqDataWidth ),
         .ExtPrio   ( ExtPrio      )
       ) i_rr_arb_tree (
-        .clk_i  ( clk_i      ),
-        .rst_ni ( rst_ni     ),
-        .rr_i   ( rr_i[k]    ),
-        .req_i  ( sl_req[k]  ),
-        .gnt_o  ( sl_gnt[k]  ),
-        .data_i ( sl_data[k] ),
-        .gnt_i  ( gnt_i[k]   ),
-        .req_o  ( req_o[k]   ),
-        .data_o ( wdata_o[k] ),
-        .idx_o  (            )// disabled
+        .clk_i   ( clk_i      ),
+        .rst_ni  ( rst_ni     ),
+        .flush_i ( 1'b0       ),
+        .rr_i    ( rr_i[k]    ),
+        .req_i   ( sl_req[k]  ),
+        .gnt_o   ( sl_gnt[k]  ),
+        .data_i  ( sl_data[k] ),
+        .gnt_i   ( gnt_i[k]   ),
+        .req_o   ( req_o[k]   ),
+        .data_o  ( wdata_o[k] ),
+        .idx_o   (            )// disabled
       );
     end
   end

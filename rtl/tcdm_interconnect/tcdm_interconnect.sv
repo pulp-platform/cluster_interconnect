@@ -16,8 +16,8 @@
 module tcdm_interconnect #(
 	///////////////////////////
 	// global parameters
-  parameter int unsigned NumIn           = 32,           // number of initiator ports (must be aligned with power of 2)
-  parameter int unsigned NumOut          = 64,           // number of TCDM banks (must be aligned with power of 2)
+  parameter int unsigned NumIn           = 128,          // number of initiator ports (must be aligned with power of 2)
+  parameter int unsigned NumOut          = 256,          // number of TCDM banks (must be aligned with power of 2)
   parameter int unsigned AddrWidth       = 32,           // address width on initiator side
   parameter int unsigned DataWidth       = 32,           // word width of data
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
@@ -29,7 +29,8 @@ module tcdm_interconnect #(
   ///////////////////////////
   // butterfly parameters
   // redundant stages are not fully supported yet
-  parameter int unsigned RedundantStages = 0,
+  parameter int unsigned RedStages       = 0,
+  parameter int unsigned NumPar          = 1,
   ///////////////////////////
   // classic clos parameters, make sure they are aligned with powers of 2
   // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
@@ -41,7 +42,7 @@ module tcdm_interconnect #(
   // 128 Banks -> N = 8,
   // 256 Banks -> N = 16,
   // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 8,
+  parameter int unsigned ClosN           = 16,
   // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
   parameter int unsigned ClosM           = 2*ClosN,
   // determined by number of outputs and N
@@ -69,18 +70,18 @@ module tcdm_interconnect #(
   input   logic [NumOut-1:0][DataWidth-1:0]     rdata_i    // Read data
 );
 
-  localparam int unsigned BandAddWidth  = $clog2(NumOut);
+  localparam int unsigned BankAddWidth  = $clog2(NumOut);
   localparam int unsigned AddrWordOff   = $clog2(DataWidth-1)-3;
   localparam int unsigned AggDataWidth  = 1+BeWidth+AddrMemWidth+DataWidth;
   logic [NumIn-1:0][AggDataWidth-1:0]  data_agg_in;
   logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
-  logic [NumIn-1:0][BandAddWidth-1:0] bank_sel;
+  logic [NumIn-1:0][BankAddWidth-1:0] bank_sel;
 
   for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
     // extract bank index
-    assign bank_sel[j] = add_i[j][AddrWordOff+BandAddWidth-1:AddrWordOff];
+    assign bank_sel[j] = add_i[j][AddrWordOff+BankAddWidth-1:AddrWordOff];
     // aggregate data to be routed to slaves
-    assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][AddrWordOff+BandAddWidth+AddrMemWidth-1:AddrWordOff+BandAddWidth], wdata_i[j]};
+    assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][AddrWordOff+BankAddWidth+AddrMemWidth-1:AddrWordOff+BankAddWidth], wdata_i[j]};
   end
 
   // disaggregate data
@@ -119,20 +120,20 @@ module tcdm_interconnect #(
   // scalable interconnect using a (redundant) butterfly network
   end else if (Topology==1) begin : g_bfly
 
-    if (RedundantStages>0) begin : g_redundant
+    if (RedStages>0) begin : g_redundant
       logic [NumOut-1:0][AggDataWidth-1:0]  bfly_wdata;
       logic [NumOut-1:0][DataWidth-1:0]     bfly_rdata;
-      logic [NumOut-1:0][BandAddWidth-1:0] bfly_bank;
+      logic [NumOut-1:0][BankAddWidth-1:0] bfly_bank;
       logic [NumOut-1:0]  bfly_req, bfly_gnt;
 
-      // redundant stage
+      // redundant stages
       bfly_net #(
         .NumIn           ( NumIn           ),
         .NumOut          ( NumOut          ),
         .ReqDataWidth    ( AggDataWidth    ),
         .RespDataWidth   ( DataWidth       ),
         .WriteRespOn     ( WriteRespOn     ),
-        .RedundantStages ( RedundantStages )
+        .RedStages       ( RedStages       )
       ) i_bfly_net_red (
         .clk_i    ( clk_i        ),
         .rst_ni   ( rst_ni       ),
@@ -176,8 +177,7 @@ module tcdm_interconnect #(
         .NumIn         ( NumIn        ),
         .NumOut        ( NumOut       ),
         .ReqDataWidth  ( AggDataWidth ),
-        .RespDataWidth ( DataWidth    ),
-        .WriteRespOn   ( WriteRespOn  )
+        .RespDataWidth ( DataWidth    )
       ) i_bfly_net (
         .clk_i    ( clk_i        ),
         .rst_ni   ( rst_ni       ),
@@ -196,8 +196,7 @@ module tcdm_interconnect #(
       );
     end
   /////////////////////////////////////////////////////////////////////
-  // optimum collision free clos (m=n) with optimum router
-  // size (aligned to powers of 2)
+  // clos network
   end else if (Topology==2) begin : g_clos
     clos_net #(
       .NumIn         ( NumIn        ),
@@ -224,6 +223,139 @@ module tcdm_interconnect #(
       .rdata_i  ( rdata_i      )
     );
   /////////////////////////////////////////////////////////////////////
+  // parallel butterflies
+  end else if (Topology==3) begin : g_par_bfly
+
+    localparam int unsigned NumPerSlice = NumIn/NumPar;
+    logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
+    logic [NumOut-1:0][NumPar-1:0][DataWidth-1:0]     rdata1;
+    logic [NumOut-1:0][NumPar-1:0] gnt1, req1;
+
+    logic [NumPar-1:0][NumOut-1:0][AggDataWidth-1:0]  data1_trsp;
+    logic [NumPar-1:0][NumOut-1:0][DataWidth-1:0]     rdata1_trsp;
+    logic [NumPar-1:0][NumOut-1:0] gnt1_trsp, req1_trsp;
+
+    for (genvar j=0; j<NumPar; j++) begin : g_bfly_net
+      if (RedStages>0) begin : g_redundant
+        logic [NumOut-1:0][AggDataWidth-1:0]  bfly_wdata;
+        logic [NumOut-1:0][DataWidth-1:0]     bfly_rdata;
+        logic [NumOut-1:0][BankAddWidth-1:0] bfly_bank;
+        logic [NumOut-1:0]  bfly_req, bfly_gnt;
+
+        // redundant stages
+        bfly_net #(
+          .NumIn           ( NumPerSlice     ),
+          .NumOut          ( NumOut          ),
+          .ReqDataWidth    ( AggDataWidth    ),
+          .RespDataWidth   ( DataWidth       ),
+          .WriteRespOn     ( WriteRespOn     ),
+          .RedStages       ( RedStages       )
+        ) i_bfly_net_red (
+          .clk_i    ( clk_i        ),
+          .rst_ni   ( rst_ni       ),
+          .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
+          .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
+          .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
+          .wen_i    ( wen_i[j*NumPerSlice +: NumPerSlice  ]      ),
+          .data_i   ( data_agg_in[j*NumPerSlice +: NumPerSlice ] ),
+          .rdata_o  ( rdata_o[j*NumPerSlice +: NumPerSlice ]     ),
+          .vld_o    ( vld_o[j*NumPerSlice +: NumPerSlice  ]      ),
+          .req_o    ( bfly_req     ),
+          .gnt_i    ( bfly_gnt     ),
+          .add_o    ( bfly_bank    ),
+          .data_o   ( bfly_wdata   ),
+          .rdata_i  ( bfly_rdata   )
+        );
+
+        bfly_net #(
+          .NumIn         ( NumOut       ),
+          .NumOut        ( NumOut       ),
+          .ReqDataWidth  ( AggDataWidth ),
+          .RespDataWidth ( DataWidth    )
+        ) i_bfly_net (
+          .clk_i    ( clk_i          ),
+          .rst_ni   ( rst_ni         ),
+          .req_i    ( bfly_req       ),
+          .gnt_o    ( bfly_gnt       ),
+          .add_i    ( bfly_bank      ),
+          .wen_i    ( '0             ),
+          .data_i   ( bfly_wdata     ),
+          .rdata_o  ( bfly_rdata     ),
+          .vld_o    (                ),
+          .req_o    ( req1_trsp[j]   ),
+          .gnt_i    ( gnt1_trsp[j]   ),
+          .add_o    (                ),
+          .data_o   ( data1_trsp[j]  ),
+          .rdata_i  ( rdata1_trsp[j] )
+        );
+      end else begin
+        bfly_net #(
+          .NumIn         ( NumPerSlice  ),
+          .NumOut        ( NumOut       ),
+          .ReqDataWidth  ( AggDataWidth ),
+          .RespDataWidth ( DataWidth    ),
+          .WriteRespOn   ( WriteRespOn  )
+        ) i_bfly_net (
+          .clk_i    ( clk_i             ),
+          .rst_ni   ( rst_ni            ),
+          .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
+          .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
+          .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
+          .wen_i    ( wen_i[j*NumPerSlice +: NumPerSlice  ]      ),
+          .data_i   ( data_agg_in[j*NumPerSlice +: NumPerSlice ] ),
+          .rdata_o  ( rdata_o[j*NumPerSlice +: NumPerSlice ]     ),
+          .vld_o    ( vld_o[j*NumPerSlice +: NumPerSlice  ]      ),
+          .req_o    ( req1_trsp[j]      ),
+          .gnt_i    ( gnt1_trsp[j]      ),
+          .add_o    (                   ),
+          .data_o   ( data1_trsp[j]     ),
+          .rdata_i  ( rdata1_trsp[j]    )
+        );
+      end
+    end
+    // logic [$clog2(NumPar)-1+(NumPar==1):0] rr_d, rr_q;
+
+    // assign rr_d = rr_q + 1;
+
+    // always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
+    //   if(~rst_ni) begin
+    //     rr_q <= '0;
+    //   end else begin
+    //     rr_q <= rr_d;
+    //   end
+    // end
+
+    for (genvar k=0; k<NumOut; k++) begin : g_mux
+      rr_arb_tree #(
+        .NumIn     ( NumPar       ),
+        .DataWidth ( AggDataWidth ),
+        .ExtPrio   ( 1'b0         )
+      ) i_rr_arb_tree (
+        .clk_i   ( clk_i           ),
+        .rst_ni  ( rst_ni          ),
+        .flush_i ( 1'b0            ),
+        .rr_i    ( '0              ),
+        .req_i   ( req1[k]         ),
+        .gnt_o   ( gnt1[k]         ),
+        .data_i  ( data1[k]        ),
+        .gnt_i   ( gnt_i[k]        ),
+        .req_o   ( req_o[k]        ),
+        .data_o  ( data_agg_out[k] ),
+        .idx_o   (                 )// disabled
+      );
+
+      assign rdata1[k] = {NumPar{rdata_i[k]}};
+
+      for (genvar j=0; j<NumPar; j++) begin : g_trsp1
+        // request
+        assign data1[k][j] = data1_trsp[j][k];
+        assign req1[k][j]  = req1_trsp[j][k];
+        // return
+        assign rdata1_trsp[j][k] = rdata1[k][j];
+        assign gnt1_trsp[j][k]   = gnt1[k][j];
+      end
+    end
+  /////////////////////////////////////////////////////////////////////
   end else begin : g_unknown
     // pragma translate_off
     initial begin
@@ -235,7 +367,7 @@ module tcdm_interconnect #(
 
   // pragma translate_off
   initial begin
-  	assert(AddrMemWidth+BandAddWidth+AddrMemWidth <= AddrWidth) else
+  	assert(AddrMemWidth+BankAddWidth+AddrMemWidth <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
     assert(2**$clog2(NumIn) == NumIn) else
       $fatal(1,"NumIn is not aligned with a power of 2.");
@@ -243,6 +375,10 @@ module tcdm_interconnect #(
       $fatal(1,"NumOut is not aligned with a power of 2.");
     assert(NumOut >= NumIn) else
       $fatal(1,"NumOut < NumIn is not supported.");
+    assert(NumPar >= 1) else
+      $fatal(1,"NumPar must be greater or equal 1.");
+    assert(RedStages >=0 && RedStages <= $clog2(NumOut)) else
+      $fatal(1,"RedStages must be within [0,..., clog2(NumOut)].");
   end
   // pragma translate_on
 

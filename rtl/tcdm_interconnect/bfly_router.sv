@@ -16,7 +16,13 @@ module bfly_router #(
   parameter int unsigned AddWidth      = 4,
   parameter int unsigned ReqDataWidth  = 32,
   parameter int unsigned RespDataWidth = 32,
-  parameter bit unsigned IsRedundant   = 0
+  // redundant layers do not route according to address,
+  // but just use the prio to select an output
+  parameter bit unsigned IsRedundant   = 0,
+  // in case of broadcast, all free outputs are
+  // used to place arequest if this router is on a
+  // redundant layer
+  parameter bit unsigned BroadCastOn   = 0
 ) (
   input  logic                           clk_i,
   input  logic                           rst_ni,
@@ -35,42 +41,76 @@ module bfly_router #(
   input  logic [1:0][RespDataWidth-1:0]  rdata_i
 );
 
+  logic bcast;
   logic sel_d, sel_q;
-	logic [23:0] lfsr_d, lfsr_q;
 
 	if (IsRedundant) begin
 		// leave routing address unchanged in this case
-	  assign add_o[0]   = (sel_d) ? add_i[1]   : add_i[0];
-	  assign add_o[1]   = (sel_d) ? add_i[0]   : add_i[1];
-	end else begin
-  	assign add_o[0]   = (sel_d) ? add_i[1]<<1   : add_i[0]<<1;
-	  assign add_o[1]   = (sel_d) ? add_i[0]<<1   : add_i[1]<<1;
-	end
+    assign add_o[0]   = (sel_d)       ? add_i[1]    : add_i[0];
+    assign add_o[1]   = (sel_d^bcast) ? add_i[0]    : add_i[1];
+    assign data_o[0]  = (sel_d)       ? data_i[1]   : data_i[0];
+    assign data_o[1]  = (sel_d^bcast) ? data_i[0]   : data_i[1];
+    assign gnt_o[0]   = (sel_d)       ? gnt_i[1] & ~bcast           : gnt_i[0] | gnt_i[1] & bcast;
+    assign gnt_o[1]   = (sel_d)       ? gnt_i[0] | gnt_i[1] & bcast : gnt_i[1] & ~bcast;
+  end else begin
+    // if this is not a redundant layer
+    // shift addr bits as we progress through the network layers
+    // the first layer uses the MSB and the last layer the LSB for routing
+    assign add_o[0]   = (sel_d) ? add_i[1]<<1 : add_i[0]<<1;
+	  assign add_o[1]   = (sel_d) ? add_i[0]<<1 : add_i[1]<<1;
+	  assign data_o[0]  = (sel_d) ? data_i[1]   : data_i[0];
+    assign data_o[1]  = (sel_d) ? data_i[0]   : data_i[1];
+    assign gnt_o[0]   = (sel_d) ? gnt_i[1]    : gnt_i[0];
+    assign gnt_o[1]   = (sel_d) ? gnt_i[0]    : gnt_i[1];
+  end
 
-  assign data_o[0]  = (sel_d) ? data_i[1]  : data_i[0];
-  assign data_o[1]  = (sel_d) ? data_i[0]  : data_i[1];
-  assign gnt_o[0]   = (sel_d) ? gnt_i[1]   : gnt_i[0];
-  assign gnt_o[1]   = (sel_d) ? gnt_i[0]   : gnt_i[1];
   // next cycle
   assign rdata_o[0] = (sel_q) ? rdata_i[1] : rdata_i[0];
   assign rdata_o[1] = (sel_q) ? rdata_i[0] : rdata_i[1];
 
 	always_comb begin : p_router
+    // default
+    bcast = 1'b0;
+    sel_d = 1'b0;
   	if (IsRedundant) begin
-    	sel_d       = prio_i;
-			req_o[0]    = (sel_d) ? req_i[1]   : req_i[0];
-			req_o[1]    = (sel_d) ? req_i[0]   : req_i[1];
-		end else begin	
-	    // default
-	    sel_d = 1'b0;
-
+      if (BroadCastOn) begin
+        // in case of broadcast always request on all req ports,
+        // and in case of a tie use external prio signal to resolve
+        req_o[0]    = req_i[0] | req_i[1];
+        req_o[1]    = req_i[0] | req_i[1];
+        unique casez ({prio_i,
+                       req_i[0],
+                       req_i[1]})
+          // only request from input 0
+          3'b?10: begin
+            bcast  = 1'b1;;
+            sel_d = 1'b0;
+          end
+          // only request from input 1
+          3'b?01: begin
+            bcast  = 1'b1;
+            sel_d  = 1'b1;
+          end
+          // conflicts, need to arbitrate
+          3'b?11: begin
+            bcast  = 1'b0;
+            sel_d  = prio_i;
+          end
+          default: ;
+        endcase
+      end else begin
+        sel_d       = prio_i;
+        req_o[0]    = (prio_i) ? req_i[1] : req_i[0];
+        req_o[1]    = (prio_i) ? req_i[0] : req_i[1];
+      end
+    end else begin
 	    // propagate requests
 	    req_o[0] = (req_i[0] & ~add_i[0][AddWidth-1]) |
 	               (req_i[1] & ~add_i[1][AddWidth-1]);
 	    req_o[1] = (req_i[0] & add_i[0][AddWidth-1])  |
 	               (req_i[1] & add_i[1][AddWidth-1]);
 
-	    // routing logic
+	    // arbiter logic
 	    unique casez ({prio_i,
 	                   req_i[0],
 	                   req_i[1],
@@ -87,16 +127,20 @@ module bfly_router #(
 	      5'b11100: sel_d  = 1'b1;
 	      default: ;
 	    endcase
-	  end  
+	  end
   end
 
  	always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs1
 	  if(~rst_ni) begin
-	  	sel_q <= '0;
+	  	sel_q   <= '0;
 	  end else begin
 	   	if (|req_i) begin
-	    	sel_q <= sel_d;
-	    end	
+        if (bcast) begin
+	    	  sel_q   <= sel_d ^ gnt_i[1];
+        end else begin
+          sel_q   <= sel_d;
+        end
+	    end
 	  end
 	end
 

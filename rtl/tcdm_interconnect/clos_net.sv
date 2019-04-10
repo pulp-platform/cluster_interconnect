@@ -109,10 +109,20 @@ end
 
 localparam NumInNode = ClosN / BankFact;
 
-logic [ClosM-1:0][$clog2(NumInNode)-1:0] rr_ingress;
-if (NumInNode>1) begin
+logic [ClosR-1:0][$clog2(NumInNode)-1:0] rr_ing_tmp;
+logic [ClosR-1:0][ClosM-1:0][$clog2(NumInNode)-1:0] rr_ing;
+logic [ClosM-1:0][ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
+logic [ClosR-1:0][ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
+
+always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
+  void'(randomize(rr_ing_tmp));
+  void'(randomize(rr_mid));
+  void'(randomize(rr_egr));
+end
+
+for (genvar r=0; r<ClosR; r++) begin
   for (genvar m=0; m<ClosM; m++) begin
-    assign rr_ingress[m] = (m % NumInNode);
+    assign rr_ing[r][m] = rr_ing_tmp[r] + (m % NumInNode);
   end
 end
 
@@ -125,7 +135,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
   .WriteRespOn   ( WriteRespOn                   ),
   .MemLatency    ( MemLatency                    ),
   .NodeType      ( 0                             ), // ingress node
-  .ExtPrio       ( ClosM >= NumInNode            )
+  .ExtPrio       ( 1'b1                          )
   ) i_ingress_node (
     .clk_i   ( clk_i                                 ),
     .rst_ni  ( rst_ni                                ),
@@ -136,7 +146,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
     .gnt_o   ( gnt_o[NumInNode * r +: NumInNode]     ),
     .vld_o   ( vld_o[NumInNode * r +: NumInNode]     ),
     .rdata_o ( rdata_o[NumInNode * r +: NumInNode]   ),
-    .rr_i    ( rr_ingress                            ),
+    .rr_i    ( rr_ing[r]                             ),
     .gnt_i   ( ingress_gnt[r]                        ),
     .req_o   ( ingress_req[r]                        ),
     .wdata_o ( ingress_req_data[r]                   ),
@@ -152,7 +162,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   .RespDataWidth ( RespDataWidth                  ),
   .MemLatency    ( MemLatency                     ),
   .NodeType      ( 1                              ), // middle node
-  .ExtPrio       ( 1'b0                           )
+  .ExtPrio       ( 1'b1                           )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
@@ -163,7 +173,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
     .gnt_o   ( middle_gnt_out[m]       ),
     .vld_o   (                         ),
     .rdata_o ( middle_resp_data_out[m] ),
-    .rr_i    ( '0                      ),
+    .rr_i    ( rr_mid[m]               ),
     .gnt_i   ( middle_gnt_in[m]        ),
     .req_o   ( middle_req_out[m]       ),
     .wdata_o ( middle_req_data_out[m]  ),
@@ -179,7 +189,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   .RespDataWidth ( RespDataWidth ),
   .MemLatency    ( MemLatency    ),
   .NodeType      ( 1             ), // egress node
-  .ExtPrio       ( 1'b0          )
+  .ExtPrio       ( 1'b1          )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),
@@ -190,7 +200,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
     .gnt_o   ( egress_gnt[r]               ),
     .vld_o   (                             ),
     .rdata_o ( egress_resp_data[r]         ),
-    .rr_i    ( '0                          ),
+    .rr_i    ( rr_egr[r]                   ),
     .gnt_i   ( gnt_i[ClosN * r +: ClosN]   ),
     .req_o   ( req_o[ClosN * r +: ClosN]   ),
     .wdata_o ( wdata_o[ClosN * r +: ClosN] ),

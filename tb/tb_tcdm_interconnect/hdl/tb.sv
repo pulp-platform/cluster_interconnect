@@ -24,15 +24,21 @@ module tb;
   timeprecision 1ps;
 
 `ifdef BATCH_SIM
-	`ifndef DATA_WIDTH
-		`define DATA_WIDTH 32
-	`endif
-	`ifndef MEM_ADDR_BITS
-		`define MEM_ADDR_BITS 12
-	`endif
-	`ifndef TEST_CYCLES
-		`define TEST_CYCLES 5000
-	`endif
+  `ifndef DATA_WIDTH
+    `define DATA_WIDTH 32
+  `endif
+  `ifndef MEM_ADDR_BITS
+    `define MEM_ADDR_BITS 12
+  `endif
+  `ifndef TEST_CYCLES
+    `define TEST_CYCLES 2000
+  `endif
+  `ifndef RED_STAGES
+    `define RED_STAGES 0
+  `endif
+  `ifndef PAR_STAGES
+    `define PAR_STAGES 0
+  `endif
 
   // tcdm configuration
   localparam MutImpl        = `MUT_IMPL;
@@ -41,20 +47,24 @@ module tb;
   localparam DataWidth      = `DATA_WIDTH;
   localparam MemAddrBits    = `MEM_ADDR_BITS;
   localparam TestCycles     = `TEST_CYCLES;
+  localparam RedStages      = `RED_STAGES; // for bfly only
+  localparam NumPar         = `PAR_STAGES; // for parallel bfly only
 `else
-  localparam MutImpl        = 5; // {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(m=0.5n)"};
+  localparam MutImpl        = 3;
   localparam NumBanks       = 16;
-  localparam NumMaster      = 16;
+  localparam NumMaster      = 8;
   localparam DataWidth      = 32;
   localparam MemAddrBits    = 12;
-  localparam TestCycles     = 5000;
+  localparam TestCycles     = 10000;
+  localparam RedStages      = 2; // for bfly only
+  localparam NumPar         = 1; // for parallel bfly only
 `endif
 
-	localparam StatsFile      = "statistics.log";
+  localparam StatsFile      = "statistics.log";
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
 
-  localparam string impl[] = {"licOld", "lic", "bfly", "clos(m=2n)", "clos(m=n)", "clos(2m=n)"};
+  localparam string impl[] = {"licOld", "lic", "bfly2", "clos(m=2n)", "clos(m=n)", "clos(2m=n)","pbfly2"};
 
 ///////////////////////////////////////////////////////////////////////////////
 // MUT signal declarations
@@ -91,9 +101,11 @@ module tb;
   int unsigned bank_req_cnt_d[0:NumBanks-1], bank_req_cnt_q[0:NumBanks-1];
   int unsigned wait_cnt_d[0:NumMaster-1], wait_cnt_q[0:NumMaster-1];
   int unsigned num_cycles;
-  string       name_t;
-  real         pReq_t;
-  int unsigned maxLen_t;
+  string       test_name;
+  real         pReq_test[0:NumMaster-1];
+  int unsigned maxLen_test;
+  logic        nonUniform_test;
+  string       mut_name;
 
 ///////////////////////////////////////////////////////////////////////////////
 // helper tasks
@@ -103,9 +115,10 @@ module tb;
   task automatic randomUniformTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    name_t   = "random uniform";
-    pReq_t   = p;
-    maxLen_t = 0;
+    test_name    = "random uniform";
+    pReq_test[0] = p;
+    nonUniform_test = 1'b0;
+    maxLen_test  = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -127,7 +140,7 @@ module tb;
       for (int m=0; m<NumMaster; m++) begin
         if (~pending_req_q[m]) begin
           // decide whether to request
-          void'(randomize(val) with {val>=0; val<1000;});
+          void'(randomize(val) with {val>0; val<=1000;});
           if (val <= int'(p*1000.0)) begin
             // draw random word address
             void'(randomize(addr));
@@ -144,13 +157,14 @@ module tb;
     add_i = '0;
   endtask : randomUniformTest
 
-  // linear read requests with probability p
-  task automatic linearTest(input int NumCycles, input real p);
+  // random address sequence with two different request probabilities p
+  task automatic randomNonUniformTest(input int NumCycles, input real p[0:NumMaster-1]);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    name_t   = "linear sweep";
-    pReq_t   = p;
-    maxLen_t = 0;
+    test_name   = "random non-uniform";
+    pReq_test   = p;
+    nonUniform_test = 1'b1;
+    maxLen_test = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -172,7 +186,53 @@ module tb;
       for (int m=0; m<NumMaster; m++) begin
         if (~pending_req_q[m]) begin
           // decide whether to request
-          void'(randomize(val) with {val>=0; val<1000;});
+          void'(randomize(val) with {val>0; val<=1000;});
+          if (val <= int'(p[m]*1000.0)) begin
+            // draw random word address
+            void'(randomize(addr));
+            add_i[m] = addr;
+            req_i[m] = 1'b1;
+          end else begin
+            req_i[m] = 1'b0;
+          end
+        end
+      end
+    end
+    `APPL_WAIT_CYC(clk_i,1)
+    req_i = '0;
+    add_i = '0;
+  endtask : randomNonUniformTest
+
+  // linear read requests with probability p
+  task automatic linearTest(input int NumCycles, input real p);
+    automatic int unsigned val;
+    automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
+    test_name    = "linear sweep";
+    pReq_test[0] = p;
+    nonUniform_test = 1'b0;
+    maxLen_test  = 0;
+    // reset the interconnect state, set number of vectors
+    `APPL_WAIT_CYC(clk_i,100)
+    num_cycles  = NumCycles;
+    rst_ni      = 1'b0;
+    wen_i       = '0;
+    wdata_i     = '0;
+    be_i        = '0;
+    req_i       = '0;
+    add_i       = '0;
+    cnt_set     = '0;
+    cnt_val     = '{default:0};
+    `APPL_WAIT_CYC(clk_i,1)
+    rst_ni      = 1'b1;
+    `APPL_WAIT_CYC(clk_i,100)
+
+    // only do reads for the moment
+    repeat(NumCycles) begin
+      `APPL_WAIT_CYC(clk_i,1)
+      for (int m=0; m<NumMaster; m++) begin
+        if (~pending_req_q[m]) begin
+          // decide whether to request
+          void'(randomize(val) with {val>0; val<=1000;});
           if (val <= int'(p*1000.0)) begin
             // increment address
             add_i[m] = add_i[m] + 4;
@@ -192,9 +252,10 @@ module tb;
   task automatic linearRandTest(input int NumCycles, input real p, input int maxLen);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    name_t   = "random linear bursts";
-    pReq_t   = p;
-    maxLen_t = maxLen;
+    test_name    = "random linear bursts";
+    pReq_test[0] = p;
+    nonUniform_test = 1'b0;
+    maxLen_test  = maxLen;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -216,23 +277,23 @@ module tb;
       for (int m=0; m<NumMaster; m++) begin
         if (~pending_req_q[m]) begin
           // decide whether to request
-          void'(randomize(val) with {val>=0; val<1000;});
+          void'(randomize(val) with {val>0; val<=1000;});
           if (val <= int'(p*1000.0)) begin
-          	if (cnt_q[m]==0) begin
-	          	// draw random word address
-	            void'(randomize(addr));
-	            add_i[m]    = addr;
-	          	cnt_set[m]  = 1'b1;
-          		void'(randomize(val) with {val>=1; val<maxLen;});
-          		cnt_val[m]  = val;
-          	end else begin
-          		add_i[m]    = add_i[m]+4;
-							req_i[m]    = 1'b1;
-							cnt_set[m]  = 1'b0;
-						end
+            if (cnt_q[m]==0) begin
+              // draw random word address
+              void'(randomize(addr));
+              add_i[m]    = addr;
+              cnt_set[m]  = 1'b1;
+              void'(randomize(val) with {val>=1; val<maxLen;});
+              cnt_val[m]  = val;
+            end else begin
+              add_i[m]    = add_i[m]+4;
+              req_i[m]    = 1'b1;
+              cnt_set[m]  = 1'b0;
+            end
           end else begin
-          	req_i[m]    = 1'b0;
-          	cnt_set[m]  = 1'b0;
+            req_i[m]    = 1'b0;
+            cnt_set[m]  = 1'b0;
           end
         end
       end
@@ -246,9 +307,10 @@ module tb;
   task automatic constantTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic logic [$clog2(NumBanks)+AddrWordOff+MemAddrBits-1:0] addr;
-    name_t   = "all-to-one";
-    pReq_t   = p;
-    maxLen_t = 0;
+    test_name    = "all-to-one";
+    pReq_test[0] = p;
+    nonUniform_test = 1'b0;
+    maxLen_test  = 0;
     // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
@@ -270,7 +332,7 @@ module tb;
       for (int m=0; m<NumMaster; m++) begin
         if (~pending_req_q[m]) begin
           // decide whether to request
-          void'(randomize(val) with {val>=0; val<1000;});
+          void'(randomize(val) with {val>0; val<=1000;});
           if (val <= int'(p*1000.0)) begin
             // increment address
             add_i[m] = addr;
@@ -290,14 +352,15 @@ module tb;
   task automatic randPermTest(input int NumCycles, input real p);
     automatic int unsigned val;
     automatic int unsigned addr [0:NumBanks-1];
-    name_t   = "random permutation test";
-    pReq_t   = p;
-    maxLen_t = 0;
+    test_name    = "random permutation test";
+    pReq_test[0] = p;
+    nonUniform_test = 1'b0;
+    maxLen_test  = 0;
     // fill with unique bank IDs
     for (int m=0; m<NumBanks; m++) begin
-    	addr[m] = m<<AddrWordOff;
+      addr[m] = m<<AddrWordOff;
     end
-		// reset the interconnect state, set number of vectors
+    // reset the interconnect state, set number of vectors
     `APPL_WAIT_CYC(clk_i,100)
     num_cycles  = NumCycles;
     rst_ni      = 1'b0;
@@ -319,7 +382,7 @@ module tb;
       addr.shuffle();
       for (int m=0; m<NumMaster; m++) begin
         // decide whether to request
-        void'(randomize(val) with {val>=0; val<1000;});
+        void'(randomize(val) with {val>0; val<=1000;});
         if (val <= int'(p*1000.0)) begin
           // assign permuted bank addresses
           add_i[m] = addr[m%NumBanks];
@@ -335,28 +398,50 @@ module tb;
   endtask : randPermTest
 
   function automatic void printStats(string file);
+    automatic real pReq_avg, wait_avg, load_avg;
     // append
     int fp = $fopen(file,"a");
     // print test configuration
-    $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", impl[MutImpl], NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, name_t, pReq_t, maxLen_t);
-    $display(name_t);
-    if (maxLen_t>0) $display("p=%.2f, maxLen=%02d", pReq_t, maxLen_t);
-    else            $display("p=%.2f", pReq_t);
+    $display(test_name);
+    if (nonUniform_test) begin
+      // todo: need to adapt parsing script for ML as well
+      $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", mut_name, NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, test_name, pReq_test[0], maxLen_test);
+      for (int k=0; k<$size(pReq_test); k++) begin
+        $display("p[%0d]=%.2f", k, pReq_test[k]);
+      end
+    end else begin
+      $fdisplay(fp, "test config:\nnet: %s\nnumMaster: %05d\nnumBanks: %05d\ndataWidth: %05d\nmemAddrBits: %05d\ntestCycles: %05d\ntestName: %s\npReq: %e\nmaxLen: %05d", mut_name, NumMaster, NumBanks, DataWidth, MemAddrBits, TestCycles, test_name, pReq_test[0], maxLen_test);
+      $display("p=%.2f", pReq_test[0]);
+    end
+    if (maxLen_test>0) begin
+      $display("maxLen=%02d", maxLen_test);
+    end
     $display("sim cycles: %03d", num_cycles);
     $display("---------------------------------------");
-		for (int m=0; m<NumMaster; m++) begin
+
+    pReq_avg = 0.0;
+    wait_avg = 0.0;
+    load_avg = 0.0;
+    for (int m=0; m<NumMaster; m++) begin
       $fdisplay(fp, "Port %03d: Req=%05d Gnt=%05d p=%e Wait=%e",
-      	m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
-      $display("Port %03d: Req=%05d Gnt=%05d p=%.2f Wait=%.2f",
         m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
+      $display("Port %03d: Req=%05d Gnt=%05d p_req=%.2f, p_gnt=%.2f Wait=%.2f",
+        m, req_cnt_q[m], gnt_cnt_q[m], real'(gnt_cnt_q[m])/real'(num_cycles), real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001), real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001));
+      pReq_avg += real'(gnt_cnt_q[m])/real'(req_cnt_q[m]+0.00001);
+      wait_avg += real'(wait_cnt_q[m])/real'(gnt_cnt_q[m]+0.00001);
     end
     $display("");
     for (int s=0; s<NumBanks; s++) begin
       $fdisplay(fp,"Bank %03d: Req=%05d Load=%e",
-      	s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
+        s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
       $display("Bank %03d: Req=%05d Load=%.2f",
         s, bank_req_cnt_q[s], real'(bank_req_cnt_q[s])/real'(num_cycles));
+      load_avg += real'(bank_req_cnt_q[s])/real'(num_cycles);
     end
+
+    $display("");
+    $display("Port Avg p=%.2f Wait=%.2f", pReq_avg / real'(NumMaster), wait_avg / real'(NumMaster));
+    $display("Bank Avg Load=%.2f", load_avg / real'(NumBanks));
     $display("---------------------------------------");
     $fdisplay(fp,"");
     $fclose(fp);
@@ -472,6 +557,9 @@ module tb;
 ///////////////////////////////////////////////////////////////////////////////
 
 if (MutImpl==0)  begin : g_lic_old
+
+  assign mut_name = impl[MutImpl];
+
   tcdm_xbar_wrap #(
     .NumMaster     ( NumMaster   ),
     .NumSlave      ( NumBanks    ),
@@ -498,6 +586,9 @@ if (MutImpl==0)  begin : g_lic_old
     .rdata_i ( rdata_i )
   );
 end else if (MutImpl == 1) begin : g_lic
+
+  assign mut_name = impl[MutImpl];
+
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
@@ -525,13 +616,17 @@ end else if (MutImpl == 1) begin : g_lic
     .rdata_i ( rdata_i )
   );
 end else if (MutImpl == 2) begin : g_bfly
+
+  assign mut_name = {impl[MutImpl], $psprintf("(r=%0d)", RedStages)};
+
   tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
     .AddrWidth     ( DataWidth   ),
     .DataWidth     ( DataWidth   ),
     .AddrMemWidth  ( MemAddrBits ),
-    .Topology      ( 1           )
+    .Topology      ( 1           ),
+    .RedStages     ( RedStages   )
   ) i_tcdm_interconnect (
     .clk_i   ( clk_i   ),
     .rst_ni  ( rst_ni  ),
@@ -553,14 +648,16 @@ end else if (MutImpl == 2) begin : g_bfly
   );
 end else if (MutImpl == 3) begin : g_clos_m2n
 
-	// calculate optimal clos config
-	localparam real         ClosRedFact = 2.0;
+  assign mut_name = impl[MutImpl];
+
+  // calculate optimal clos config
+  localparam real         ClosRedFact = 2.0;
   localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
   localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
   localparam int unsigned ClosM       = int'(ClosRedFact*real'(ClosN));
   localparam int unsigned ClosR       = 2**$clog2(NumBanks / ClosN);
 
-	tcdm_interconnect #(
+  tcdm_interconnect #(
     .NumIn         ( NumMaster   ),
     .NumOut        ( NumBanks    ),
     .AddrWidth     ( DataWidth   ),
@@ -591,7 +688,9 @@ end else if (MutImpl == 3) begin : g_clos_m2n
   );
 end else if (MutImpl == 4) begin : g_clos_m1n
 
-	// calculate optimal clos config
+  assign mut_name = impl[MutImpl];
+
+  // calculate optimal clos config
   localparam real         ClosRedFact = 1.0;
   localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
   localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
@@ -629,7 +728,9 @@ end else if (MutImpl == 4) begin : g_clos_m1n
   );
 end else if (MutImpl == 5) begin : g_clos_m0p5n
 
-	// calculate optimal clos config
+  assign mut_name = impl[MutImpl];
+
+  // calculate optimal clos config
   localparam real         ClosRedFact = 0.5;
   localparam int unsigned BankingFact = (NumBanks+NumMaster-1)/NumMaster;
   localparam int unsigned ClosN       = 2**$clog2(int'($sqrt(real'(NumBanks)/(1.0/real'(BankingFact) + 1.0))));
@@ -665,6 +766,39 @@ end else if (MutImpl == 5) begin : g_clos_m0p5n
     .be_o    ( be_o    ),
     .rdata_i ( rdata_i )
   );
+end else if (MutImpl == 6) begin : g_pbfly
+
+  assign mut_name = {impl[MutImpl], $psprintf("(n=%0d,r=%0d)", NumPar, RedStages)};
+
+  tcdm_interconnect #(
+    .NumIn         ( NumMaster   ),
+    .NumOut        ( NumBanks    ),
+    .AddrWidth     ( DataWidth   ),
+    .DataWidth     ( DataWidth   ),
+    .AddrMemWidth  ( MemAddrBits ),
+    .Topology      ( 3           ),
+    .RedStages     ( RedStages   ),
+    .NumPar        ( NumPar      )
+  ) i_tcdm_interconnect (
+    .clk_i   ( clk_i   ),
+    .rst_ni  ( rst_ni  ),
+    .req_i   ( req_i   ),
+    .add_i   ( add_i   ),
+    .wen_i   ( wen_i   ),
+    .wdata_i ( wdata_i ),
+    .be_i    ( be_i    ),
+    .gnt_o   ( gnt_o   ),
+    .vld_o   ( vld_o   ),
+    .rdata_o ( rdata_o ),
+    .req_o   ( cs_o    ),
+    .gnt_i   ( cs_o    ),
+    .add_o   ( add_o   ),
+    .wen_o   ( wen_o   ),
+    .wdata_o ( wdata_o ),
+    .be_o    ( be_o    ),
+    .rdata_i ( rdata_i )
+  );
+
 end
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -672,6 +806,7 @@ end
 ///////////////////////////////////////////////////////////////////////////////
 
   initial begin : p_stim
+    automatic real p[0:NumMaster-1];
     // seq_done
     end_of_sim       = 0;
     rst_ni           = 0;
@@ -681,7 +816,9 @@ end
     $display("TCDM Network Traffic Simulation");
     $display("---------------------------------------");
     $display("Current configuration:");
-    $display("Network:        %s",   impl[MutImpl]);
+    $display("Network:        %s",   mut_name     );
+    $display("RedStages:      %0d",  RedStages    );
+    $display("NumPar:         %0d",  NumPar       );
     $display("NumMaster:      %0d",  NumMaster    );
     $display("NumBanks:       %0d",  NumBanks     );
     $display("DataWidth:      %0d",  DataWidth    );
@@ -710,9 +847,21 @@ end
     randomUniformTest(TestCycles, 1.0);
     printStats(StatsFile);
     ///////////////////////////////////////////////
+    // uniform traffic
+    p[0]             = 0.0;
+    p[1:NumMaster-1] = '{default:0.25};
+    randomNonUniformTest(TestCycles, p);
+    printStats(StatsFile);
+    p[0]             = 0.0;
+    p[1:NumMaster-1] = '{default:0.5};
+    randomNonUniformTest(TestCycles, p);
+    printStats(StatsFile);
+    p[0]             = 0.0;
+    p[1:NumMaster-1] = '{default:1.0};
+    randomNonUniformTest(TestCycles, p);
+    printStats(StatsFile);
+    ///////////////////////////////////////////////
     // random permutations (no banking conflicts)
-    // randPermTest(TestCycles, 0.125);
-    // printStats(StatsFile);
     randPermTest(TestCycles, 0.25);
     printStats(StatsFile);
     randPermTest(TestCycles, 0.5);
@@ -720,8 +869,8 @@ end
     randPermTest(TestCycles, 1.0);
     printStats(StatsFile);
     ///////////////////////////////////////////////
-		// linearRandTest(TestCycles, 0.125, 100);
-  //   printStats(StatsFile);
+    // linearRandTest(TestCycles, 0.125, 100);
+    //  printStats(StatsFile);
     linearRandTest(TestCycles, 0.25, 100);
     printStats(StatsFile);
     linearRandTest(TestCycles, 0.5, 100);
@@ -729,7 +878,7 @@ end
     linearRandTest(TestCycles, 1.0, 100);
     printStats(StatsFile);
     ///////////////////////////////////////////////
-  	// some special cases
+    // some special cases
     linearTest(TestCycles, 1.0);
     printStats(StatsFile);
     constantTest(TestCycles, 1.0);
@@ -741,15 +890,3 @@ end
   end
 
 endmodule
-
-
-
-
-
-
-
-
-
-
-
-

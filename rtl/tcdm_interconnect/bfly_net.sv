@@ -18,11 +18,11 @@ module bfly_net #(
   parameter int unsigned ReqDataWidth    = 32,
   parameter int unsigned RespDataWidth   = 32,
   parameter bit          WriteRespOn     = 1,
-  // when RedundantStages is set to a value above 0,
+  // when RedStages is set to a value above 0,
   // an inverted network is generated with only this amount
   // of stages specified. the routers will randomly distribute
   // traffic over both output ports in that case.
-  parameter int unsigned RedundantStages = 0,
+  parameter int unsigned RedStages       = 0,
   // routers per level, do not change (max operation)
   parameter int unsigned NumRouters      = 2**$clog2((NumIn > NumOut) * NumIn + (NumIn <= NumOut) * NumOut)/2,
   parameter int unsigned AddWidth        = $clog2(NumOut)
@@ -46,7 +46,7 @@ module bfly_net #(
 );
 
   localparam int unsigned BankingFact = NumOut/NumIn;
-  localparam NumLevels = $clog2(NumOut)*(RedundantStages==0) + (RedundantStages>0)*RedundantStages;
+  localparam NumLevels = $clog2(NumOut)*(RedStages==0) + (RedStages>0)*RedStages;
 
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_in;
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_out;
@@ -65,19 +65,34 @@ module bfly_net #(
   // // inputs are on first level
   // make sure to evenly distribute masters in case of BankingFactors > 1
   for (genvar j = 0; unsigned'(j) < 2*NumRouters; j++) begin : g_inputs
-    if(j % BankingFact == 0) begin
-      // req
-      assign router_req_in[0][j/2][j%2]  = req_i[j/BankingFact];
-      assign gnt_o[j/BankingFact]        = router_gnt_out[0][j/2][j%2];
-      assign router_add_in[0][j/2][j%2]  = add_i[j/BankingFact];
-      assign router_data_in[0][j/2][j%2] = data_i[j/BankingFact];
-      // resp
-      assign rdata_o[j/BankingFact]      = router_resp_data_out[0][j/2][j%2];
+    // connect all inputs in this case
+    if (BankingFact == 1) begin
+        // req
+        assign router_req_in[0][j/2][j%2]  = req_i[j/BankingFact];
+        assign gnt_o[j/BankingFact]        = router_gnt_out[0][j/2][j%2];
+        assign router_add_in[0][j/2][j%2]  = add_i[j/BankingFact];
+        assign router_data_in[0][j/2][j%2] = data_i[j/BankingFact];
+        // resp
+        assign rdata_o[j/BankingFact]      = router_resp_data_out[0][j/2][j%2];
+    // start by connecting only every other input in case of a BF of 2
+    // for higher BFs, only connect to lower portion of switchboxes, and
+    // tie off the higher inputs. this allows us to reduce arbitration conflicts
+    // on the first network layers
     end else begin
-      // req
-      assign router_req_in[0][j/2][j%2]  = 1'b0;
-      assign router_add_in[0][j/2][j%2]  = '0;
-      assign router_data_in[0][j/2][j%2] = '0;
+      if(j % 2 == 0 && j/2 < NumIn) begin
+        // req
+        assign router_req_in[0][j/2][j%2]  = req_i[j/2];
+        assign gnt_o[j/2]                  = router_gnt_out[0][j/2][j%2];
+        assign router_add_in[0][j/2][j%2]  = add_i[j/2];
+        assign router_data_in[0][j/2][j%2] = data_i[j/2];
+        // resp
+        assign rdata_o[j/2]                = router_resp_data_out[0][j/2][j%2];
+      end else begin
+        // req
+        assign router_req_in[0][j/2][j%2]  = 1'b0;
+        assign router_add_in[0][j/2][j%2]  = '0;
+        assign router_data_in[0][j/2][j%2] = '0;
+      end
     end
   end
 
@@ -102,8 +117,7 @@ module bfly_net #(
   // wire up connections between levels
   for (genvar l = 0; unsigned'(l) < NumLevels-1; l++) begin : g_levels
     for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers
-  	  localparam int unsigned pow = 2**(NumLevels-unsigned'(l)-2)*(RedundantStages==0) +
-                                    2**(unsigned'(l)+1)*(RedundantStages>0);// inverted network
+  	  localparam int unsigned pow = 2**(NumLevels-unsigned'(l)-2);
 
   	  localparam int unsigned s0 = (unsigned'(r) / pow    ) % 2;
       localparam int unsigned s1 = (unsigned'(r) / pow + 1) % 2;
@@ -134,8 +148,8 @@ module bfly_net #(
   end
 
   logic [NumLevels-1:0][NumRouters-1:0] prio;
-  logic [NumLevels-1:0]                 cnt_d, cnt_q;
-  logic [NumRouters-1:0][23:0]          lfsr_d, lfsr_q;
+  // logic [NumLevels-1:0]                 cnt_d, cnt_q;
+  // logic [NumLevels-1:0][23:0]           lfsr_d, lfsr_q;
 
   // instantiate butterfly routers
   for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
@@ -144,7 +158,7 @@ module bfly_net #(
         .AddWidth      ( AddWidth          ),
         .ReqDataWidth  ( ReqDataWidth      ),
         .RespDataWidth ( RespDataWidth     ),
-        .IsRedundant   ( RedundantStages>0 )
+        .IsRedundant   ( RedStages>0       )
       ) i_bfly_router (
         .clk_i  ( clk_i                      ),
         .rst_ni ( rst_ni                     ),
@@ -160,21 +174,30 @@ module bfly_net #(
         .data_o ( router_data_out[l][r]      ),
         .rdata_i( router_resp_data_in[l][r]  )
       );
-	    if (RedundantStages>0) begin
-		    assign prio[l][r] = lfsr_q[r][0];
-		  end else begin
-		    // rotating prio arbiter
-		    assign prio[l][r] = cnt_q[NumLevels-l-1];
-	    end
+	    // if (RedStages>0) begin
+		    // always_ff @(posedge clk_i) begin : p_random
+      //     logic val;
+      //     void'(randomize(val));
+      //     prio[l][r] = val;
+      //   end
+        // assign prio[l][r] = lfsr_q[0][l];
+		  // end else begin
+		  //   // rotating prio arbiter
+		  //   assign prio[l][r] = cnt_q[NumLevels-l-1];
+	   //  end
 	  end
 	end
 
-  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
+  always_ff @(posedge clk_i) begin : p_random
+    void'(randomize(prio));
+  end
 
-  for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_lfsr
-	  assign lfsr_d[r][0]    = lfsr_q[r][23] ^ lfsr_q[r][22] ^ lfsr_q[r][21] ^ lfsr_q[r][16];
-		assign lfsr_d[r][23:1] = lfsr_q[r][22:0];
-	end
+ //  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
+
+ //  for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_lfsr
+	//   assign lfsr_d[l][0]    = lfsr_q[l][23] ^ lfsr_q[l][22] ^ lfsr_q[l][21] ^ lfsr_q[l][16];
+	// 	assign lfsr_d[l][23:1] = lfsr_q[l][22:0];
+	// end
 
   assign vld_d = gnt_o & (~wen_i | {NumIn{WriteRespOn}});
   assign vld_o = vld_q;
@@ -182,15 +205,15 @@ module bfly_net #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
     if(~rst_ni) begin
       vld_q <= '0;
-      cnt_q <= '0;
+      // cnt_q <= '0;
       // init with different seed
-      for (int r = 0; r < NumRouters; r++) begin
-      	lfsr_q[r] <= 1+r;
-      end
+      // for (int l = 0; l < NumLevels; l++) begin
+      // 	lfsr_q[l] <= 1+l;
+      // end
     end else begin
-    	cnt_q  <= cnt_d;
+    	// cnt_q  <= cnt_d;
       vld_q  <= vld_d;
-      lfsr_q <= lfsr_d;
+      // lfsr_q <= lfsr_d;
     end
   end
 

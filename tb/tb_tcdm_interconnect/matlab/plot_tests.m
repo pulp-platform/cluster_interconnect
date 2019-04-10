@@ -82,6 +82,9 @@ function [] = plot_tests(stats, configLabels, netLabels)
                 if sum(tst)>2
                     error('selection not unique');
                 end
+                if sum(tst)<1
+                    error(['no result found for ' netLabels{n} ' ' configLabels{c} ' ' stats.testNamesFull{k}]);
+                end
                 
                 idx = find(tst,1);  
                 res(c,n,1) = mean(stats.ports{idx}(:,3));
