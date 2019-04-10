@@ -22,31 +22,17 @@ module tcdm_interconnect #(
   parameter int unsigned DataWidth       = 32,           // word width of data
   parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 3 = clos
+  parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 2 = radix-4 bfly, 3 = clos
 	parameter bit          WriteRespOn     = 2,            // defines whether the interconnect returns a write response
   // TCDM read latency, usually 1 cycle, has no effect on butterfly topology (fixed to 1 in that case)
   parameter int unsigned MemLatency      = 1,
   ///////////////////////////
   // butterfly parameters
-  // redundant stages are not fully supported yet
-  parameter int unsigned RedStages       = 0,
   parameter int unsigned NumPar          = 1,
   ///////////////////////////
-  // classic clos parameters, make sure they are aligned with powers of 2
-  // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
-  // some values (banking factor of 2):
-  // 8  Banks -> N = 2,
-  // 16 Banks -> N = 4,
-  // 32 Banks -> N = 4,
-  // 64 Banks -> N = 8,
-  // 128 Banks -> N = 8,
-  // 256 Banks -> N = 16,
-  // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 16,
-  // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
-  parameter int unsigned ClosM           = 2*ClosN,
-  // determined by number of outputs and N
-  parameter int unsigned ClosR           = 2**$clog2(NumOut / ClosN)
+  // this detemines which clos config to use
+  // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
+  parameter int unsigned ClosConfig      = 2
   ///////////////////////////
 ) (
   input  logic                                  clk_i,
@@ -117,115 +103,9 @@ module tcdm_interconnect #(
       .rdata_i ( rdata_i      )
     );
   /////////////////////////////////////////////////////////////////////
-  // scalable interconnect using a (redundant) butterfly network
-  end else if (Topology==1) begin : g_bfly
-
-    if (RedStages>0) begin : g_redundant
-      logic [NumOut-1:0][AggDataWidth-1:0]  bfly_wdata;
-      logic [NumOut-1:0][DataWidth-1:0]     bfly_rdata;
-      logic [NumOut-1:0][BankAddWidth-1:0] bfly_bank;
-      logic [NumOut-1:0]  bfly_req, bfly_gnt;
-
-      // redundant stages
-      bfly_net #(
-        .NumIn           ( NumIn           ),
-        .NumOut          ( NumOut          ),
-        .ReqDataWidth    ( AggDataWidth    ),
-        .RespDataWidth   ( DataWidth       ),
-        .WriteRespOn     ( WriteRespOn     ),
-        .RedStages       ( RedStages       )
-      ) i_bfly_net_red (
-        .clk_i    ( clk_i        ),
-        .rst_ni   ( rst_ni       ),
-        .req_i    ( req_i        ),
-        .gnt_o    ( gnt_o        ),
-        .add_i    ( bank_sel     ),
-        .wen_i    ( wen_i        ),
-        .data_i   ( data_agg_in  ),
-        .rdata_o  ( rdata_o      ),
-        .vld_o    ( vld_o        ),
-        .req_o    ( bfly_req     ),
-        .gnt_i    ( bfly_gnt     ),
-        .add_o    ( bfly_bank    ),
-        .data_o   ( bfly_wdata   ),
-        .rdata_i  ( bfly_rdata   )
-      );
-
-      bfly_net #(
-        .NumIn         ( NumOut       ),
-        .NumOut        ( NumOut       ),
-        .ReqDataWidth  ( AggDataWidth ),
-        .RespDataWidth ( DataWidth    )
-      ) i_bfly_net (
-        .clk_i    ( clk_i        ),
-        .rst_ni   ( rst_ni       ),
-        .req_i    ( bfly_req     ),
-        .gnt_o    ( bfly_gnt     ),
-        .add_i    ( bfly_bank    ),
-        .wen_i    ( '0           ),
-        .data_i   ( bfly_wdata   ),
-        .rdata_o  ( bfly_rdata   ),
-        .vld_o    (              ),
-        .req_o    ( req_o        ),
-        .gnt_i    ( gnt_i        ),
-        .add_o    (              ),
-        .data_o   ( data_agg_out ),
-        .rdata_i  ( rdata_i      )
-      );
-    end else begin : g_normal
-      bfly_net #(
-        .NumIn         ( NumIn        ),
-        .NumOut        ( NumOut       ),
-        .ReqDataWidth  ( AggDataWidth ),
-        .RespDataWidth ( DataWidth    )
-      ) i_bfly_net (
-        .clk_i    ( clk_i        ),
-        .rst_ni   ( rst_ni       ),
-        .req_i    ( req_i        ),
-        .gnt_o    ( gnt_o        ),
-        .add_i    ( bank_sel     ),
-        .wen_i    ( wen_i        ),
-        .data_i   ( data_agg_in  ),
-        .rdata_o  ( rdata_o      ),
-        .vld_o    ( vld_o        ),
-        .req_o    ( req_o        ),
-        .gnt_i    ( gnt_i        ),
-        .add_o    (              ),
-        .data_o   ( data_agg_out ),
-        .rdata_i  ( rdata_i      )
-      );
-    end
-  /////////////////////////////////////////////////////////////////////
-  // clos network
-  end else if (Topology==2) begin : g_clos
-    clos_net #(
-      .NumIn         ( NumIn        ),
-      .NumOut        ( NumOut       ),
-      .ReqDataWidth  ( AggDataWidth ),
-      .RespDataWidth ( DataWidth    ),
-      .WriteRespOn   ( WriteRespOn  ),
-      .ClosN         ( ClosN        ),
-      .ClosM         ( ClosM        ),
-      .ClosR         ( ClosR        )
-    ) i_clos_net (
-      .clk_i    ( clk_i        ),
-      .rst_ni   ( rst_ni       ),
-      .req_i    ( req_i        ),
-      .gnt_o    ( gnt_o        ),
-      .add_i    ( bank_sel     ),
-      .wen_i    ( wen_i        ),
-      .wdata_i  ( data_agg_in  ),
-      .rdata_o  ( rdata_o      ),
-      .vld_o    ( vld_o        ),
-      .req_o    ( req_o        ),
-      .gnt_i    ( gnt_i        ),
-      .wdata_o  ( data_agg_out ),
-      .rdata_i  ( rdata_i      )
-    );
-  /////////////////////////////////////////////////////////////////////
-  // parallel butterflies
-  end else if (Topology==3) begin : g_par_bfly
-
+  // butterfly network with parallelization option
+  // (NumPar>1 results in a hybrid between lic and bfly)
+  end else if (Topology==1) begin : g_bfly2
     localparam int unsigned NumPerSlice = NumIn/NumPar;
     logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
     logic [NumOut-1:0][NumPar-1:0][DataWidth-1:0]     rdata1;
@@ -235,95 +115,30 @@ module tcdm_interconnect #(
     logic [NumPar-1:0][NumOut-1:0][DataWidth-1:0]     rdata1_trsp;
     logic [NumPar-1:0][NumOut-1:0] gnt1_trsp, req1_trsp;
 
-    for (genvar j=0; j<NumPar; j++) begin : g_bfly_net
-      if (RedStages>0) begin : g_redundant
-        logic [NumOut-1:0][AggDataWidth-1:0]  bfly_wdata;
-        logic [NumOut-1:0][DataWidth-1:0]     bfly_rdata;
-        logic [NumOut-1:0][BankAddWidth-1:0] bfly_bank;
-        logic [NumOut-1:0]  bfly_req, bfly_gnt;
-
-        // redundant stages
-        bfly_net #(
-          .NumIn           ( NumPerSlice     ),
-          .NumOut          ( NumOut          ),
-          .ReqDataWidth    ( AggDataWidth    ),
-          .RespDataWidth   ( DataWidth       ),
-          .WriteRespOn     ( WriteRespOn     ),
-          .RedStages       ( RedStages       )
-        ) i_bfly_net_red (
-          .clk_i    ( clk_i        ),
-          .rst_ni   ( rst_ni       ),
-          .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
-          .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
-          .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
-          .wen_i    ( wen_i[j*NumPerSlice +: NumPerSlice  ]      ),
-          .data_i   ( data_agg_in[j*NumPerSlice +: NumPerSlice ] ),
-          .rdata_o  ( rdata_o[j*NumPerSlice +: NumPerSlice ]     ),
-          .vld_o    ( vld_o[j*NumPerSlice +: NumPerSlice  ]      ),
-          .req_o    ( bfly_req     ),
-          .gnt_i    ( bfly_gnt     ),
-          .add_o    ( bfly_bank    ),
-          .data_o   ( bfly_wdata   ),
-          .rdata_i  ( bfly_rdata   )
-        );
-
-        bfly_net #(
-          .NumIn         ( NumOut       ),
-          .NumOut        ( NumOut       ),
-          .ReqDataWidth  ( AggDataWidth ),
-          .RespDataWidth ( DataWidth    )
-        ) i_bfly_net (
-          .clk_i    ( clk_i          ),
-          .rst_ni   ( rst_ni         ),
-          .req_i    ( bfly_req       ),
-          .gnt_o    ( bfly_gnt       ),
-          .add_i    ( bfly_bank      ),
-          .wen_i    ( '0             ),
-          .data_i   ( bfly_wdata     ),
-          .rdata_o  ( bfly_rdata     ),
-          .vld_o    (                ),
-          .req_o    ( req1_trsp[j]   ),
-          .gnt_i    ( gnt1_trsp[j]   ),
-          .add_o    (                ),
-          .data_o   ( data1_trsp[j]  ),
-          .rdata_i  ( rdata1_trsp[j] )
-        );
-      end else begin
-        bfly_net #(
-          .NumIn         ( NumPerSlice  ),
-          .NumOut        ( NumOut       ),
-          .ReqDataWidth  ( AggDataWidth ),
-          .RespDataWidth ( DataWidth    ),
-          .WriteRespOn   ( WriteRespOn  )
-        ) i_bfly_net (
-          .clk_i    ( clk_i             ),
-          .rst_ni   ( rst_ni            ),
-          .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
-          .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
-          .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
-          .wen_i    ( wen_i[j*NumPerSlice +: NumPerSlice  ]      ),
-          .data_i   ( data_agg_in[j*NumPerSlice +: NumPerSlice ] ),
-          .rdata_o  ( rdata_o[j*NumPerSlice +: NumPerSlice ]     ),
-          .vld_o    ( vld_o[j*NumPerSlice +: NumPerSlice  ]      ),
-          .req_o    ( req1_trsp[j]      ),
-          .gnt_i    ( gnt1_trsp[j]      ),
-          .add_o    (                   ),
-          .data_o   ( data1_trsp[j]     ),
-          .rdata_i  ( rdata1_trsp[j]    )
-        );
-      end
+    for (genvar j=0; j<NumPar; j++) begin : g_bfly2_net
+      bfly2_net #(
+        .NumIn         ( NumPerSlice  ),
+        .NumOut        ( NumOut       ),
+        .ReqDataWidth  ( AggDataWidth ),
+        .RespDataWidth ( DataWidth    ),
+        .WriteRespOn   ( WriteRespOn  )
+      ) i_bfly_net (
+        .clk_i    ( clk_i             ),
+        .rst_ni   ( rst_ni            ),
+        .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
+        .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
+        .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
+        .wen_i    ( wen_i[j*NumPerSlice +: NumPerSlice  ]      ),
+        .data_i   ( data_agg_in[j*NumPerSlice +: NumPerSlice ] ),
+        .rdata_o  ( rdata_o[j*NumPerSlice +: NumPerSlice ]     ),
+        .vld_o    ( vld_o[j*NumPerSlice +: NumPerSlice  ]      ),
+        .req_o    ( req1_trsp[j]      ),
+        .gnt_i    ( gnt1_trsp[j]      ),
+        .add_o    (                   ),
+        .data_o   ( data1_trsp[j]     ),
+        .rdata_i  ( rdata1_trsp[j]    )
+      );
     end
-    // logic [$clog2(NumPar)-1+(NumPar==1):0] rr_d, rr_q;
-
-    // assign rr_d = rr_q + 1;
-
-    // always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
-    //   if(~rst_ni) begin
-    //     rr_q <= '0;
-    //   end else begin
-    //     rr_q <= rr_d;
-    //   end
-    // end
 
     for (genvar k=0; k<NumOut; k++) begin : g_mux
       rr_arb_tree #(
@@ -354,7 +169,99 @@ module tcdm_interconnect #(
         assign rdata1_trsp[j][k] = rdata1[k][j];
         assign gnt1_trsp[j][k]   = gnt1[k][j];
       end
+
+      // pragma translate_off
+      initial begin
+        assert(NumPar >= 1) else
+          $fatal(1,"NumPar must be greater or equal 1.");
+      end
+      // pragma translate_on
     end
+  /////////////////////////////////////////////////////////////////////
+  // clos network
+  end else if (Topology==2) begin : g_bfly4
+    // pragma translate_off
+    initial begin
+      $fatal(1,"Provisioned for radix-4 butterflies", Topology);
+    end
+    // pragma translate_on
+  /////////////////////////////////////////////////////////////////////
+  // clos network
+  end else if (Topology==3) begin : g_clos
+
+  // LUT params for Clos net with configs: 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
+  // to be indexed with [config_idx][$clog2(BankingFact)][$clog2(NumBanks)]
+  // generated with MATLAB script gen_clos_params.m
+  localparam logic [3:1][4:0][12:2][15:0] closN = {16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2};
+  localparam logic [3:1][4:0][12:2][15:0] closM = {16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                   16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                   16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                   16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                   16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                   16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                   16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                   16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                   16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,16'd1};
+  localparam logic [3:1][4:0][12:2][15:0] closR = {16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                   16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2};
+
+    clos_net #(
+      .NumIn         ( NumIn        ),
+      .NumOut        ( NumOut       ),
+      .ReqDataWidth  ( AggDataWidth ),
+      .RespDataWidth ( DataWidth    ),
+      .WriteRespOn   ( WriteRespOn  ),
+      .ClosN         ( unsigned'(closN[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]) ),
+      .ClosM         ( unsigned'(closM[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]) ),
+      .ClosR         ( unsigned'(closR[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]) )
+    ) i_clos_net (
+      .clk_i    ( clk_i        ),
+      .rst_ni   ( rst_ni       ),
+      .req_i    ( req_i        ),
+      .gnt_o    ( gnt_o        ),
+      .add_i    ( bank_sel     ),
+      .wen_i    ( wen_i        ),
+      .wdata_i  ( data_agg_in  ),
+      .rdata_o  ( rdata_o      ),
+      .vld_o    ( vld_o        ),
+      .req_o    ( req_o        ),
+      .gnt_i    ( gnt_i        ),
+      .wdata_o  ( data_agg_out ),
+      .rdata_i  ( rdata_i      )
+    );
   /////////////////////////////////////////////////////////////////////
   end else begin : g_unknown
     // pragma translate_off
@@ -369,16 +276,8 @@ module tcdm_interconnect #(
   initial begin
   	assert(AddrMemWidth+BankAddWidth+AddrMemWidth <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
-    assert(2**$clog2(NumIn) == NumIn) else
-      $fatal(1,"NumIn is not aligned with a power of 2.");
-    assert(2**$clog2(NumOut) == NumOut) else
-      $fatal(1,"NumOut is not aligned with a power of 2.");
     assert(NumOut >= NumIn) else
       $fatal(1,"NumOut < NumIn is not supported.");
-    assert(NumPar >= 1) else
-      $fatal(1,"NumPar must be greater or equal 1.");
-    assert(RedStages >=0 && RedStages <= $clog2(NumOut)) else
-      $fatal(1,"RedStages must be within [0,..., clog2(NumOut)].");
   end
   // pragma translate_on
 

@@ -16,12 +16,13 @@
 ../../rtl/low_latency_interco/XBAR_TCDM.sv
 ../../rtl/low_latency_interco/tcdm_xbar_wrap.sv
 ../../rtl/tcdm_interconnect/addr_dec_resp_mux.sv
-../../rtl/tcdm_interconnect/bfly_router.sv
-../../rtl/tcdm_interconnect/bfly_net.sv
+../../rtl/tcdm_interconnect/bfly2_router.sv
+../../rtl/tcdm_interconnect/bfly2_net.sv
 ../../rtl/tcdm_interconnect/clos_node.sv
 ../../rtl/tcdm_interconnect/clos_net.sv
 ../../rtl/tcdm_interconnect/tcdm_interconnect.sv
 ../../../common_cells/src/lzc.sv
 ../../../common_cells/src/rr_arb_tree.sv
+hdl/tcdm_interconnect_wrap.sv
 hdl/tb_pkg.sv
 hdl/tb.sv

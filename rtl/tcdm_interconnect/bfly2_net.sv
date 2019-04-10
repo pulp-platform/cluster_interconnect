@@ -12,17 +12,12 @@
 // Date: 06.03.2019
 // Description: Radix-2 butterfly network
 
-module bfly_net #(
+module bfly2_net #(
   parameter int unsigned NumIn           = 32,
   parameter int unsigned NumOut          = 32,
   parameter int unsigned ReqDataWidth    = 32,
   parameter int unsigned RespDataWidth   = 32,
   parameter bit          WriteRespOn     = 1,
-  // when RedStages is set to a value above 0,
-  // an inverted network is generated with only this amount
-  // of stages specified. the routers will randomly distribute
-  // traffic over both output ports in that case.
-  parameter int unsigned RedStages       = 0,
   // routers per level, do not change (max operation)
   parameter int unsigned NumRouters      = 2**$clog2((NumIn > NumOut) * NumIn + (NumIn <= NumOut) * NumOut)/2,
   parameter int unsigned AddWidth        = $clog2(NumOut)
@@ -46,7 +41,7 @@ module bfly_net #(
 );
 
   localparam int unsigned BankingFact = NumOut/NumIn;
-  localparam NumLevels = $clog2(NumOut)*(RedStages==0) + (RedStages>0)*RedStages;
+  localparam NumLevels = $clog2(NumOut);
 
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_in;
   logic [NumLevels-1:0][NumRouters-1:0][1:0]                    router_req_out;
@@ -148,17 +143,15 @@ module bfly_net #(
   end
 
   logic [NumLevels-1:0][NumRouters-1:0] prio;
-  // logic [NumLevels-1:0]                 cnt_d, cnt_q;
-  // logic [NumLevels-1:0][23:0]           lfsr_d, lfsr_q;
+  logic [NumLevels-1:0]                 cnt_d, cnt_q;
 
   // instantiate butterfly routers
   for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
     for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
-      bfly_router #(
+      bfly2_router #(
         .AddWidth      ( AddWidth          ),
         .ReqDataWidth  ( ReqDataWidth      ),
-        .RespDataWidth ( RespDataWidth     ),
-        .IsRedundant   ( RedStages>0       )
+        .RespDataWidth ( RespDataWidth     )
       ) i_bfly_router (
         .clk_i  ( clk_i                      ),
         .rst_ni ( rst_ni                     ),
@@ -174,30 +167,12 @@ module bfly_net #(
         .data_o ( router_data_out[l][r]      ),
         .rdata_i( router_resp_data_in[l][r]  )
       );
-	    // if (RedStages>0) begin
-		    // always_ff @(posedge clk_i) begin : p_random
-      //     logic val;
-      //     void'(randomize(val));
-      //     prio[l][r] = val;
-      //   end
-        // assign prio[l][r] = lfsr_q[0][l];
-		  // end else begin
-		  //   // rotating prio arbiter
-		  //   assign prio[l][r] = cnt_q[NumLevels-l-1];
-	   //  end
+      // rotating prio arbiter
+	    assign prio[l][r] = cnt_q[NumLevels-l-1];
 	  end
 	end
 
-  always_ff @(posedge clk_i) begin : p_random
-    void'(randomize(prio));
-  end
-
- //  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
-
- //  for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_lfsr
-	//   assign lfsr_d[l][0]    = lfsr_q[l][23] ^ lfsr_q[l][22] ^ lfsr_q[l][21] ^ lfsr_q[l][16];
-	// 	assign lfsr_d[l][23:1] = lfsr_q[l][22:0];
-	// end
+  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
 
   assign vld_d = gnt_o & (~wen_i | {NumIn{WriteRespOn}});
   assign vld_o = vld_q;
@@ -205,16 +180,22 @@ module bfly_net #(
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
     if(~rst_ni) begin
       vld_q <= '0;
-      // cnt_q <= '0;
-      // init with different seed
-      // for (int l = 0; l < NumLevels; l++) begin
-      // 	lfsr_q[l] <= 1+l;
-      // end
+      cnt_q <= '0;
     end else begin
-    	// cnt_q  <= cnt_d;
       vld_q  <= vld_d;
-      // lfsr_q <= lfsr_d;
+    	cnt_q  <= cnt_d;
     end
   end
 
-endmodule // bfly_net
+  // pragma translate_off
+  initial begin
+    assert(2**$clog2(NumIn) == NumIn) else
+      $fatal(1,"NumIn is not aligned with a power of 2.");
+    assert(2**$clog2(NumOut) == NumOut) else
+      $fatal(1,"NumOut is not aligned with a power of 2.");
+    assert(NumOut >= NumIn) else
+      $fatal(1,"NumOut < NumIn is not supported.");
+  end
+  // pragma translate_on
+
+endmodule // bfly2_net

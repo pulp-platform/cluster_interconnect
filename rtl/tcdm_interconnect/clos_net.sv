@@ -109,20 +109,29 @@ end
 
 localparam NumInNode = ClosN / BankFact;
 
-logic [ClosR-1:0][$clog2(NumInNode)-1:0] rr_ing_tmp;
+logic [ClosR-1:0][$clog2(NumInNode)-1:0] rr_ing_d, rr_ing_q;
 logic [ClosR-1:0][ClosM-1:0][$clog2(NumInNode)-1:0] rr_ing;
 logic [ClosM-1:0][ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
 logic [ClosR-1:0][ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
 
-always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
-  void'(randomize(rr_ing_tmp));
-  void'(randomize(rr_mid));
-  void'(randomize(rr_egr));
+// use locked rr counter for first stage
+for (genvar r=0; r<ClosR; r++) begin : gen_rr1
+  if (NumInNode<ClosM) begin : g_rr
+    assign rr_ing_d[r]  = (|(ingress_gnt[r] & ingress_req[r])) ? rr_ing_q[r] + 1'b1 : rr_ing_q[r];
+  end else begin : g_static
+    assign rr_ing_d[r]  = '0;
+  end
+
+  for (genvar m=0; m<ClosM; m++) begin : gen_rr2
+    assign rr_ing[r][m] = rr_ing_q[r] + $clog2(NumInNode)'(m % NumInNode);
+  end
 end
 
-for (genvar r=0; r<ClosR; r++) begin
-  for (genvar m=0; m<ClosM; m++) begin
-    assign rr_ing[r][m] = rr_ing_tmp[r] + (m % NumInNode);
+always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
+  if(!rst_ni) begin
+    rr_ing_q <= '0;
+  end else begin
+    rr_ing_q <= rr_ing_d;
   end
 end
 
@@ -162,7 +171,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   .RespDataWidth ( RespDataWidth                  ),
   .MemLatency    ( MemLatency                     ),
   .NodeType      ( 1                              ), // middle node
-  .ExtPrio       ( 1'b1                           )
+  .ExtPrio       ( 1'b0                           )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
@@ -189,7 +198,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   .RespDataWidth ( RespDataWidth ),
   .MemLatency    ( MemLatency    ),
   .NodeType      ( 1             ), // egress node
-  .ExtPrio       ( 1'b1          )
+  .ExtPrio       ( 1'b0          )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),

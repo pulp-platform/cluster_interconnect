@@ -1,4 +1,8 @@
-function [cost] = closCost(k, b, c)
+function [cost, n, m, r] = clos_cost(k, b, c)
+% banks k
+% banking factor b -> num masters = k/b
+% redundancy factor c -> m=n*c
+
     n    = 2.^ceil(log2(sqrt(k ./ (1+1./b))));
     m    = 2.^ceil(log2(c.*n));
     r    = 2.^ceil(log2(k./n));
