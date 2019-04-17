@@ -20,21 +20,9 @@ module clos_net #(
   parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
   parameter int unsigned MemLatency      = 1,
   parameter int unsigned BankFact        = NumOut/NumIn, // leave as is
-  // classic clos parameters, make sure they are aligned with powers of 2
-  // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
-  // some values (banking factor of 2):
-  // 8  Banks -> N = 2,
-  // 16 Banks -> N = 4,
-  // 32 Banks -> N = 4,
-  // 64 Banks -> N = 8,
-  // 128 Banks -> N = 8,
-  // 256 Banks -> N = 16,
-  // 512 Banks -> N = 16
-  parameter int unsigned ClosN           = 4,
-  // number of middle stage switches setting to 2*N/BankingFactor guarantees no collisions with optimum routing
-  parameter int unsigned ClosM           = 2*ClosN,
-  // determined by number of outputs and N
-  parameter int unsigned ClosR           = 2**$clog2(NumOut / ClosN)
+  // this detemines which clos config to use
+  // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
+  parameter int unsigned ClosConfig      = 2
 ) (
   input  logic                                  clk_i,
   input  logic                                  rst_ni,
@@ -52,6 +40,76 @@ module clos_net #(
   output  logic [NumOut-1:0][ReqDataWidth-1:0]  wdata_o,   // Data request Wire data
   input   logic [NumOut-1:0][RespDataWidth-1:0] rdata_i    // Data Response DATA (For LOAD commands)
 );
+
+////////////////////////////////////////////////////////////////////////
+// LUT params for Clos net with configs: 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
+// to be indexed with [config_idx][$clog2(BankingFact)][$clog2(NumBanks)]
+// generated with MATLAB script gen_clos_params.m
+////////////////////////////////////////////////////////////////////////
+localparam logic [3:1][4:0][12:2][15:0] ClosNLut = {16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2};
+localparam logic [3:1][4:0][12:2][15:0] ClosMLut = {16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
+                                                    16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
+                                                    16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,16'd1};
+localparam logic [3:1][4:0][12:2][15:0] ClosRLut = {16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
+                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2};
+
+// classic clos parameters, make sure they are aligned with powers of 2
+// good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
+// some values (banking factor of 2):
+// 8  Banks -> N = 2,
+// 16 Banks -> N = 4,
+// 32 Banks -> N = 4,
+// 64 Banks -> N = 8,
+// 128 Banks -> N = 8,
+// 256 Banks -> N = 16,
+// 512 Banks -> N = 16
+localparam int unsigned ClosN = unsigned'(ClosNLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
+localparam int unsigned ClosM = unsigned'(ClosMLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
+localparam int unsigned ClosR = unsigned'(ClosRLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
+
+
+////////////////////////////////////////////////////////////////////////
+// network inter-level connections
+////////////////////////////////////////////////////////////////////////
 
 logic [NumIn-1:0][ReqDataWidth+$clog2(NumOut)-1:0] add_wdata;
 
@@ -79,7 +137,6 @@ for (genvar k=0; unsigned'(k)<NumIn; k++) begin : g_cat
   assign add_wdata[k] = {add_i[k], wdata_i[k]};
 end
 
-// inter level connections
 for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_connect1
   for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_connect2
     // ingress to/from middle
@@ -107,44 +164,73 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_connect1
   end
 end
 
+////////////////////////////////////////////////////////////////////////
+// arbitration priorities
+// need to use a locked round robin scheme to avoid correlation
+// issues between local round robin counters
+////////////////////////////////////////////////////////////////////////
 localparam NumInNode = ClosN / BankFact;
 
-logic [ClosR-1:0][$clog2(NumInNode)-1:0] rr_ing_d, rr_ing_q;
 logic [ClosR-1:0][ClosM-1:0][$clog2(NumInNode)-1:0] rr_ing;
-logic [ClosM-1:0][ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
-logic [ClosR-1:0][ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
+logic [$clog2(NumInNode)-1:0] rr_ing_tmp;
+logic [ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
+logic [ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
+logic [$clog2(ClosM*ClosR*NumInNode)-1:0] rr_d, rr_q;
 
-// use locked rr counter for first stage
-for (genvar r=0; r<ClosR; r++) begin : gen_rr1
-  if (NumInNode>ClosM) begin : g_rr
-    assign rr_ing_d[r]  = (|(ingress_gnt[r] & ingress_req[r])) ? rr_ing_q[r] + 1'b1 : rr_ing_q[r];
-  end else begin : g_static
-    assign rr_ing_d[r]  = '0;
+if (NumInNode>ClosM) begin : gen_rr
+  // use LSB for broadcast stages
+  assign rr_ing_tmp = rr_q[$clog2(NumInNode)-1:0];
+
+  if (ClosR>1) begin : gen_rr_mid
+    assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*NumInNode*ClosM)-1:$clog2(ClosM*NumInNode)]}};
   end
 
-  for (genvar m=0; m<ClosM; m++) begin : gen_rr2
-    assign rr_ing[r][m] = rr_ing_q[r] + $clog2(NumInNode)'(m % NumInNode);
+  if (ClosM>1) begin : gen_rr_egr
+    assign rr_egr     = {ClosN{rr_q[$clog2(ClosM*NumInNode)-1:$clog2(NumInNode)]}};
+  end
+end else begin : g_static
+  // just use static assignment in this case
+  assign rr_ing_tmp = '0;
+
+  if (ClosR>1) begin : gen_rr_mid
+    assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
+  end
+
+  if (ClosM>1) begin : gen_rr_egr
+    assign rr_egr     = {ClosN{rr_q[$clog2(ClosM)-1:0]}};
   end
 end
+
+for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
+  for (genvar m=0; m<ClosM; m++) begin : gen_rr_ingr2
+    assign rr_ing[r][m] = rr_ing_tmp + $clog2(NumInNode)'(m % NumInNode);
+  end
+end
+
+assign rr_d       = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
 
 always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
   if(!rst_ni) begin
-    rr_ing_q <= '0;
+    rr_q     <= '0;
   end else begin
-    rr_ing_q <= rr_ing_d;
+    rr_q     <= rr_d;
   end
 end
 
+////////////////////////////////////////////////////////////////////////
+// router instances
+////////////////////////////////////////////////////////////////////////
+
 for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
   clos_node #(
-  .NumIn         ( NumInNode                     ),
-  .NumOut        ( ClosM                         ),
-  .ReqDataWidth  ( ReqDataWidth + $clog2(NumOut) ),
-  .RespDataWidth ( RespDataWidth                 ),
-  .WriteRespOn   ( WriteRespOn                   ),
-  .MemLatency    ( MemLatency                    ),
-  .NodeType      ( 0                             ), // ingress node
-  .ExtPrio       ( 1'b1                          )
+    .NumIn         ( NumInNode                     ),
+    .NumOut        ( ClosM                         ),
+    .ReqDataWidth  ( ReqDataWidth + $clog2(NumOut) ),
+    .RespDataWidth ( RespDataWidth                 ),
+    .WriteRespOn   ( WriteRespOn                   ),
+    .MemLatency    ( MemLatency                    ),
+    .NodeType      ( 0                             ), // ingress node
+    .ExtPrio       ( 1'b1                          )
   ) i_ingress_node (
     .clk_i   ( clk_i                                 ),
     .rst_ni  ( rst_ni                                ),
@@ -165,13 +251,13 @@ end
 
 for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   clos_node #(
-  .NumIn         ( ClosR                          ),
-  .NumOut        ( ClosR                          ),
-  .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
-  .RespDataWidth ( RespDataWidth                  ),
-  .MemLatency    ( MemLatency                     ),
-  .NodeType      ( 1                              ), // middle node
-  .ExtPrio       ( 1'b0                           )
+    .NumIn         ( ClosR                          ),
+    .NumOut        ( ClosR                          ),
+    .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
+    .RespDataWidth ( RespDataWidth                  ),
+    .MemLatency    ( MemLatency                     ),
+    .NodeType      ( 1                              ), // middle node
+    .ExtPrio       ( 1'(ClosR>1)                    )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
@@ -182,7 +268,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
     .gnt_o   ( middle_gnt_out[m]       ),
     .vld_o   (                         ),
     .rdata_o ( middle_resp_data_out[m] ),
-    .rr_i    ( rr_mid[m]               ),
+    .rr_i    ( rr_mid                  ),
     .gnt_i   ( middle_gnt_in[m]        ),
     .req_o   ( middle_req_out[m]       ),
     .wdata_o ( middle_req_data_out[m]  ),
@@ -192,13 +278,13 @@ end
 
 for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   clos_node #(
-  .NumIn         ( ClosM         ),
-  .NumOut        ( ClosN         ),
-  .ReqDataWidth  ( ReqDataWidth  ),
-  .RespDataWidth ( RespDataWidth ),
-  .MemLatency    ( MemLatency    ),
-  .NodeType      ( 1             ), // egress node
-  .ExtPrio       ( 1'b0          )
+    .NumIn         ( ClosM         ),
+    .NumOut        ( ClosN         ),
+    .ReqDataWidth  ( ReqDataWidth  ),
+    .RespDataWidth ( RespDataWidth ),
+    .MemLatency    ( MemLatency    ),
+    .NodeType      ( 1             ), // egress node
+    .ExtPrio       ( 1'(ClosM>1)   )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),
@@ -209,7 +295,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
     .gnt_o   ( egress_gnt[r]               ),
     .vld_o   (                             ),
     .rdata_o ( egress_resp_data[r]         ),
-    .rr_i    ( rr_egr[r]                   ),
+    .rr_i    ( rr_egr                      ),
     .gnt_i   ( gnt_i[ClosN * r +: ClosN]   ),
     .req_o   ( req_o[ClosN * r +: ClosN]   ),
     .wdata_o ( wdata_o[ClosN * r +: ClosN] ),
@@ -217,10 +303,26 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
   );
 end
 
+////////////////////////////////////////////////////////////////////////
+// assertions
+////////////////////////////////////////////////////////////////////////
+
 // pragma translate_off
 initial begin
-	$display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
+  $display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
+  // these are the LUT limits
+  assert(ClosConfig <= 3 & ClosConfig >=1) else
+    $fatal(1,"Unknown clos ClosConfig.");
+  assert($clog2(NumOut/NumIn)<=4) else
+    $fatal(1,"Unsupported banking factor for Clos network.");
+  assert($clog2(NumOut)<=15) else
+    $fatal(1,"Unsupported NumOut parameterization for Clos network.");
 
+  // make sure the selected config is aligned to powers of 2
+  assert(2**$clog2(NumOut) == NumOut) else
+    $fatal(1,"NumOut is not aligned with a power of 2.");
+  assert(2**$clog2(NumIn) == NumIn) else
+    $fatal(1,"NumIn is not aligned with a power of 2.");
   assert(2**$clog2(ClosN) == ClosN) else
     $fatal(1,"ClosN is not aligned with a power of 2.");
   assert(2**$clog2(ClosM) == ClosM) else

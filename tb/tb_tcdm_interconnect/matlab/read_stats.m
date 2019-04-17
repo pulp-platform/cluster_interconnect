@@ -43,30 +43,45 @@ function [stats] = read_stats(directory)
             stats.banks{idx}        = reshape(fscanf(fp, 'Bank %03d: Req=%05d Load=%e\n',3*stats.numBanks(idx))',3,[])';
             stats.banks{idx}        = stats.banks{idx}(:,2:end);
             fscanf(fp, '\n');
+            
+            % check whether test is unique
+            tst =  strcmp(stats.network,stats.network{idx})    & ...
+                   strcmp(stats.testNameFull,stats.testNameFull{idx}) & ...
+                   stats.numMaster(idx)   == stats.numMaster   & ...
+                   stats.numBanks(idx)    == stats.numBanks    & ...
+                   stats.dataWidth(idx)   == stats.dataWidth   & ...
+                   stats.memAddrBits(idx) == stats.memAddrBits & ...
+                   stats.testCycles(idx)  == stats.testCycles  & ...
+                   stats.maxLen(idx)      == stats.maxLen      & ...
+                   stats.pReq(idx)        == stats.pReq;
+               
+            if sum(tst) > 1
+                error('result already exists with this configuration (conflicting file: %s)', statFiles{k});
+            end 
             idx=idx+1;
         end
         fclose(fp);
         numFiles=numFiles+1;
     end 
     
-    % only to fix some naming, can be commented later once tb has been
-    % fixed
-    for k = 1:length(stats.network)
-        switch stats.network{k}
-            case 'bfly2(n=1)'
-                stats.network{k} = 'bfly2_n1';
-            case 'bfly2(n=2)'     
-                stats.network{k} = 'bfly2_n2';
-            case 'bfly2(n=4)'     
-                stats.network{k} = 'bfly2_n4';
-            case 'clos(2m=n)'
-                stats.network{k} = 'clos_m0p5n';
-            case 'clos(m=n)'     
-                stats.network{k} = 'clos_m1n';
-            case 'clos(m=2n)'     
-                stats.network{k} = 'clos_m2n';                
-        end
-    end
+%     % only to fix some naming, can be commented later once tb has been
+%     % fixed
+%     for k = 1:length(stats.network)
+%         switch stats.network{k}
+%             case 'bfly2(n=1)'
+%                 stats.network{k} = 'bfly2_n1';
+%             case 'bfly2(n=2)'     
+%                 stats.network{k} = 'bfly2_n2';
+%             case 'bfly2(n=4)'     
+%                 stats.network{k} = 'bfly2_n4';
+%             case 'clos(2m=n)'
+%                 stats.network{k} = 'clos_m0p5n';
+%             case 'clos(m=n)'     
+%                 stats.network{k} = 'clos_m1n';
+%             case 'clos(m=2n)'     
+%                 stats.network{k} = 'clos_m2n';                
+%         end
+%     end
     
     
     % get some meta info

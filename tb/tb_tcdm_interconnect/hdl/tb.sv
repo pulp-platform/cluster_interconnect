@@ -282,6 +282,7 @@ module tb;
 
   initial begin : p_stim
     automatic real p[0:NumMaster-1];
+    automatic int fp;
     // seq_done
     end_of_sim       = 0;
     rst_ni           = 0;
@@ -299,6 +300,10 @@ module tb;
     $display("MemAddrBits:    %0d",  MemAddrBits  );
     $display("TestCycles:     %0d",  TestCycles   );
     $display("StatsFile:      %s",   StatsFile    );
+
+    // clear stats file
+    fp = $fopen(StatsFile,"w");
+    $fclose(fp);
 
     // reset cycles
     `APPL_WAIT_CYC(clk_i,1)
