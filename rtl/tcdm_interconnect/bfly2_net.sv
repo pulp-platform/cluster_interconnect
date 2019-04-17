@@ -18,12 +18,15 @@ module bfly2_net #(
   parameter int unsigned ReqDataWidth    = 32,
   parameter int unsigned RespDataWidth   = 32,
   parameter bit          WriteRespOn     = 1,
+  parameter bit          ExtPrio         = 1'b0,  // enable external prio flag input
   // routers per level, do not change (max operation)
   parameter int unsigned NumRouters      = 2**$clog2((NumIn > NumOut) * NumIn + (NumIn <= NumOut) * NumOut)/2,
   parameter int unsigned AddWidth        = $clog2(NumOut)
 ) (
   input  logic                                 clk_i,
   input  logic                                 rst_ni,
+  // external prio flag input
+  input  logic [$clog2(NumOut)-1:0]            rr_i,
   // master ports
   input  logic [NumIn-1:0]                     req_i,
   output logic [NumIn-1:0]                     gnt_o,
@@ -56,6 +59,28 @@ module bfly2_net #(
 
 
   logic [NumIn-1:0]                                             vld_d, vld_q;
+
+  logic [NumLevels-1:0][NumRouters-1:0] prio;
+  logic [NumLevels-1:0]                 cnt_d, cnt_q;
+
+  if (ExtPrio) begin
+    assign cnt_d = rr_i;
+  end else begin
+    assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1'b1 : cnt_q;
+  end
+
+  assign vld_d = gnt_o & (~wen_i | {NumIn{WriteRespOn}});
+  assign vld_o = vld_q;
+
+  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
+    if (!rst_ni) begin
+      vld_q <= '0;
+      cnt_q <= '0;
+    end else begin
+      vld_q  <= vld_d;
+      cnt_q  <= cnt_d;
+    end
+  end
 
   // // inputs are on first level
   // make sure to evenly distribute masters in case of BankingFactors > 1
@@ -142,9 +167,6 @@ module bfly2_net #(
     end
   end
 
-  logic [NumLevels-1:0][NumRouters-1:0] prio;
-  logic [NumLevels-1:0]                 cnt_d, cnt_q;
-
   // instantiate butterfly routers
   for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
     for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
@@ -171,21 +193,6 @@ module bfly2_net #(
 	    assign prio[l][r] = cnt_q[NumLevels-l-1];
 	  end
 	end
-
-  assign cnt_d = (|(gnt_i & req_o)) ? cnt_q + 1 : cnt_q;
-
-  assign vld_d = gnt_o & (~wen_i | {NumIn{WriteRespOn}});
-  assign vld_o = vld_q;
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_regs
-    if(~rst_ni) begin
-      vld_q <= '0;
-      cnt_q <= '0;
-    end else begin
-      vld_q  <= vld_d;
-    	cnt_q  <= cnt_d;
-    end
-  end
 
   // pragma translate_off
   initial begin

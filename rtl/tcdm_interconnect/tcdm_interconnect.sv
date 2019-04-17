@@ -115,16 +115,40 @@ module tcdm_interconnect #(
     logic [NumPar-1:0][NumOut-1:0][DataWidth-1:0]     rdata1_trsp;
     logic [NumPar-1:0][NumOut-1:0] gnt1_trsp, req1_trsp;
 
+    logic [$clog2(NumOut)-1:0] rr_d, rr_q, rr1;
+
+    // we need to lock the round robin arbitration of the
+    // butterflies and arbiter trees to avoid strange correlation
+    // artifacts (this happens when each unit has a free
+    // running local counter).
+    assign rr_d = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
+      if(!rst_ni) begin
+        rr_q <= '0;
+      end else begin
+        rr_q  <= rr_d;
+      end
+    end
+
+    // this sets the uppermost bits to zero in case of parallel
+    // stages, since these are not needed anymore (i.e. these
+    // butterfly layers are collision free and do not need
+    // arbitration).
+    assign rr1 = $clog2(NumOut)'(rr_q[$high(rr_q):$clog2(NumPar)]);
+
     for (genvar j=0; j<NumPar; j++) begin : g_bfly2_net
       bfly2_net #(
         .NumIn         ( NumPerSlice  ),
         .NumOut        ( NumOut       ),
         .ReqDataWidth  ( AggDataWidth ),
         .RespDataWidth ( DataWidth    ),
-        .WriteRespOn   ( WriteRespOn  )
+        .WriteRespOn   ( WriteRespOn  ),
+        .ExtPrio       ( 1'b1         )
       ) i_bfly_net (
         .clk_i    ( clk_i             ),
         .rst_ni   ( rst_ni            ),
+        .rr_i     ( rr1               ),
         .req_i    ( req_i[j*NumPerSlice +: NumPerSlice  ]      ),
         .gnt_o    ( gnt_o[j*NumPerSlice +: NumPerSlice ]       ),
         .add_i    ( bank_sel[j*NumPerSlice +: NumPerSlice ]    ),
@@ -140,28 +164,10 @@ module tcdm_interconnect #(
       );
     end
 
-    for (genvar k=0; k<NumOut; k++) begin : g_mux
-      rr_arb_tree #(
-        .NumIn     ( NumPar       ),
-        .DataWidth ( AggDataWidth ),
-        .ExtPrio   ( 1'b0         )
-      ) i_rr_arb_tree (
-        .clk_i   ( clk_i           ),
-        .rst_ni  ( rst_ni          ),
-        .flush_i ( 1'b0            ),
-        .rr_i    ( '0              ),
-        .req_i   ( req1[k]         ),
-        .gnt_o   ( gnt1[k]         ),
-        .data_i  ( data1[k]        ),
-        .gnt_i   ( gnt_i[k]        ),
-        .req_o   ( req_o[k]        ),
-        .data_o  ( data_agg_out[k] ),
-        .idx_o   (                 )// disabled
-      );
-
+    // transpose between rr arbiters and parallel butterflies
+    for (genvar k=0; k<NumOut; k++) begin : g_trsp1
       assign rdata1[k] = {NumPar{rdata_i[k]}};
-
-      for (genvar j=0; j<NumPar; j++) begin : g_trsp1
+      for (genvar j=0; j<NumPar; j++) begin : g_trsp2
         // request
         assign data1[k][j] = data1_trsp[j][k];
         assign req1[k][j]  = req1_trsp[j][k];
@@ -169,14 +175,44 @@ module tcdm_interconnect #(
         assign rdata1_trsp[j][k] = rdata1[k][j];
         assign gnt1_trsp[j][k]   = gnt1[k][j];
       end
-
-      // pragma translate_off
-      initial begin
-        assert(NumPar >= 1) else
-          $fatal(1,"NumPar must be greater or equal 1.");
-      end
-      // pragma translate_on
     end
+
+    if (NumPar>1) begin : g_rr_arb
+
+      logic [$clog2(NumPar)-1:0] rr2;
+      assign rr2 = $clog2(NumPar)'(rr_q[$clog2(NumPar)-1:0]);
+
+      for (genvar k=0; k<NumOut; k++) begin : g_par
+        rr_arb_tree #(
+          .NumIn     ( NumPar       ),
+          .DataWidth ( AggDataWidth ),
+          .ExtPrio   ( 1'b1         )
+        ) i_rr_arb_tree (
+          .clk_i   ( clk_i           ),
+          .rst_ni  ( rst_ni          ),
+          .flush_i ( 1'b0            ),
+          .rr_i    ( rr2             ),
+          .req_i   ( req1[k]         ),
+          .gnt_o   ( gnt1[k]         ),
+          .data_i  ( data1[k]        ),
+          .gnt_i   ( gnt_i[k]        ),
+          .req_o   ( req_o[k]        ),
+          .data_o  ( data_agg_out[k] ),
+          .idx_o   (                 )// disabled
+        );
+      end
+    end else begin : g_no_rr_arb
+        // just connect through in this case
+        assign data_agg_out = data1;
+        assign req_o        = req1;
+        assign gnt1         = gnt_i;
+    end
+    // pragma translate_off
+    initial begin
+      assert(NumPar >= 1) else
+        $fatal(1,"NumPar must be greater or equal 1.");
+    end
+    // pragma translate_on
   /////////////////////////////////////////////////////////////////////
   // clos network
   end else if (Topology==2) begin : g_bfly4
