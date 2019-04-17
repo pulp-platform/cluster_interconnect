@@ -12,62 +12,119 @@
 # Date: 21.03.2019
 # Description: Makefile for the interconnect testbench.
 
-batch-list     ?= batch.list
-results        ?= sim-results
+#
+eval-root      := $(shell pwd)
+
+results-dir    ?= sim-results
 library        := work
-toplevel       := tb
-src-list       := tb.list
-src            := $(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-)
+top-sim        := tb
+top-synth      := tcdm_interconnect_wrap
 
-matlab_version ?= -2018b
+batch-list     ?= scripts/batch.list
+src-list       := scripts/src.list
+tb-src-list    := scripts/tb-src.list
 
-questa_version ?= -10.7b
+matlab-ver     ?= matlab-2018b
+questa-ver     ?= -10.7b
 compile_flag   += +cover+i_dut -incr -64 -nologo
 sim_opts       += -64 -coverage -classdebug -voptargs="+acc"
-incdir         +="../common/"+"../../rtl/low_latency_interco"
+incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_interco"
+
+# points to DC folder
+dc-ver         ?= synopsys-2018.06 dc_shell
+synth-dir      := /usr/scratch2/toscana/michscha/projects/cluster_interconnect/tech/gf22/synopsys
+synth-script   := scripts/synth.tcl
+
+
+# get sources
+src            := $(addprefix $(eval-root)/,$(shell xargs printf '\n%s' < $(src-list)  | cut -b 1-))
+tb-src         := $(addprefix $(eval-root)/,$(shell xargs printf '\n%s' < $(tb-src-list)  | cut -b 1-))
 
 # filter the batch-list first
 batch-name   := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1)
 batch-config := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1-)
 
 build: clean
-	vlib${questa_version} $(library)
-	vlog${questa_version} -work $(library) -pedanticerrors $(src) $(compile_flag) +incdir+$(incdir)
+	vlib${questa-ver} $(library)
+	vlog${questa-ver} -work $(library) -pedanticerrors $(src) $(tb-src) $(compile_flag) +incdir+$(incdir)
 	touch $(library)/.build
 
 # this starts modelsim with gui
 sim: build
-	vsim${questa_version} -lib $(library) $(toplevel) -do "do wave.do" $(sim_opts)
+	vsim${questa-ver} -lib $(library) $(top-sim) -do "do wave.do" $(sim_opts)
 
 # batch mode without gui
 simc: build
-	vsim${questa_version} -lib $(library) $(toplevel) -c -do "run -all; exit" $(sim_opts)
+	vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts)
 
 clean:
 	rm -rf $(library)
-	rm -rf $(batch-name)
 	rm -rf transcript statistics.log vsim.wlf modelsim.ini
 
-clean-all: clean
-	rm -rf $(results)
-	
+batch-clean-sim:
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _transcript.log, $(batch-name)))
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _statistics.log, $(batch-name)))
+
+batch-clean-synth:
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _synth.log, $(batch-name)))
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _timing.rpt, $(batch-name)))
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _power.rpt, $(batch-name)))
+	rm -rf $(addprefix $(results-dir)/, $(addsuffix _area.rpt, $(batch-name)))
+
+
+batch-clean:
+	rm -rf $(batch-name)
+
+clean-all: clean batch-clean batch-clean-synth batch-clean-sim
+	rm -rf $(results-dir)
+
 # runs the configurations defined in the batch-list file and gathers the statistics logs
-$(batch-name):
-	mkdir $@
-	vlib${questa_version} $@/$(library)
-	vlog${questa_version} -work $@/$(library) -pedanticerrors $(src) $(compile_flag) +incdir+$(incdir) $(subst $@-, , $(filter $@-%, $(batch-config))) > $@/compile.log
-	@echo $@ started
-	cd $@ && vsim${questa_version} -lib $(library) $(toplevel) -c -do "run -all; exit" $(sim_opts) > /dev/null
-	@echo $@ finished
-	cp $@/transcript     $(results)/$@_transcript.log
-	cp $@/statistics.log $(results)/$@_statistics.log
+$(results-dir)/%_statistics.log:
+	$(eval $@: name := $(subst _statistics.log,,$(subst $(results-dir)/,, $@)))
+	mkdir -p $(name)
+	vlib${questa-ver} $(name)/$(library)
+	vlog${questa-ver} -work $(name)/$(library) -pedanticerrors $(src) $(tb-src) $(compile_flag) +incdir+$(incdir) $(addprefix +define+,$(subst $(name)-, , $(filter $(name)-%, $(batch-config)))) > $(name)/compile.log
+	@echo $(name) started
+	cd $(name) && vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts) > /dev/null
+	@echo $(name) finished
+	cp $(name)/transcript     $(results-dir)/$(name)_transcript.log
+	cp $(name)/statistics.log $(results-dir)/$(name)_statistics.log
 
+batch-sim:
+	mkdir -p $(results-dir)
+	$(MAKE) $(addprefix $(results-dir)/, $(addsuffix _statistics.log, $(batch-name)))
 
-batch: clean
-	mkdir -p $(results)
-	$(MAKE) $(batch-name)
+# mini prep script for DC that sets the required variables and calls a generic synthesis script
+dc-cmd = "set SRC {$(src)};                                                        \
+	        set TOP_ENTITY $(top-synth);                                           \
+	        set NAME $(name);                                                      \
+	        set INCDIR $(incdir);                                                  \
+	        set OUTDIR $(eval-root)/$(name)/ ;                                     \
+	        set LIB $(eval-root)/$(name)/$(library)-synth ;                        \
+	        set DEFINE {$(subst +, ,$(subst $(name)-, , $(filter $(name)-%, $(batch-config)))) } ; \
+	        source $(eval-root)/$(synth-script)                                    \
+	         "
 
-plot: 
-	matlab$(matlab_version) -nosplash -nodesktop -r "addpath(genpath('./matlab')); run plot_sims.m"
+# synthesizes the configurations defined in the batch-list file and gathers the statistics logs
+$(results-dir)/%_area.rpt:
+	$(eval $@: name := $(subst _area.rpt,,$(subst $(results-dir)/,, $@)))
+	mkdir -p $(name)
+	@echo $(name) started
+	cd $(synth-dir)	&& $(dc-ver) -x $(dc-cmd)  > $(eval-root)/$(name)/synth.log
+	@echo $(name) finished
+	cp $(name)/synth.log   $(results-dir)/$(name)_synth.log
+	cp $(name)/timing.rpt  $(results-dir)/$(name)_timing.rpt
+	cp $(name)/power.rpt   $(results-dir)/$(name)_power.rpt
+	cp $(name)/area.rpt    $(results-dir)/$(name)_area.rpt
 
-.PHONY: clean sim simc build batch plot
+batch-synth:
+	mkdir -p $(results-dir)
+	$(MAKE) $(addprefix $(results-dir)/, $(addsuffix _area.rpt, $(batch-name)))
+
+batch-plot:
+	$(matlab-ver) -nosplash -nodesktop -r "addpath(genpath('./matlab')); run plot_sims.m"
+
+batch-eval: batch-synth batch-sim
+	$(MAKE) batch-plot
+
+.PHONY: build sim simc clean batch-clean clean-all batch-sim batch-synth batch-plot batch-eval

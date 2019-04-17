@@ -1,8 +1,8 @@
 `ifndef MUT_IMPL
-  `define MUT_IMPL 3
+  `define MUT_IMPL 1
  `endif
 `ifndef NUM_MASTER
-  `define NUM_MASTER 8
+  `define NUM_MASTER 16
  `endif
 `ifndef BANK_FACT
   `define BANK_FACT 2

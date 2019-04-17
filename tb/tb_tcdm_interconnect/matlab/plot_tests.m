@@ -161,7 +161,7 @@ function [] = plot_tests(stats, configLabels, netLabels)
     xticks(totalX);
     xticklabels(labels);
     xtickangle(45);
-    legend(b,'location','southeast');
+    legend(b,'location','southeast','interpreter','none');
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% avg wait cycles
@@ -225,7 +225,7 @@ function [] = plot_tests(stats, configLabels, netLabels)
     xticks(totalX);
     xticklabels(labels);
     xtickangle(45);
-    legend(b,'location','southeast');
+    legend(b,'location','southeast','interpreter','none');
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% avg wait cycles

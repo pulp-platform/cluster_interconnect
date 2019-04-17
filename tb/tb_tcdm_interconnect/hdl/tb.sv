@@ -37,7 +37,7 @@ module tb;
 
   localparam AddrWordOff    = $clog2(DataWidth-1)-3;
 
-  localparam string impl[] = {"lic", "bfly2", "bfly4", "clos(m=2n)", "clos(m=n)", "clos(2m=n)", "licOld"};
+  localparam string impl[] = {"lic", "bfly2", "bfly4", "clos_m2n", "clos_m1n", "clos_2mn", "licOld"};
 
 ///////////////////////////////////////////////////////////////////////////////
 // MUT signal declarations
@@ -248,7 +248,7 @@ module tb;
 
 
   if (MutImpl inside {1,2}) begin : g_bfly
-    assign mut_name = {impl[MutImpl], $psprintf("(n=%0d)", NumPar)};
+    assign mut_name = {impl[MutImpl], $psprintf("_n%0d", NumPar)};
   end else begin : g_others
     assign mut_name = impl[MutImpl];
   end

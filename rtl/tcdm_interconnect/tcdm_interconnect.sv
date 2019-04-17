@@ -262,6 +262,18 @@ module tcdm_interconnect #(
       .wdata_o  ( data_agg_out ),
       .rdata_i  ( rdata_i      )
     );
+
+    // pragma translate_off
+    initial begin
+      assert(ClosConfig <= 3 & ClosConfig >=1) else
+        $fatal(1,"Unknown clos ClosConfig.");
+      assert($clog2(NumOut/NumIn)<=4) else
+        $fatal(1,"Unsupported banking factor for Clos network.");
+      assert($clog2(NumOut)<=15) else
+        $fatal(1,"Unsupported NumOut parameterization for Clos network.");
+    end
+    // pragma translate_on
+
   /////////////////////////////////////////////////////////////////////
   end else begin : g_unknown
     // pragma translate_off

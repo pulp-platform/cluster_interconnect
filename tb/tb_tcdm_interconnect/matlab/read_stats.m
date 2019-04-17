@@ -49,6 +49,26 @@ function [stats] = read_stats(directory)
         numFiles=numFiles+1;
     end 
     
+    % only to fix some naming, can be commented later once tb has been
+    % fixed
+    for k = 1:length(stats.network)
+        switch stats.network{k}
+            case 'bfly2(n=1)'
+                stats.network{k} = 'bfly2_n1';
+            case 'bfly2(n=2)'     
+                stats.network{k} = 'bfly2_n2';
+            case 'bfly2(n=4)'     
+                stats.network{k} = 'bfly2_n4';
+            case 'clos(2m=n)'
+                stats.network{k} = 'clos_m0p5n';
+            case 'clos(m=n)'     
+                stats.network{k} = 'clos_m1n';
+            case 'clos(m=2n)'     
+                stats.network{k} = 'clos_m2n';                
+        end
+    end
+    
+    
     % get some meta info
     % network types and number of runs
     stats.netTypes = sortrows(unique(stats.network)')';
@@ -73,7 +93,7 @@ function [stats] = read_stats(directory)
     [~,idx]                      = sortrows(order(idx)');
     stats.configLabels           = stats.configLabels(idx);
     stats.numConfigs             = length(stats.configLabels);
-    
+
     % sort according to networks
     [~,idx]                 = sortrows(stats.network');
     stats.network           = stats.network(idx);

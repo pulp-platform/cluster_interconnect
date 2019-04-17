@@ -116,7 +116,7 @@ logic [ClosR-1:0][ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
 
 // use locked rr counter for first stage
 for (genvar r=0; r<ClosR; r++) begin : gen_rr1
-  if (NumInNode<ClosM) begin : g_rr
+  if (NumInNode>ClosM) begin : g_rr
     assign rr_ing_d[r]  = (|(ingress_gnt[r] & ingress_req[r])) ? rr_ing_q[r] + 1'b1 : rr_ing_q[r];
   end else begin : g_static
     assign rr_ing_d[r]  = '0;
