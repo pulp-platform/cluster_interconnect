@@ -133,12 +133,12 @@ logic [ClosR-1:0][ClosM-1:0][$clog2(ClosN)-1:0]  egress_add;
 logic [ClosR-1:0][ClosM-1:0][ReqDataWidth-1:0]   egress_req_data;
 logic [ClosR-1:0][ClosM-1:0][RespDataWidth-1:0]  egress_resp_data;
 
-for (genvar k=0; unsigned'(k)<NumIn; k++) begin : g_cat
+for (genvar k = 0; unsigned'(k) < NumIn; k++) begin : g_cat
   assign add_wdata[k] = {add_i[k], wdata_i[k]};
 end
 
-for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_connect1
-  for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_connect2
+for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_connect1
+  for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_connect2
     // ingress to/from middle
     // get bank address slice for next stage (middle stage contains RxR routers)
     assign ingress_add[r][m]         = ingress_req_data[r][m][ReqDataWidth+$clog2(NumOut)-1 :
@@ -177,32 +177,32 @@ logic [ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
 logic [ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
 logic [$clog2(ClosM*ClosR*NumInNode)-1:0] rr_d, rr_q;
 
-if (NumInNode>ClosM) begin : gen_rr
+if (NumInNode > ClosM) begin : gen_rr
   // use LSB for broadcast stages
   assign rr_ing_tmp = rr_q[$clog2(NumInNode)-1:0];
 
-  if (ClosR>1) begin : gen_rr_mid
+  if (ClosR > 1) begin : gen_rr_mid
     assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*NumInNode*ClosM)-1:$clog2(ClosM*NumInNode)]}};
   end
 
-  if (ClosM>1) begin : gen_rr_egr
+  if (ClosM > 1) begin : gen_rr_egr
     assign rr_egr     = {ClosN{rr_q[$clog2(ClosM*NumInNode)-1:$clog2(NumInNode)]}};
   end
 end else begin : g_static
   // just use static assignment in this case
   assign rr_ing_tmp = '0;
 
-  if (ClosR>1) begin : gen_rr_mid
+  if (ClosR > 1) begin : gen_rr_mid
     assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
   end
 
-  if (ClosM>1) begin : gen_rr_egr
+  if (ClosM > 1) begin : gen_rr_egr
     assign rr_egr     = {ClosN{rr_q[$clog2(ClosM)-1:0]}};
   end
 end
 
 for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
-  for (genvar m=0; m<ClosM; m++) begin : gen_rr_ingr2
+  for (genvar m = 0; m < ClosM; m++) begin : gen_rr_ingr2
     assign rr_ing[r][m] = rr_ing_tmp + $clog2(NumInNode)'(m % NumInNode);
   end
 end
@@ -221,7 +221,7 @@ end
 // router instances
 ////////////////////////////////////////////////////////////////////////
 
-for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
+for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
   clos_node #(
     .NumIn         ( NumInNode                     ),
     .NumOut        ( ClosM                         ),
@@ -249,7 +249,7 @@ for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_ingress
   );
 end
 
-for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
+for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_middle
   clos_node #(
     .NumIn         ( ClosR                          ),
     .NumOut        ( ClosR                          ),
@@ -276,7 +276,7 @@ for (genvar m=0; unsigned'(m)<ClosM; m++) begin : g_middle
   );
 end
 
-for (genvar r=0; unsigned'(r)<ClosR; r++) begin : g_egress
+for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_egress
   clos_node #(
     .NumIn         ( ClosM         ),
     .NumOut        ( ClosN         ),
@@ -311,11 +311,11 @@ end
 initial begin
   $display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
   // these are the LUT limits
-  assert(ClosConfig <= 3 & ClosConfig >=1) else
+  assert(ClosConfig <= 3 && ClosConfig >= 1) else
     $fatal(1,"Unknown clos ClosConfig.");
-  assert($clog2(NumOut/NumIn)<=4) else
+  assert($clog2(NumOut/NumIn) <= 4) else
     $fatal(1,"Unsupported banking factor for Clos network.");
-  assert($clog2(NumOut)<=15) else
+  assert($clog2(NumOut) <= 15) else
     $fatal(1,"Unsupported NumOut parameterization for Clos network.");
 
   // make sure the selected config is aligned to powers of 2
