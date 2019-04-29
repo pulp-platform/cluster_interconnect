@@ -16,9 +16,9 @@ module addr_dec_resp_mux #(
     parameter int unsigned NumOut        = 32,
     parameter int unsigned ReqDataWidth  = 32,
     parameter int unsigned RespDataWidth = 32,
-    parameter int unsigned RespLat       = 1,  // read latency of slaves
-    parameter bit          WriteRespOn   = 1,
-    parameter bit          BroadCastOn   = 0   // perform broadcast (in case of clos ingress node)
+    parameter int unsigned RespLat       = 1,    // response latency of slaves
+    parameter bit          WriteRespOn   = 1'b1,
+    parameter bit          BroadCastOn   = 1'b0  // perform broadcast
 ) (
   input  logic                                  clk_i,
   input  logic                                  rst_ni,
@@ -39,94 +39,117 @@ module addr_dec_resp_mux #(
 
   logic [RespLat-1:0] vld_d, vld_q;
 
-  // address decoder
-  always_comb begin : p_addr_dec
-    req_o        = '0;
-    if (BroadCastOn) begin
-    	if (req_i) begin
-  	  	req_o      = '1;
-  	  end
-  	end else begin
-  	  req_o[add_i] = req_i;
-  	end
-  end
+  if (NumOut==1) begin : g_one_output
 
-  // connect data outputs
-  assign data_o = {NumOut{data_i}};
-
-  // aggregate grant signals
-  assign gnt_o = |gnt_i;
-  assign vld_o = vld_q[$high(vld_q)];
-
-  // response path
-  if (BroadCastOn) begin
-    logic [NumOut-1:0] gnt_d, gnt_q;
-    logic [$clog2(NumOut)-1:0] bank_sel;
-
-    assign gnt_d = gnt_i;
-
-    lzc #(
-      .WIDTH(NumOut)
-    ) lzc_i (
-      .in_i(gnt_q),
-      .cnt_o(bank_sel),
-      .empty_o()
-    );
+    assign gnt_o    = gnt_i[0];
+    assign req_o[0] = req_i;
+    assign rdata_o  = rdata_i[0];
 
     if (RespLat > 1) begin
-      logic [RespLat-2:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
+      assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
+    end else begin
+      assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
+    end
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
+      if(~rst_ni) begin
+        vld_q      <= '0;
+      end else begin
+        vld_q      <= vld_d;
+      end
+    end
+
+  end else begin : g_severak_outputs
+
+    // address decoder
+    always_comb begin : p_addr_dec
+      req_o        = '0;
+      if (BroadCastOn) begin
+      	if (req_i) begin
+    	  	req_o      = '1;
+    	  end
+    	end else begin
+    	  req_o[add_i] = req_i;
+    	end
+    end
+
+    // connect data outputs
+    assign data_o = {NumOut{data_i}};
+
+    // aggregate grant signals
+    assign gnt_o = |gnt_i;
+    assign vld_o = vld_q[$high(vld_q)];
+
+    // response path
+    if (BroadCastOn) begin
+      logic [NumOut-1:0] gnt_d, gnt_q;
+      logic [$clog2(NumOut)-1:0] bank_sel;
+
+      assign gnt_d = gnt_i;
+
+      lzc #(
+        .WIDTH(NumOut)
+      ) lzc_i (
+        .in_i(gnt_q),
+        .cnt_o(bank_sel),
+        .empty_o()
+      );
+
+      if (RespLat > 1) begin
+        logic [RespLat-2:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
+
+        assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
+        assign vld_d   = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
+
+        if (RespLat == 2) begin
+          assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-2:0], bank_sel, bank_sel};
+        end else begin
+          assign bank_sel_d = bank_sel;
+        end
+
+        always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
+          if(~rst_ni) begin
+            bank_sel_q <= '0;
+          end else begin
+            bank_sel_q <= bank_sel_d;
+          end
+        end
+
+      end else begin
+        assign rdata_o    = rdata_i[bank_sel];
+        assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
+      end
+
+    	always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
+        if(~rst_ni) begin
+          gnt_q      <= '0;
+          vld_q      <= '0;
+        end else begin
+          gnt_q      <= gnt_d;
+          vld_q      <= vld_d;
+        end
+    	end
+    end else begin
+      logic [RespLat-1:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
 
       assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
-      assign vld_d   = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
 
-      if (RespLat == 2) begin
-        assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-2:0], bank_sel, bank_sel};
-      end else begin
-        assign bank_sel_d = bank_sel;
-      end
+    	if (RespLat > 1) begin
+    	  assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
+        assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
+    	end else begin
+    	  assign bank_sel_d = add_i;
+        assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
+    	end
 
       always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
         if(~rst_ni) begin
           bank_sel_q <= '0;
+          vld_q      <= '0;
         end else begin
           bank_sel_q <= bank_sel_d;
+          vld_q      <= vld_d;
         end
-      end
-
-    end else begin
-      assign rdata_o    = rdata_i[bank_sel];
-      assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
-    end
-
-  	always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
-      if(~rst_ni) begin
-        gnt_q      <= '0;
-        vld_q      <= '0;
-      end else begin
-        gnt_q      <= gnt_d;
-        vld_q      <= vld_d;
-      end
-  	end
-  end else begin
-    logic [RespLat-1:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
-
-    assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
-
-  	if (RespLat > 1) begin
-  	  assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
-      assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
-  	end else begin
-  	  assign bank_sel_d = add_i;
-      assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
-  	end
-
-    always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
-      if(~rst_ni) begin
-        bank_sel_q <= '0;
-        vld_q      <= '0;
-      end else begin
-        bank_sel_q <= bank_sel_d;
-        vld_q      <= vld_d;
       end
     end
   end
@@ -135,6 +158,8 @@ module addr_dec_resp_mux #(
   initial begin
     assert (RespLat > 0) else
       $fatal(1,"RespLat must be greater than 0");
+    assert (NumOut > 0) else
+      $fatal(1,"NumOut must be greater than 0");
   end
   // pragma translate_on
 

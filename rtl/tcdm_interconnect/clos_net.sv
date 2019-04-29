@@ -18,7 +18,7 @@ module clos_net #(
   parameter int unsigned ReqDataWidth    = 32,           // word width of data
   parameter int unsigned RespDataWidth   = 32,           // word width of data
   parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
-  parameter int unsigned MemLatency      = 1,
+  parameter int unsigned RespLat      = 1,
   parameter int unsigned BankFact        = NumOut/NumIn, // leave as is
   // this detemines which clos config to use
   // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
@@ -173,6 +173,7 @@ localparam NumInNode = ClosN / BankFact;
 
 logic [ClosR-1:0][ClosM-1:0][$clog2(NumInNode)-1:0] rr_ing;
 logic [$clog2(NumInNode)-1:0] rr_ing_tmp;
+// logic [ClosM*$clog2(NumInNode)-1:0][ClosR-1:0] rr_ing_tmp;
 logic [ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
 logic [ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
 logic [$clog2(ClosM*ClosR*NumInNode)-1:0] rr_d, rr_q;
@@ -189,7 +190,6 @@ if (NumInNode > ClosM) begin : gen_rr
     assign rr_egr     = {ClosN{rr_q[$clog2(ClosM*NumInNode)-1:$clog2(NumInNode)]}};
   end
 end else begin : g_static
-  // just use static assignment in this case
   assign rr_ing_tmp = '0;
 
   if (ClosR > 1) begin : gen_rr_mid
@@ -207,6 +207,75 @@ for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
   end
 end
 
+
+// // just use static assignment in this case
+// always_ff @(posedge clk_i or negedge rst_ni) begin : p_rand
+//   if(!rst_ni) begin
+//     rr_ing <= '0;
+//   end else begin
+//     if (|(gnt_i & req_o)) begin
+//       void'(randomize(rr_ing));
+//     end
+//   end
+// end
+// assign rr_ing_tmp = '0;
+
+// if (ClosR > 1) begin : gen_rr_mid
+//   assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
+// end
+
+// if (ClosM > 1) begin : gen_rr_egr
+//   assign rr_egr     = {ClosN{rr_q[$clog2(ClosM)-1:0]}};
+// end
+
+
+
+
+// function logic[31:0] lcg_parkmiller(logic[31:0] state);
+// begin
+//   return 32'((64'(state) * 64'(48271)) % 64'h7fffffff);
+// end
+// endfunction
+
+// for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
+//   for (genvar m = 0; m < ClosM; m++) begin : gen_rr_ingr2
+//     // lfsr #(
+//     //   .LfsrWidth(4*$clog2(NumInNode)),
+//     //   .OutWidth($clog2(NumInNode)),
+//     //   .RstVal(r*ClosM + m + 1)
+//     // ) lfsr_i (
+//     //   .clk_i,
+//     //   .rst_ni,
+//     //   .en_i(|(gnt_i & req_o)),
+//     //   // .en_i(ingress_req[r][m] & ingress_gnt[r][m]),
+//     //   .out(rr_ing[r][m])
+//     // );
+
+//     always_ff @(posedge clk_i or negedge rst_ni) begin : p_rand
+//       if(!rst_ni) begin
+//         rr_ing[r][m] <= r*ClosM + m + 1;
+//       end else begin
+//         if (|(gnt_i & req_o)) begin
+//           // void'(randomize(tmp));
+//           rr_ing[r][m] <= lcg_parkmiller(rr_ing[r][m]);
+//         end
+//       end
+//     end
+//   end
+// end
+
+
+// lfsr #(
+//   .LfsrWidth(2*$clog2(ClosM*ClosR*NumInNode)),
+//   .OutWidth($clog2(ClosM*ClosR*NumInNode)),
+//   .RstVal(1)
+// ) lfsr_i (
+//   .clk_i,
+//   .rst_ni,
+//   .en_i(|(gnt_i & req_o)),
+//   .out(rr_q)
+// );
+
 assign rr_d       = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
 
 always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
@@ -222,15 +291,15 @@ end
 ////////////////////////////////////////////////////////////////////////
 
 for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
-  clos_node #(
+  xbar #(
     .NumIn         ( NumInNode                     ),
     .NumOut        ( ClosM                         ),
     .ReqDataWidth  ( ReqDataWidth + $clog2(NumOut) ),
     .RespDataWidth ( RespDataWidth                 ),
+    .RespLat       ( RespLat                       ),
     .WriteRespOn   ( WriteRespOn                   ),
-    .MemLatency    ( MemLatency                    ),
-    .NodeType      ( 0                             ), // ingress node
-    .ExtPrio       ( 1'b1                          )
+    .ExtPrio       ( 1'b1                          ),
+    .BroadCastOn   ( 1'b1                          )
   ) i_ingress_node (
     .clk_i   ( clk_i                                 ),
     .rst_ni  ( rst_ni                                ),
@@ -250,13 +319,12 @@ for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
 end
 
 for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_middle
-  clos_node #(
+  xbar #(
     .NumIn         ( ClosR                          ),
     .NumOut        ( ClosR                          ),
     .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
     .RespDataWidth ( RespDataWidth                  ),
-    .MemLatency    ( MemLatency                     ),
-    .NodeType      ( 1                              ), // middle node
+    .RespLat       ( RespLat                        ),
     .ExtPrio       ( 1'(ClosR>1)                    )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
@@ -277,13 +345,12 @@ for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_middle
 end
 
 for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_egress
-  clos_node #(
+  xbar #(
     .NumIn         ( ClosM         ),
     .NumOut        ( ClosN         ),
     .ReqDataWidth  ( ReqDataWidth  ),
     .RespDataWidth ( RespDataWidth ),
-    .MemLatency    ( MemLatency    ),
-    .NodeType      ( 1             ), // egress node
+    .RespLat       ( RespLat       ),
     .ExtPrio       ( 1'(ClosM>1)   )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),

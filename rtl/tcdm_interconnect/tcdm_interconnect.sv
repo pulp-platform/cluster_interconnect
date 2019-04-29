@@ -25,7 +25,7 @@ module tcdm_interconnect #(
   parameter int unsigned Topology        = 2,            // 0 = lic, 1 = radix-2 bfly, 2 = radix-4 bfly, 3 = clos
 	parameter bit          WriteRespOn     = 2,            // defines whether the interconnect returns a write response
   // TCDM read latency, usually 1 cycle, has no effect on butterfly topology (fixed to 1 in that case)
-  parameter int unsigned MemLatency      = 1,
+  parameter int unsigned RespLat         = 1,
   ///////////////////////////
   // butterfly parameters
   parameter int unsigned NumPar          = 1,
@@ -78,14 +78,13 @@ module tcdm_interconnect #(
   /////////////////////////////////////////////////////////////////////
   // tuned logarithmic interconnect architecture, based on rr_arb_tree primitives
   if (Topology==0) begin : g_lic
-    clos_node #(
+    xbar #(
       .NumIn         ( NumIn        ),
       .NumOut        ( NumOut       ),
       .ReqDataWidth  ( AggDataWidth ),
       .RespDataWidth ( DataWidth    ),
-      .WriteRespOn   ( WriteRespOn  ),
-      .MemLatency    ( MemLatency   ),
-      .NodeType      ( 1            ) // clos middle node is a full lic crossbar
+      .RespLat       ( RespLat      ),
+      .WriteRespOn   ( WriteRespOn  )
     ) i_clos_node (
       .clk_i   ( clk_i        ),
       .rst_ni  ( rst_ni       ),
@@ -143,6 +142,7 @@ module tcdm_interconnect #(
         .NumOut        ( NumOut       ),
         .ReqDataWidth  ( AggDataWidth ),
         .RespDataWidth ( DataWidth    ),
+        .RespLat       ( RespLat      ),
         .WriteRespOn   ( WriteRespOn  ),
         .ExtPrio       ( 1'b1         )
       ) i_bfly_net (
@@ -229,6 +229,7 @@ module tcdm_interconnect #(
       .NumOut        ( NumOut       ),
       .ReqDataWidth  ( AggDataWidth ),
       .RespDataWidth ( DataWidth    ),
+      .RespLat       ( RespLat      ),
       .WriteRespOn   ( WriteRespOn  ),
       .ClosConfig    ( ClosConfig   )
     ) i_clos_net (
@@ -258,7 +259,7 @@ module tcdm_interconnect #(
 
   // pragma translate_off
   initial begin
-  	assert(AddrMemWidth+BankAddWidth+AddrMemWidth <= AddrWidth) else
+  	assert(AddrMemWidth+BankAddWidth <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
     assert(NumOut >= NumIn) else
       $fatal(1,"NumOut < NumIn is not supported.");

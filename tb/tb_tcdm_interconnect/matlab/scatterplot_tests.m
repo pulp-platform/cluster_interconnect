@@ -4,10 +4,6 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     %% global plot configs
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    altGrey = [0.8, 0.9];
-    skip = 0.5;
-
-    cols=colormap('lines');
     close;
     figure;
     
@@ -34,7 +30,7 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     configLabels={};
     bankFacts={};
     for k=1:length(stats.configLabels)
-        if strcmp(masterConfig, stats.configLabels{k}(1:length(masterConfig)))
+        if strcmp(masterConfig, stats.configLabels{k}(1:min(length(stats.configLabels{k}),length(masterConfig))))
             configLabels = [configLabels stats.configLabels(k)];
             bankFacts = [bankFacts {stats.configLabels{k}(length(masterConfig)+1:end)}];
         end

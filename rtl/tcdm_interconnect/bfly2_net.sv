@@ -17,6 +17,7 @@ module bfly2_net #(
   parameter int unsigned NumOut          = 32,
   parameter int unsigned ReqDataWidth    = 32,
   parameter int unsigned RespDataWidth   = 32,
+  parameter int unsigned RespLat         = 1,
   parameter bit          WriteRespOn     = 1,
   parameter bit          ExtPrio         = 1'b0,  // enable external prio flag input
   // routers per level, do not change (max operation)
@@ -43,6 +44,7 @@ module bfly2_net #(
   input  logic [NumOut-1:0][RespDataWidth-1:0] rdata_i
 );
 
+  localparam int unsigned Radix       = 2;
   localparam int unsigned BankingFact = NumOut/NumIn;
   localparam NumLevels = $clog2(NumOut);
 
@@ -170,25 +172,41 @@ module bfly2_net #(
   // instantiate butterfly routers
   for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
     for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
-      bfly2_router #(
-        .AddWidth      ( AddWidth          ),
-        .ReqDataWidth  ( ReqDataWidth      ),
-        .RespDataWidth ( RespDataWidth     )
-      ) i_bfly_router (
-        .clk_i  ( clk_i                      ),
-        .rst_ni ( rst_ni                     ),
-        .req_i  ( router_req_in[l][r]        ),
-        .gnt_o  ( router_gnt_out[l][r]       ),
-        .prio_i ( prio[l][r]                 ),
-        .add_i  ( router_add_in[l][r]        ),
-        .data_i ( router_data_in[l][r]       ),
-        .rdata_o( router_resp_data_out[l][r] ),
-        .req_o  ( router_req_out[l][r]       ),
-        .gnt_i  ( router_gnt_in[l][r]        ),
-        .add_o  ( router_add_out[l][r]       ),
-        .data_o ( router_data_out[l][r]      ),
-        .rdata_i( router_resp_data_in[l][r]  )
+
+      logic [Radix-1:0][$clog2(Radix)-1:0] add_local;
+      logic [Radix-1:0][AddWidth+ReqDataWidth-1:0] data_in, data_out;
+
+      for (genvar k=0; k<Radix; k++) begin : g_map
+        assign add_local[k] = router_add_in[l][r][k][AddWidth-1:AddWidth-$clog2(Radix)];
+        assign data_in[k]   = {router_add_in[l][r][k]<<1, router_data_in[l][r][k]};
+        assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[k];
+      end
+
+      xbar #(
+        .NumIn         ( Radix         ),
+        .NumOut        ( Radix         ),
+        .ReqDataWidth  ( ReqDataWidth + AddWidth ),
+        .RespDataWidth ( RespDataWidth ),
+        .RespLat       ( RespLat       ),
+        .WriteRespOn   ( 1'b0          ),
+        .ExtPrio       ( 1'b1          )
+      ) i_router (
+        .clk_i   ( clk_i     ),
+        .rst_ni  ( rst_ni    ),
+        .req_i   ( router_req_in[l][r]     ),
+        .add_i   ( add_local ),
+        .wen_i   ( '0        ),
+        .wdata_i ( data_in   ),
+        .gnt_o   ( router_gnt_out[l][r]     ),
+        .vld_o   (           ),
+        .rdata_o ( router_resp_data_out[l][r]   ),
+        .rr_i    ( {Radix{prio[l][r]}} ),
+        .gnt_i   ( router_gnt_in[l][r]     ),
+        .req_o   ( router_req_out[l][r]     ),
+        .wdata_o ( data_out  ),
+        .rdata_i ( router_resp_data_in[l][r]   )
       );
+
       // rotating prio arbiter
 	    assign prio[l][r] = cnt_q[NumLevels-l-1];
 	  end

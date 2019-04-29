@@ -25,9 +25,11 @@ src-list       := scripts/src.list
 tb-src-list    := scripts/tb-src.list
 
 matlab-ver     ?= matlab-2018b
-questa-ver     ?= -10.7b
-compile_flag   += +cover+i_dut -incr -64 -nologo
-sim_opts       += -64 -coverage -classdebug -voptargs="+acc"
+questa-ver     ?= -10.6b
+compile_flag   += -incr -64 -nologo -quiet -suppress 13262 -suppress 2583
+# +cover+i_dut
+sim_opts       += -64
+#-coverage -classdebug -voptargs="+acc"
 incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_interco"
 
 # points to DC folder

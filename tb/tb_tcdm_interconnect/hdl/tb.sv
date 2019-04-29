@@ -324,7 +324,7 @@ module tb;
     randomUniformTest(TestCycles, 1.0);
     printStats(StatsFile);
     ///////////////////////////////////////////////
-    // uniform traffic
+    // non-uniform traffic
     // p[0]             = 0.0;
     // p[1:NumMaster-1] = '{default:0.25};
     // randomNonUniformTest(TestCycles, p);

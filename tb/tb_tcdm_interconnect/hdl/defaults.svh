@@ -1,11 +1,11 @@
 `ifndef MUT_IMPL
-  `define MUT_IMPL 5
+  `define MUT_IMPL 1
  `endif
 `ifndef NUM_MASTER
   `define NUM_MASTER 16
  `endif
 `ifndef BANK_FACT
-  `define BANK_FACT 1
+  `define BANK_FACT 2
  `endif
 `ifndef DATA_WIDTH
   `define DATA_WIDTH 32
@@ -17,5 +17,5 @@
   `define PAR_STAGES 1
 `endif
 `ifndef TEST_CYCLES
-  `define TEST_CYCLES 5000
+  `define TEST_CYCLES 10000
 `endif
