@@ -18,8 +18,7 @@ module clos_net #(
   parameter int unsigned ReqDataWidth    = 32,           // word width of data
   parameter int unsigned RespDataWidth   = 32,           // word width of data
   parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
-  parameter int unsigned RespLat      = 1,
-  parameter int unsigned BankFact        = NumOut/NumIn, // leave as is
+  parameter int unsigned RespLat         = 1,
   // this detemines which clos config to use
   // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
   parameter int unsigned ClosConfig      = 2
@@ -102,9 +101,10 @@ localparam logic [3:1][4:0][12:2][15:0] ClosRLut = {16'd64,16'd32,16'd32,16'd16,
 // 128 Banks -> N = 8,
 // 256 Banks -> N = 16,
 // 512 Banks -> N = 16
-localparam int unsigned ClosN = unsigned'(ClosNLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
-localparam int unsigned ClosM = unsigned'(ClosMLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
-localparam int unsigned ClosR = unsigned'(ClosRLut[ClosConfig][$clog2(NumOut/NumIn)][$clog2(NumOut)]);
+localparam int unsigned BankFact = NumOut/NumIn;
+localparam int unsigned ClosN = unsigned'(ClosNLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosM = unsigned'(ClosMLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosR = unsigned'(ClosRLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
 
 
 ////////////////////////////////////////////////////////////////////////
@@ -287,7 +287,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
 end
 
 ////////////////////////////////////////////////////////////////////////
-// router instances
+// crossbars
 ////////////////////////////////////////////////////////////////////////
 
 for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress

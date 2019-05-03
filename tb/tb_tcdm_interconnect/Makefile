@@ -28,7 +28,7 @@ matlab-ver     ?= matlab-2018b
 questa-ver     ?= -10.6b
 compile_flag   += -incr -64 -nologo -quiet -suppress 13262 -suppress 2583
 # +cover+i_dut
-sim_opts       += -64
+sim_opts       += -64 -voptargs="+acc"
 #-coverage -classdebug -voptargs="+acc"
 incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_interco"
 

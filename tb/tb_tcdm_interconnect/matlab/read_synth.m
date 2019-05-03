@@ -4,7 +4,8 @@ function [stats] = read_synth(directory, stats)
     
     fprintf('\nreading synthesis results...\n');
     
-    stats.synthArea = nan(length(stats.netTypes), length(stats.configLabels), 3);
+    stats.synthArea  = nan(length(stats.netTypes), length(stats.configLabels), 3);
+    stats.synthSlack = nan(length(stats.netTypes), length(stats.configLabels));
     numFiles = 0;
     numSkipped = 0;
     for k = 1:length(stats.netTypes)
@@ -23,6 +24,15 @@ function [stats] = read_synth(directory, stats)
                 warning('No Synthesis results found for %s', [stats.netTypes{k} '_' stats.configLabels{j}]);
                 numSkipped = numSkipped + 1;
             end 
+            
+            fileName = [directory filesep stats.netTypes{k} '_' stats.configLabels{j} '_timing.rpt'];
+            
+            if exist(fileName, 'file')
+                [~,out] = system(['grep "slack" ' fileName ' | awk -e ''{print $3;}'' ']);
+                stats.synthSlack(k,j) = sscanf(out,'%f',1);
+            else
+                warning('No Timing results found for %s', [stats.netTypes{k} '_' stats.configLabels{j}]);
+            end     
         end
     end    
     

@@ -104,8 +104,9 @@ module tcdm_interconnect #(
   /////////////////////////////////////////////////////////////////////
   // butterfly network with parallelization option
   // (NumPar>1 results in a hybrid between lic and bfly)
-  end else if (Topology==1) begin : g_bfly2
+  end else if (Topology inside {1,2}) begin : g_bfly
     localparam int unsigned NumPerSlice = NumIn/NumPar;
+    localparam int unsigned Radix       = 2**Topology;
     logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
     logic [NumOut-1:0][NumPar-1:0][DataWidth-1:0]     rdata1;
     logic [NumOut-1:0][NumPar-1:0] gnt1, req1;
@@ -137,12 +138,13 @@ module tcdm_interconnect #(
     assign rr1 = $clog2(NumOut)'(rr_q[$high(rr_q):$clog2(NumPar)]);
 
     for (genvar j=0; j<NumPar; j++) begin : g_bfly2_net
-      bfly2_net #(
+      bfly_net #(
         .NumIn         ( NumPerSlice  ),
         .NumOut        ( NumOut       ),
         .ReqDataWidth  ( AggDataWidth ),
         .RespDataWidth ( DataWidth    ),
         .RespLat       ( RespLat      ),
+        .Radix         ( Radix        ),
         .WriteRespOn   ( WriteRespOn  ),
         .ExtPrio       ( 1'b1         )
       ) i_bfly_net (
@@ -211,14 +213,6 @@ module tcdm_interconnect #(
     initial begin
       assert(NumPar >= 1) else
         $fatal(1,"NumPar must be greater or equal 1.");
-    end
-    // pragma translate_on
-  /////////////////////////////////////////////////////////////////////
-  // clos network
-  end else if (Topology==2) begin : g_bfly4
-    // pragma translate_off
-    initial begin
-      $fatal(1,"Provisioned for radix-4 butterflies", Topology);
     end
     // pragma translate_on
   /////////////////////////////////////////////////////////////////////
