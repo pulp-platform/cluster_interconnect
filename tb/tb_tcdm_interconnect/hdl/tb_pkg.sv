@@ -105,7 +105,7 @@ package tb_pkg;
         int fptr;
 
         // sanitize string
-        for(fptr=0; fptr<$size(file);fptr++) begin
+        for(fptr=0; fptr<file.len();fptr++) begin
           if(file[fptr] == " " || file[fptr] == "/" || file[fptr] == "\\") begin
             file[fptr] = "_";
           end

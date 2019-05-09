@@ -142,19 +142,18 @@ module tb;
 // Clock Process
 ///////////////////////////////////////////////////////////////////////////////
 
-  always @*
-    begin
-      do begin
-        clk_i = 1;#(CLK_HI);
-        clk_i = 0;#(CLK_LO);
-      end while (end_of_sim == 1'b0);
-      repeat (100) begin
-        // generate a few extra cycle to allow
-        // response acquisition to complete
-        clk_i = 1;#(CLK_HI);
-        clk_i = 0;#(CLK_LO);
-      end
+  initial begin : p_clock
+    do begin
+      clk_i = 1;#(CLK_HI);
+      clk_i = 0;#(CLK_LO);
+    end while (end_of_sim == 1'b0);
+    repeat (100) begin
+      // generate a few extra cycle to allow
+      // response acquisition to complete
+      clk_i = 1;#(CLK_HI);
+      clk_i = 0;#(CLK_LO);
     end
+  end
 
 ///////////////////////////////////////////////////////////////////////////////
 // memory emulation
@@ -204,7 +203,7 @@ module tb;
   end
 
   // assumes that banks always grant requests
-  for (genvar s=0; s<NumBanks; s++) begin
+  for (genvar s=0; s<NumBanks; s++) begin : g_req_cnt
     assign bank_req_cnt_d[s]  = (cs_o[s])          ? bank_req_cnt_q[s]  + 1 : bank_req_cnt_q[s];
   end
 
@@ -230,7 +229,7 @@ module tb;
   logic [NumMaster-1:0][$clog2(NumBanks)-1:0] bank_sel;
   logic [NumMaster-1:0][MemAddrBits-1:0] bank_addr;
 
-  for (genvar m=0; m<NumMaster; m++) begin
+  for (genvar m=0; m<NumMaster; m++) begin : g_assert
 
     // simplifies the assertion below
     assign bank_sel[m]  = add_i[m][$clog2(NumBanks)+AddrWordOff-1:AddrWordOff];
@@ -247,7 +246,7 @@ module tb;
 ///////////////////////////////////////////////////////////////////////////////
 
 
-  if (MutImpl inside {1,2}) begin : g_bfly
+  if (MutImpl >= 1 && MutImpl <=2) begin : g_bfly
     assign mut_name = {impl[MutImpl], $psprintf("_n%0d", NumPar)};
   end else begin : g_others
     assign mut_name = impl[MutImpl];

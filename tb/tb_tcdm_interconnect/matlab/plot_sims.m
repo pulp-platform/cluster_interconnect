@@ -4,45 +4,45 @@ mkdir plots
 
 %% get simulation results
 [stats] = read_stats('sim-results');
-
-fairness_test(stats, 0.15);
+%%
+fairness_test(stats, 0.13);
 
 %%
 stats = read_synth('sim-results', stats);
 
 %% clos networks
-plot_tests(stats, [], {'clos_2mn', 'clos_m1n', 'clos_m2n','lic'});
-export_fig 'sim-results/clos' -png -pdf
+plot_tests(stats, {'8x16'}, {'clos_2mn', 'clos_m1n', 'clos_m2n','lic'});
+% export_fig 'sim-results/clos' -png -pdf
 
 %% selection
-plot_tests(stats, [], {'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'});
-export_fig 'sim-results/selection' -png -pdf
+plot_tests(stats,  {'64x64','64x128','64x256'}, {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'});
+% export_fig 'sim-results/selection' -png -pdf
 
 
 %% plot only banking factor 2
-plot_tests(stats, {'8x16', '16x32', '32x64'}, {'bfly2_n1','bfly2_n2','clos_2mn', 'clos_m1n', 'clos_m2n','lic'});
+plot_tests(stats, {'64x64','64x128','64x256'}, {'clos_2mn', 'clos_m1n', 'clos_m2n','lic'});
 
 export_fig 'sim-results/bf2' -png -pdf
 
 %% 8 masters
-scatterplot_tests(stats, '8x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');
-export_fig 'sim-results/pareto_8x' -png -pdf
+scatterplot_tests(stats, '8x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% export_fig 'sim-results/pareto_8x' -png -pdf
 
 %% 16 masters
-scatterplot_tests(stats, '16x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');
-export_fig 'sim-results/pareto_16x' -png -pdf
+scatterplot_tests(stats, '16x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% export_fig 'sim-results/pareto_16x' -png -pdf
 
 %% 32 masters
-scatterplot_tests(stats, '32x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');
-export_fig 'sim-results/pareto_32x' -png -pdf
+scatterplot_tests(stats, '32x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% export_fig 'sim-results/pareto_32x' -png -pdf
 
 %% 64 masters
-scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');
-export_fig 'sim-results/pareto_64x' -png -pdf
+scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% export_fig 'sim-results/pareto_64x' -png -pdf
 
 %% 128 masters
-scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');
-export_fig 'sim-results/pareto_128x' -png -pdf
+scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% export_fig 'sim-results/pareto_128x' -png -pdf
 
 % %% 256 masters
 % scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'lic'},'random uniform (p_{req}=1.00)');

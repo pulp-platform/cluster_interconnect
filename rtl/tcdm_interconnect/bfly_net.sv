@@ -78,11 +78,11 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
     if ((j % BankFact) == 0) begin
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = req_i[j/BankFact];
-      assign gnt_o[j/BankFact]                = router_gnt_out[0][j/Radix][j%Radix];
+      assign gnt_o[j/BankFact]                   = router_gnt_out[0][j/Radix][j%Radix];
       assign router_add_in[0][j/Radix][j%Radix]  = add_i[j/BankFact];
       assign router_data_in[0][j/Radix][j%Radix] = data_i[j/BankFact];
       // resp
-      assign rdata_o[j/BankFact]              = router_resp_data_out[0][j/Radix][j%Radix];
+      assign rdata_o[j/BankFact]                 = router_resp_data_out[0][j/Radix][j%Radix];
     end else begin
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = 1'b0;
@@ -196,20 +196,20 @@ end
 ////////////////////////////////////////////////////////////////////////
 // crossbars
 ////////////////////////////////////////////////////////////////////////
+logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][AddWidth+ReqDataWidth-1:0] data_in, data_out;
 
 for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
   for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
     // need to add a radix-2 stage in this case
     if (l == 0 && NeedsR2Stage) begin : g_r4r2_level
-      logic [Radix-1:0][0:0] add_local;
-      logic [Radix-1:0][AddWidth+ReqDataWidth-1:0] data_in, data_out;
-      logic [Radix-1:0][0:0] prio_local;
+      logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][0:0] add;
+      logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][0:0] prio;
 
       for (genvar k=0; k<Radix; k++) begin : g_map
-        assign add_local[k]  = router_add_in[l][r][k][AddWidth-1];
-        assign data_in[k]    = {router_add_in[l][r][k]<<1, router_data_in[l][r][k]};
-        assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[k];
-        assign prio_local[k] = cnt_q[$clog2(NumOut)-1];
+        assign add[l][r][k]  = router_add_in[l][r][k][AddWidth-1];
+        assign data_in[l][r][k] = {router_add_in[l][r][k]<<1, router_data_in[l][r][k]};
+        assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[l][r][k];
+        assign prio[l][r][k] = cnt_q[$clog2(NumOut)-1];
       end
 
       for (genvar k=0; k<2; k++) begin : g_xbar
@@ -225,30 +225,41 @@ for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
           .clk_i   ( clk_i                                ),
           .rst_ni  ( rst_ni                               ),
           .req_i   ( router_req_in[l][r][k*2 +: 2]        ),
-          .add_i   ( add_local[k*2 +: 2]                  ),
+          .add_i   ( add[l][r][k*2 +: 2]                  ),
           .wen_i   ( '0                                   ),
-          .wdata_i ( data_in[k*2 +: 2]                    ),
+          .wdata_i ( data_in[l][r][k*2 +: 2]              ),
           .gnt_o   ( router_gnt_out[l][r][k*2 +: 2]       ),
           .vld_o   (                                      ),
           .rdata_o ( router_resp_data_out[l][r][k*2 +: 2] ),
-          .rr_i    ( prio_local[k*2 +: 2]                 ),
+          .rr_i    ( prio[l][r][k*2 +: 2]                 ),
           .gnt_i   ( router_gnt_in[l][r][k*2 +: 2]        ),
           .req_o   ( router_req_out[l][r][k*2 +: 2]       ),
-          .wdata_o ( data_out[k*2 +: 2]                   ),
+          .wdata_o ( data_out[l][r][k*2 +: 2]             ),
           .rdata_i ( router_resp_data_in[l][r][k*2 +: 2]  )
         );
       end
     // instantiate switchbox of chosen Radix
     end else begin : g_std_level
-      logic [Radix-1:0][$clog2(Radix)-1:0] add_local;
-      logic [Radix-1:0][AddWidth+ReqDataWidth-1:0] data_in, data_out;
-      logic [Radix-1:0][$clog2(Radix)-1:0] prio_local;
+      logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] add;
+      logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] prio;
 
       for (genvar k=0; k<Radix; k++) begin : g_map
-        assign add_local[k]  = router_add_in[l][r][k][AddWidth-1:AddWidth-$clog2(Radix)];
-        assign data_in[k]    = {router_add_in[l][r][k]<<$clog2(Radix), router_data_in[l][r][k]};
-        assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[k];
-        assign prio_local[k] = cnt_q[$clog2(NumOut)-1-(l-NeedsR2Stage)*$clog2(Radix)-NeedsR2Stage : $clog2(NumOut)-(l+1-NeedsR2Stage)*$clog2(Radix)-NeedsR2Stage];
+        assign add[l][r][k]        = router_add_in[l][r][k][AddWidth-1:AddWidth-$clog2(Radix)];
+        assign data_in[l][r][k]    = {router_add_in[l][r][k]<<$clog2(Radix), router_data_in[l][r][k]};
+        assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[l][r][k];
+
+        // depending on where the requests are connected in the radix 4 case, we have to flip the priority vector
+        // this is needed because one of the bits may be constantly set to zero
+        if (BankFact < Radix) begin
+        // if (l==1 && NeedsR2Stage && BankFact==4 && Radix==4) begin
+          for (genvar j=0; j<$clog2(Radix); j++) begin
+            assign prio[l][r][k][$clog2(Radix)-1-j] = cnt_q[$clog2(NumOut)-(l+1-NeedsR2Stage)*$clog2(Radix)-NeedsR2Stage + j];
+          end
+        end else begin
+          for (genvar j=0; j<$clog2(Radix); j++) begin
+            assign prio[l][r][k][j] = cnt_q[$clog2(NumOut)-(l+1-NeedsR2Stage)*$clog2(Radix)-NeedsR2Stage + j];
+          end
+        end
       end
 
       xbar #(
@@ -263,19 +274,18 @@ for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
         .clk_i   ( clk_i                      ),
         .rst_ni  ( rst_ni                     ),
         .req_i   ( router_req_in[l][r]        ),
-        .add_i   ( add_local                  ),
+        .add_i   ( add[l][r]                  ),
         .wen_i   ( '0                         ),
-        .wdata_i ( data_in                    ),
+        .wdata_i ( data_in[l][r]              ),
         .gnt_o   ( router_gnt_out[l][r]       ),
         .vld_o   (                            ),
         .rdata_o ( router_resp_data_out[l][r] ),
-        .rr_i    ( prio_local                 ),
+        .rr_i    ( prio[l][r]                 ),
         .gnt_i   ( router_gnt_in[l][r]        ),
         .req_o   ( router_req_out[l][r]       ),
-        .wdata_o ( data_out                   ),
+        .wdata_o ( data_out[l][r]             ),
         .rdata_i ( router_resp_data_in[l][r]  )
       );
-
 
     end
   end
@@ -287,9 +297,11 @@ end
 
 // pragma translate_off
 initial begin
-  $display("\nBfly Net info:\nNumIn=%0d\nNumOut=%0d\nRadix=%0d\nNeedsR2Stage=%0d\nNumRouters=%0d\nNumLevels=%0d\n",
-    NumIn, NumOut, Radix, NeedsR2Stage, NumRouters, NumLevels);
+  $display("\nBfly Net info:\nNumIn=%0d\nNumOut=%0d\nBankFact=%0d\nRadix=%0d\nNeedsR2Stage=%0d\nNumRouters=%0d\nNumLevels=%0d\n",
+    NumIn, NumOut, BankFact, Radix, NeedsR2Stage, NumRouters, NumLevels);
 
+//  assert(BankFact inside {1,2,4}) else
+//    $fatal(1,"Only banking factors of 1-4 are supported.");
   assert(Radix inside {2,4}) else
     $fatal(1,"Only Radix-2 and Radix-4 is supported.");
   assert(2**$clog2(NumIn) == NumIn) else

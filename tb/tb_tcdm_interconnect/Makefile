@@ -25,12 +25,17 @@ src-list       := scripts/src.list
 tb-src-list    := scripts/tb-src.list
 
 matlab-ver     ?= matlab-2018b
-questa-ver     ?= -10.6b
-compile_flag   += -incr -64 -nologo -quiet -suppress 13262 -suppress 2583
-# +cover+i_dut
+questa-ver     ?= -10.5c
+vcs-ver        ?= -2017.03
+
+compile_flag   += -suppress 13262 -suppress 2583
+compile-flag-vcs   += -full64 -sverilog +systemverilogext+.sv -timescale=1ps/1ps
+# +cover+i_dut -incr -64 -nologo -quiet
 sim_opts       += -64 -voptargs="+acc"
+sim_opts_batch += -64
+#-voptargs="+acc" -64
 #-coverage -classdebug -voptargs="+acc"
-incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_interco"
+incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_interco"+"$(shell pwd)/../../rtl/low_latency_interco"+"$(shell pwd)/hdl/"
 
 # points to DC folder
 dc-ver         ?= synopsys-2018.06 dc_shell
@@ -49,7 +54,6 @@ batch-config := $(shell cat $(batch-list) | grep -v '\#' | cut -d - -f 1-)
 build: clean
 	vlib${questa-ver} $(library)
 	vlog${questa-ver} -work $(library) -pedanticerrors $(src) $(tb-src) $(compile_flag) +incdir+$(incdir)
-	touch $(library)/.build
 
 # this starts modelsim with gui
 sim: build
@@ -57,7 +61,19 @@ sim: build
 
 # batch mode without gui
 simc: build
-	vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts)
+	vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts_batch)
+
+build-vcs: clean
+	vcs${vcs-ver} vcs $(src) $(tb-src) $(compile-flag-vcs) +incdir+$(incdir)
+
+# this starts modelsim with gui
+# sim-vcs: build-vcs
+# 	vsim${questa-ver} -lib $(library) $(top-sim) -do "do wave.do" $(sim_opts)
+
+# # batch mode without gui
+# simc-vcs: build-vcs
+# 	vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts_batch)
+
 
 clean:
 	rm -rf $(library)
@@ -87,7 +103,7 @@ $(results-dir)/%_statistics.log:
 	vlib${questa-ver} $(name)/$(library)
 	vlog${questa-ver} -work $(name)/$(library) -pedanticerrors $(src) $(tb-src) $(compile_flag) +incdir+$(incdir) $(addprefix +define+,$(subst $(name)-, , $(filter $(name)-%, $(batch-config)))) > $(name)/compile.log
 	@echo $(name) started
-	cd $(name) && vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts) > /dev/null
+	cd $(name) && vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts_batch) > /dev/null
 	@echo $(name) finished
 	cp $(name)/transcript     $(results-dir)/$(name)_transcript.log
 	cp $(name)/statistics.log $(results-dir)/$(name)_statistics.log

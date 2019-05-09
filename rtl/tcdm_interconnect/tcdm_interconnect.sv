@@ -56,18 +56,18 @@ module tcdm_interconnect #(
   input   logic [NumOut-1:0][DataWidth-1:0]     rdata_i    // Read data
 );
 
-  localparam int unsigned BankAddWidth  = $clog2(NumOut);
+  localparam int unsigned NumOutLog2    = $clog2(NumOut);
   localparam int unsigned AddrWordOff   = $clog2(DataWidth-1)-3;
   localparam int unsigned AggDataWidth  = 1+BeWidth+AddrMemWidth+DataWidth;
   logic [NumIn-1:0][AggDataWidth-1:0]  data_agg_in;
   logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
-  logic [NumIn-1:0][BankAddWidth-1:0] bank_sel;
+  logic [NumIn-1:0][NumOutLog2-1:0] bank_sel;
 
   for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
     // extract bank index
-    assign bank_sel[j] = add_i[j][AddrWordOff+BankAddWidth-1:AddrWordOff];
+    assign bank_sel[j] = add_i[j][AddrWordOff+NumOutLog2-1:AddrWordOff];
     // aggregate data to be routed to slaves
-    assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][AddrWordOff+BankAddWidth+AddrMemWidth-1:AddrWordOff+BankAddWidth], wdata_i[j]};
+    assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][AddrWordOff+NumOutLog2+AddrMemWidth-1:AddrWordOff+NumOutLog2], wdata_i[j]};
   end
 
   // disaggregate data
@@ -104,7 +104,7 @@ module tcdm_interconnect #(
   /////////////////////////////////////////////////////////////////////
   // butterfly network with parallelization option
   // (NumPar>1 results in a hybrid between lic and bfly)
-  end else if (Topology inside {1,2}) begin : g_bfly
+  end else if (Topology >= 1 && Topology <= 2) begin : g_bfly
     localparam int unsigned NumPerSlice = NumIn/NumPar;
     localparam int unsigned Radix       = 2**Topology;
     logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
@@ -115,27 +115,72 @@ module tcdm_interconnect #(
     logic [NumPar-1:0][NumOut-1:0][DataWidth-1:0]     rdata1_trsp;
     logic [NumPar-1:0][NumOut-1:0] gnt1_trsp, req1_trsp;
 
-    logic [$clog2(NumOut)-1:0] rr_d, rr_q, rr1;
+    logic [$clog2(NumIn)-1:0] rr;
+    logic [NumOutLog2-1:0] rr1;
 
-    // we need to lock the round robin arbitration of the
-    // butterflies and arbiter trees to avoid strange correlation
-    // artifacts (this happens when each unit has a free
-    // running local counter).
-    assign rr_d = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
+    // Although round robin arbitration works in some cases, it
+    // it is quite likely that it interferes with linear access patterns
+    // hence we use a relatively long LFSR + block cipher here to create a
+    // pseudo random sequence with good randomness. the block cipher layers
+    // are used to break shift register linearity.
+    lfsr #(
+      .LfsrWidth(64),
+      .OutWidth($clog2(NumIn)),
+      .RstVal(1),
+      .CipherLayers(3),
+      .CipherReg(1'b1)
+    ) lfsr_i (
+      .clk_i,
+      .rst_ni,
+      .en_i(|(gnt_i & req_o)),
+      .out_o(rr)
+    );
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
-      if(!rst_ni) begin
-        rr_q <= '0;
-      end else begin
-        rr_q  <= rr_d;
-      end
-    end
+    // // this can be used to assess the quality of the randomness
+    // // pragma translate_off
+    // int unsigned cnt [0:NumOut-1];
+    // int unsigned cycle;
+    // always_ff @(posedge clk_i or negedge rst_ni) begin : p_stats
+    //   if(!rst_ni) begin
+    //      cnt <= '{default:0};
+    //      cycle <= 0;
+    //   end else begin
+    //     if (|(gnt_i & req_o)) begin
+    //       cnt[rr] <= cnt[rr]+1;
+    //       cycle   <= cycle + 1;
+    //      if ((cycle % 9500) == 0 && (cycle>0)) begin
+    //         $display("------------------------");
+    //         $display("--- LFSR Randomness: ---");
+    //         $display("------------------------");
+    //         for (int unsigned k=0; k<NumOut; k++) begin
+    //           $display("Bin[%d] = %6f", k, real'(cnt[k]) / real'(cycle));
+    //         end
+    //         $display("------------------------");
+    //       end
+    //     end
+    //   end
+    // end
+    // // pragma translate_on
+
+    // Round Robin arbitration alternative
+    // logic [NumOutLog2-1:0] rr_d, rr_q;
+    // assign rr_d = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
+    // assign rr = rr_q;
+    //
+    // always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
+    //   if(!rst_ni) begin
+    //     rr_q <= '0;
+    //   end else begin
+    //     rr_q  <= rr_d;
+    //   end
+    // end
+
 
     // this sets the uppermost bits to zero in case of parallel
     // stages, since these are not needed anymore (i.e. these
     // butterfly layers are collision free and do not need
     // arbitration).
-    assign rr1 = $clog2(NumOut)'(rr_q[$high(rr_q):$clog2(NumPar)]);
+    assign rr1 = NumOutLog2'(rr[$high(rr):$clog2(NumPar)]);
 
     for (genvar j=0; j<NumPar; j++) begin : g_bfly2_net
       bfly_net #(
@@ -182,7 +227,7 @@ module tcdm_interconnect #(
     if (NumPar>1) begin : g_rr_arb
 
       logic [$clog2(NumPar)-1:0] rr2;
-      assign rr2 = $clog2(NumPar)'(rr_q[$clog2(NumPar)-1:0]);
+      assign rr2 = $clog2(NumPar)'(rr[$clog2(NumPar)-1:0]);
 
       for (genvar k=0; k<NumOut; k++) begin : g_par
         rr_arb_tree #(
@@ -253,7 +298,7 @@ module tcdm_interconnect #(
 
   // pragma translate_off
   initial begin
-  	assert(AddrMemWidth+BankAddWidth <= AddrWidth) else
+  	assert(AddrMemWidth+NumOutLog2 <= AddrWidth) else
       $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
     assert(NumOut >= NumIn) else
       $fatal(1,"NumOut < NumIn is not supported.");

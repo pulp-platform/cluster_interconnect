@@ -7,12 +7,35 @@ function [stats] = read_stats(directory)
     
     idx      = 1;
     numFiles = 0;
+    containsFatal = {};
+    containsError = {};
     
     for k=1:length(statFiles)
         if ~isfile(statFiles{k})
             continue;
         end
         fprintf('> %s\n',statFiles{k});
+        
+        transFile = replace(statFiles{k},'statistics','transcript');
+        
+        [~,ret] = system(['grep -c -i fatal ' transFile]);  
+        ret = sscanf(ret, '%d',1);        
+        if ret 
+            containsFatal = [containsFatal {transFile}];
+            warning('> %s contains fatal - skipping\n',transFile);
+            continue;
+        end
+        
+        [~,ret] = system(['grep -c "Errors: 0" ' transFile]);
+        
+        ret = sscanf(ret, '%d',1);
+        if ret == 0
+            containsError = [containsError {transFile}];
+            warning('> %s contains errors - skipping\n',transFile);
+            continue;
+        end
+        
+        
         fp=fopen(statFiles{k},'r');
         while ~feof(fp)
             % read config
@@ -194,7 +217,15 @@ function [stats] = read_stats(directory)
         end    
     end
     
+    % print skipped files
+    fprintf('\nskipped due to errors:\n');
+    for k = 1:length(containsError)
+        fprintf('> %s\n', containsError{k});
+    end    
+    fprintf(']nskipped due to fatal:\n');
+    for k = 1:length(containsFatal)
+        fprintf('> %s\n', containsFatal{k});
+    end
     
-
-    fprintf('\nread %d files with %d simulation runs\n\n', stats.numFiles, stats.numRuns);
+    fprintf('\nread %d files with %d simulation runs, %d/%d skipped (fatal, error)\n\n', stats.numFiles, stats.numRuns, length(containsFatal), length(containsError));
 end

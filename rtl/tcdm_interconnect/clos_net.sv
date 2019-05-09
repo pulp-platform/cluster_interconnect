@@ -165,126 +165,42 @@ for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_connect1
 end
 
 ////////////////////////////////////////////////////////////////////////
-// arbitration priorities
-// need to use a locked round robin scheme to avoid correlation
-// issues between local round robin counters
+// arbitration priorities are drawn randomly on the middle and egress
+// layers. the ingress layers perform broadcasting and local round robin
+// arbitration.
 ////////////////////////////////////////////////////////////////////////
 localparam NumInNode = ClosN / BankFact;
 
-logic [ClosR-1:0][ClosM-1:0][$clog2(NumInNode)-1:0] rr_ing;
-logic [$clog2(NumInNode)-1:0] rr_ing_tmp;
-// logic [ClosM*$clog2(NumInNode)-1:0][ClosR-1:0] rr_ing_tmp;
 logic [ClosR-1:0][$clog2(ClosR)-1:0] rr_mid;
 logic [ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
-logic [$clog2(ClosM*ClosR*NumInNode)-1:0] rr_d, rr_q;
+logic [$clog2(ClosM*ClosR)-1:0]      rr;
 
-if (NumInNode > ClosM) begin : gen_rr
-  // use LSB for broadcast stages
-  assign rr_ing_tmp = rr_q[$clog2(NumInNode)-1:0];
 
-  if (ClosR > 1) begin : gen_rr_mid
-    assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*NumInNode*ClosM)-1:$clog2(ClosM*NumInNode)]}};
-  end
-
-  if (ClosM > 1) begin : gen_rr_egr
-    assign rr_egr     = {ClosN{rr_q[$clog2(ClosM*NumInNode)-1:$clog2(NumInNode)]}};
-  end
-end else begin : g_static
-  assign rr_ing_tmp = '0;
-
-  if (ClosR > 1) begin : gen_rr_mid
-    assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
-  end
-
-  if (ClosM > 1) begin : gen_rr_egr
-    assign rr_egr     = {ClosN{rr_q[$clog2(ClosM)-1:0]}};
-  end
+if (ClosR > 1) begin : gen_rr_mid
+  assign rr_mid     = {ClosR{rr[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
 end
 
-for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
-  for (genvar m = 0; m < ClosM; m++) begin : gen_rr_ingr2
-    assign rr_ing[r][m] = rr_ing_tmp + $clog2(NumInNode)'(m % NumInNode);
-  end
+if (ClosM > 1) begin : gen_rr_egr
+  assign rr_egr     = {ClosN{rr[$clog2(ClosM)-1:0]}};
 end
 
-
-// // just use static assignment in this case
-// always_ff @(posedge clk_i or negedge rst_ni) begin : p_rand
-//   if(!rst_ni) begin
-//     rr_ing <= '0;
-//   end else begin
-//     if (|(gnt_i & req_o)) begin
-//       void'(randomize(rr_ing));
-//     end
-//   end
-// end
-// assign rr_ing_tmp = '0;
-
-// if (ClosR > 1) begin : gen_rr_mid
-//   assign rr_mid     = {ClosR{rr_q[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
-// end
-
-// if (ClosM > 1) begin : gen_rr_egr
-//   assign rr_egr     = {ClosN{rr_q[$clog2(ClosM)-1:0]}};
-// end
-
-
-
-
-// function logic[31:0] lcg_parkmiller(logic[31:0] state);
-// begin
-//   return 32'((64'(state) * 64'(48271)) % 64'h7fffffff);
-// end
-// endfunction
-
-// for (genvar r=0; r<ClosR; r++) begin : gen_rr_ingr1
-//   for (genvar m = 0; m < ClosM; m++) begin : gen_rr_ingr2
-//     // lfsr #(
-//     //   .LfsrWidth(4*$clog2(NumInNode)),
-//     //   .OutWidth($clog2(NumInNode)),
-//     //   .RstVal(r*ClosM + m + 1)
-//     // ) lfsr_i (
-//     //   .clk_i,
-//     //   .rst_ni,
-//     //   .en_i(|(gnt_i & req_o)),
-//     //   // .en_i(ingress_req[r][m] & ingress_gnt[r][m]),
-//     //   .out(rr_ing[r][m])
-//     // );
-
-//     always_ff @(posedge clk_i or negedge rst_ni) begin : p_rand
-//       if(!rst_ni) begin
-//         rr_ing[r][m] <= r*ClosM + m + 1;
-//       end else begin
-//         if (|(gnt_i & req_o)) begin
-//           // void'(randomize(tmp));
-//           rr_ing[r][m] <= lcg_parkmiller(rr_ing[r][m]);
-//         end
-//       end
-//     end
-//   end
-// end
-
-
-// lfsr #(
-//   .LfsrWidth(2*$clog2(ClosM*ClosR*NumInNode)),
-//   .OutWidth($clog2(ClosM*ClosR*NumInNode)),
-//   .RstVal(1)
-// ) lfsr_i (
-//   .clk_i,
-//   .rst_ni,
-//   .en_i(|(gnt_i & req_o)),
-//   .out(rr_q)
-// );
-
-assign rr_d       = (|(gnt_i & req_o)) ? rr_q + 1'b1 : rr_q;
-
-always_ff @(posedge clk_i or negedge rst_ni) begin : p_rr
-  if(!rst_ni) begin
-    rr_q     <= '0;
-  end else begin
-    rr_q     <= rr_d;
-  end
-end
+// Although round robin arbitration works in some cases, it
+// it is quite likely that it interferes with linear access patterns
+// hence we use a relatively long LFSR + block cipher here to create a
+// pseudo random sequence with good randomness. the block cipher layers
+// are used to break shift register linearity.
+lfsr #(
+  .LfsrWidth(64),
+  .OutWidth($clog2(ClosM*ClosR)),
+  .RstVal(1),
+  .CipherLayers(3),
+  .CipherReg(1'b1)
+) lfsr_i (
+  .clk_i,
+  .rst_ni,
+  .en_i(|(gnt_i & req_o)),
+  .out_o(rr)
+);
 
 ////////////////////////////////////////////////////////////////////////
 // crossbars
@@ -298,7 +214,7 @@ for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
     .RespDataWidth ( RespDataWidth                 ),
     .RespLat       ( RespLat                       ),
     .WriteRespOn   ( WriteRespOn                   ),
-    .ExtPrio       ( 1'b1                          ),
+    .ExtPrio       ( 1'b0                          ),
     .BroadCastOn   ( 1'b1                          )
   ) i_ingress_node (
     .clk_i   ( clk_i                                 ),
@@ -310,7 +226,7 @@ for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
     .gnt_o   ( gnt_o[NumInNode * r +: NumInNode]     ),
     .vld_o   ( vld_o[NumInNode * r +: NumInNode]     ),
     .rdata_o ( rdata_o[NumInNode * r +: NumInNode]   ),
-    .rr_i    ( rr_ing[r]                             ),
+    .rr_i    ( '0                                    ),
     .gnt_i   ( ingress_gnt[r]                        ),
     .req_o   ( ingress_req[r]                        ),
     .wdata_o ( ingress_req_data[r]                   ),

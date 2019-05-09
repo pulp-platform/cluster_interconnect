@@ -7,6 +7,11 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     close;
     figure;
     
+    netHighlight = 'lic';
+    bf = 2;
+    configHighlight = [masterConfig num2str(sscanf(masterConfig,'%dx',1)*bf)];
+    
+    
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% preprocess args
     %%%%%%%%%%%%%%%%%%%%%%%%%%%    
@@ -43,7 +48,7 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     labels   = {};
     tests    = {};
     
-    markers = ['o','d','s','<','>','v','h','^','+','-','x','.'];
+    markers = ['o','d','s','<','>','v','h','^','+','x','.'];
 
     res=[];
     for c=1:length(configLabels)
@@ -52,11 +57,16 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
                   strcmp(configLabels{c}, stats.configs)  & ...
                   strcmp(netLabels{n}, stats.network)          ;
             
+            isHighlight = strcmp(configHighlight, configLabels{c})  & ...
+                          strcmp(netHighlight, netLabels{n})          ;
+              
             if sum(tst)>2
                 error('selection not unique');
             end
             if sum(tst)<1
-                error(['no result found for ' netLabels{n} ' ' configLabels{c} ' ' testName]);
+                warning(['no result found for ' netLabels{n} ' ' configLabels{c} ' ' testName]);
+                res(c,n,1:3) = nan;
+                continue;
             end
             
             tst2=strcmp(configLabels{c}, stats.configLabels);
@@ -68,6 +78,7 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
             res(c,n,1) = mean(stats.ports{idx}(:,3));
             res(c,n,2) = mean(stats.ports{idx}(:,4));
             res(c,n,3) = stats.synthArea(idx3,idx2,1);
+            res(c,n,4) = isHighlight;
         end
         tests  = [tests stats.testName{idx}];
         labels = [labels configLabels{c}]; 
@@ -82,7 +93,11 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     y=res(:,:,3);
     x=x(:);
     y=y(:);
-
+    
+    mask = ~(isnan(x) | isnan(y));
+    x = x(mask);
+    y = y(mask);
+    
     [x,idx]=sortrows(x);
     y=y(idx);
     px = x(1);
@@ -118,6 +133,15 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     % plot the markers
     for k=1:size(res,2)
         h(k)=scatter(1-res(:,k,1), res(:,k,3), sz, 'filled', 'marker', markers(k),'MarkerEdgeColor','k','LineWidth',0.5);
+    end
+    
+    % plot the highlighted instance
+    for k=1:size(res,2)
+        for j=1:length(res(:,k,1))
+            if res(j,k,4)
+                scatter(1-res(j,k,1), res(j,k,3), sz, 'marker', markers(k),'MarkerEdgeColor','r','LineWidth',2.0);
+            end
+        end
     end
     
     % further annotation

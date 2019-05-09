@@ -41,9 +41,11 @@ module addr_dec_resp_mux #(
 
   if (NumOut==1) begin : g_one_output
 
-    assign gnt_o    = gnt_i[0];
-    assign req_o[0] = req_i;
-    assign rdata_o  = rdata_i[0];
+    assign data_o[0] = data_i;
+    assign gnt_o     = gnt_i[0];
+    assign req_o[0]  = req_i;
+    assign rdata_o   = rdata_i[0];
+    assign vld_o     = vld_q[$high(vld_q)];
 
     if (RespLat > 1) begin
       assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
@@ -59,7 +61,7 @@ module addr_dec_resp_mux #(
       end
     end
 
-  end else begin : g_severak_outputs
+  end else begin : g_several_outputs
 
     // address decoder
     always_comb begin : p_addr_dec
