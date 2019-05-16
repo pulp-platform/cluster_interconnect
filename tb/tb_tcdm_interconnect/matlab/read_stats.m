@@ -61,9 +61,9 @@ function [stats] = read_stats(directory)
                 stats.testNameFull{idx} = [stats.testName{idx} ' (p_{req}=' num2str(stats.pReq(idx),'%.2f') ')'];
             end
             % read test statistics
-            stats.ports{idx}        = reshape(fscanf(fp, 'Port %3d: Req=%5d Gnt=%5d p=%e Wait=%e\n',5*stats.numMaster(idx))',5,[])';
+            stats.ports{idx}        = reshape(fscanf(fp, 'Port %d: Req=%5d Gnt=%5d p=%e Wait=%e\n',5*stats.numMaster(idx))',5,[])';
             stats.ports{idx}        = stats.ports{idx}(:,2:end);
-            stats.banks{idx}        = reshape(fscanf(fp, 'Bank %03d: Req=%05d Load=%e\n',3*stats.numBanks(idx))',3,[])';
+            stats.banks{idx}        = reshape(fscanf(fp, 'Bank %d: Req=%05d Load=%e\n',3*stats.numBanks(idx))',3,[])';
             stats.banks{idx}        = stats.banks{idx}(:,2:end);
             fscanf(fp, '\n');
             

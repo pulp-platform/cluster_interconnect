@@ -20,7 +20,7 @@ module xbar #(
   parameter int unsigned RespLat         = 1,    // response latency of slaves
   parameter bit          WriteRespOn     = 1'b1, // defines whether the interconnect returns a write response
   parameter bit          BroadCastOn     = 1'b0, // perform broadcast
-  parameter bit          ExtPrio         = 1'b0  // use external arbiter priority flags
+  parameter bit          ExtPrio         = 1'b1  // use external arbiter priority flags
 ) (
   input  logic                                  clk_i,
   input  logic                                  rst_ni,
