@@ -66,14 +66,14 @@ simc: build
 build-vcs: clean
 	vcs${vcs-ver} vcs $(src) $(tb-src) $(compile-flag-vcs) +incdir+$(incdir)
 
-# this starts modelsim with gui
+# TODO: implement VCS runs
+# this starts vcs with gui
 # sim-vcs: build-vcs
 # 	vsim${questa-ver} -lib $(library) $(top-sim) -do "do wave.do" $(sim_opts)
 
 # # batch mode without gui
 # simc-vcs: build-vcs
 # 	vsim${questa-ver} -lib $(library) $(top-sim) -c -do "run -all; exit" $(sim_opts_batch)
-
 
 clean:
 	rm -rf $(library)

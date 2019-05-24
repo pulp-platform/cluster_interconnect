@@ -2,7 +2,7 @@
   `define MUT_IMPL 2
  `endif
 `ifndef NUM_MASTER
-  `define NUM_MASTER 64
+  `define NUM_MASTER 16
  `endif
 `ifndef BANK_FACT
   `define BANK_FACT 2
@@ -17,7 +17,7 @@
   `define MEM_ADDR_BITS $clog2(`TCDM_SIZE/`NUM_MASTER/`BANK_FACT)
 `endif
 `ifndef PAR_STAGES
-  `define PAR_STAGES 4
+  `define PAR_STAGES 1
 `endif
 `ifndef TEST_CYCLES
   // scale this with the number of master ports (= bins)

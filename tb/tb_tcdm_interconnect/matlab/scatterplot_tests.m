@@ -7,6 +7,13 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     close;
     figure;
     
+    % instances that do not meet timing will be highlighted with a border
+    % with this color
+    negSlackCol  = 'r';
+    
+    % highlight a particular instance (i.e. highlight a well known anchor in
+    % the plot). e.g., LIC with banking factor of 2.
+    highlightCol = [0 0.6 0];
     netHighlight = 'lic';
     bf = 2;
     configHighlight = [masterConfig num2str(sscanf(masterConfig,'%dx',1)*bf)];
@@ -33,11 +40,11 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     end
     
     configLabels={};
-    bankFacts={};
+    bankFacts=[];
     for k=1:length(stats.configLabels)
         if strcmp(masterConfig, stats.configLabels{k}(1:min(length(stats.configLabels{k}),length(masterConfig))))
             configLabels = [configLabels stats.configLabels(k)];
-            bankFacts = [bankFacts {stats.configLabels{k}(length(masterConfig)+1:end)}];
+            bankFacts = [bankFacts str2num(stats.configLabels{k}(length(masterConfig)+1:end)) /sscanf(masterConfig,'%dx',1)];
         end
     end
     
@@ -48,7 +55,7 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     labels   = {};
     tests    = {};
     
-    markers = ['o','d','s','<','>','v','h','^','+','x','.'];
+    markers = ['o','d','s','<','>','v','h','^','+','x','p'];
 
     res=[];
     for c=1:length(configLabels)
@@ -79,6 +86,13 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
             res(c,n,2) = mean(stats.ports{idx}(:,4));
             res(c,n,3) = stats.synthArea(idx3,idx2,1);
             res(c,n,4) = isHighlight;
+            res(c,n,5) = stats.synthSlack(idx3,idx2)>=0;% check if timing is reached
+            if isnan(res(c,n,3))
+                warning(['area of ' netLabels{n} ' ' configLabels{c} ' is ' num2str(res(c,n,3))]);
+            end
+            if ~res(c,n,5)
+                warning(['slack of ' netLabels{n} ' ' configLabels{c} ' is ' num2str(stats.synthSlack(idx3,idx2))]);
+            end
         end
         tests  = [tests stats.testName{idx}];
         labels = [labels configLabels{c}]; 
@@ -126,7 +140,11 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     yoff=0;
     for k=1:size(res,2)
         for j=1:size(res,1)
-            text(1-res(j,k,1)+xoff, res(j,k,3)+yoff, bankFacts{j}, 'FontSize', fzs);
+            col = 'k';
+            if res(j,k,4)
+                col = highlightCol;
+            end  
+            text(1-res(j,k,1)+xoff, res(j,k,3)+yoff, num2str(bankFacts(j)), 'FontSize', fzs, 'color', col);
         end
     end
     
@@ -135,12 +153,17 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
         h(k)=scatter(1-res(:,k,1), res(:,k,3), sz, 'filled', 'marker', markers(k),'MarkerEdgeColor','k','LineWidth',0.5);
     end
     
-    % plot the highlighted instance
+    % plot the highlighted instance(s)
     for k=1:size(res,2)
         for j=1:length(res(:,k,1))
+            % plot highlighted reference
             if res(j,k,4)
-                scatter(1-res(j,k,1), res(j,k,3), sz, 'marker', markers(k),'MarkerEdgeColor','r','LineWidth',2.0);
+                scatter(1-res(j,k,1), res(j,k,3), sz, 'marker', markers(k),'MarkerEdgeColor',highlightCol,'LineWidth',2.0);
             end
+            % mark instances that do not meet timing
+            if ~res(j,k,5)
+                scatter(1-res(j,k,1), res(j,k,3), sz, 'marker', markers(k),'MarkerEdgeColor',negSlackCol,'LineWidth',1.0);
+            end    
         end
     end
     
@@ -151,6 +174,6 @@ function [] = scatterplot_tests(stats, masterConfig, netLabels, testName)
     xlabel('1 - p_{gnt}');
 
     legend(h,netLabels,'location','northeast','interpreter','none');
-    title([masterConfig ' Master Ports']);
+    title({[masterConfig ' Master Ports']; testName});
 
 end

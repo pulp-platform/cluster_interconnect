@@ -13,12 +13,12 @@
 // Description: Clos network.
 
 module clos_net #(
-  parameter int unsigned NumIn           = 4,            // Only powers of two permitted
-  parameter int unsigned NumOut          = 4,            // Only powers of two permitted
+  parameter int unsigned NumIn           = 4,            // number of requestors, needs to be a power of 2
+  parameter int unsigned NumOut          = 4,            // number of targets, needs to be a power of 2
   parameter int unsigned ReqDataWidth    = 32,           // word width of data
   parameter int unsigned RespDataWidth   = 32,           // word width of data
+  parameter int unsigned RespLat         = 1,            // response latency of slaves
   parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
-  parameter int unsigned RespLat         = 1,
   // this detemines which clos config to use
   // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
   parameter int unsigned ClosConfig      = 2
@@ -26,18 +26,18 @@ module clos_net #(
   input  logic                                  clk_i,
   input  logic                                  rst_ni,
   // master side
-  input  logic [NumIn-1:0]                      req_i,     // Request signal
-  input  logic [NumIn-1:0][$clog2(NumOut)-1:0]  add_i,     // Bank Address
-  input  logic [NumIn-1:0]                      wen_i,     // 1: Store, 0: Load
-  input  logic [NumIn-1:0][ReqDataWidth-1:0]    wdata_i,   // Write data
-  output logic [NumIn-1:0]                      gnt_o,     // Grant (combinationally dependent on req_i and add_i)
-  output logic [NumIn-1:0]                      vld_o,     // Response valid, also asserted if write responses are enabled
-  output logic [NumIn-1:0][RespDataWidth-1:0]   rdata_o,   // Data Response DATA (For LOAD commands)
+  input  logic [NumIn-1:0]                      req_i,     // request signal
+  input  logic [NumIn-1:0][$clog2(NumOut)-1:0]  add_i,     // bank Address
+  input  logic [NumIn-1:0]                      wen_i,     // 1: store, 0: load
+  input  logic [NumIn-1:0][ReqDataWidth-1:0]    wdata_i,   // write data
+  output logic [NumIn-1:0]                      gnt_o,     // grant (combinationally dependent on req_i and add_i)
+  output logic [NumIn-1:0]                      vld_o,     // response valid, also asserted if write responses are enabled
+  output logic [NumIn-1:0][RespDataWidth-1:0]   rdata_o,   // data response (for load commands)
   // slave side
-  input   logic [NumOut-1:0]                    gnt_i,     // Grant input
-  output  logic [NumOut-1:0]                    req_o,     // Request out
-  output  logic [NumOut-1:0][ReqDataWidth-1:0]  wdata_o,   // Data request Wire data
-  input   logic [NumOut-1:0][RespDataWidth-1:0] rdata_i    // Data Response DATA (For LOAD commands)
+  input   logic [NumOut-1:0]                    gnt_i,     // request out
+  output  logic [NumOut-1:0]                    req_o,     // grant input
+  output  logic [NumOut-1:0][ReqDataWidth-1:0]  wdata_o,   // write data
+  input   logic [NumOut-1:0][RespDataWidth-1:0] rdata_i    // data response (for load commands)
 );
 
 ////////////////////////////////////////////////////////////////////////
@@ -102,9 +102,9 @@ localparam logic [3:1][4:0][12:2][15:0] ClosRLut = {16'd64,16'd32,16'd32,16'd16,
 // 256 Banks -> N = 16,
 // 512 Banks -> N = 16
 localparam int unsigned BankFact = NumOut/NumIn;
-localparam int unsigned ClosN = unsigned'(ClosNLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
-localparam int unsigned ClosM = unsigned'(ClosMLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
-localparam int unsigned ClosR = unsigned'(ClosRLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosN = 32'(ClosNLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosM = 32'(ClosMLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosR = 32'(ClosRLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
 
 
 ////////////////////////////////////////////////////////////////////////

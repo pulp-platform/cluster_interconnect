@@ -39,30 +39,19 @@ scatterplot_tests(stats, '32x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1',
 export_fig 'sim-results/pareto_32x' -png -pdf
 
 %% 64 masters
-% scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
-scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
+scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random uniform (p_{req}=1.00)');
+% scatterplot_tests(stats, '64x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'},'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'sim-results/pareto_64x' -png -pdf
 
 %% 128 masters
-% scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random uniform (p_{req}=1.00)');
-scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random linear bursts (p_{req}=0.50, len_{max}=100.00)');
+scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random uniform (p_{req}=1.00)');
+% scatterplot_tests(stats, '128x', {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'sim-results/pareto_128x' -png -pdf
 
 %% 256 masters
-% scatterplot_tests(stats, '256x', {'bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random uniform (p_{req}=1.00)');
-scatterplot_tests(stats, '256x', {'bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
-export_fig 'sim-results/pareto_256x' -png -pdf
-
-%% renaming of existing files (if needed)
-
-% statFiles = split(ls(['sim-results' filesep '*m0p5n*']));
-% 
-% for k=1:length(statFiles)
-%     if length(statFiles{k})>0
-% %         regexprep(statFiles{k},'m0p5n','2mn')
-%         movefile(statFiles{k},regexprep(statFiles{k},'m0p5n','2mn'));
-%     end
-% end
+scatterplot_tests(stats, '256x', {'bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random uniform (p_{req}=1.00)');
+% scatterplot_tests(stats, '256x', {'bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'},'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
+% export_fig 'sim-results/pareto_256x' -png -pdf
 
 %%
 plot_scaling(stats, {'8x8','16x16','32x32','64x64','128x128'}, {})

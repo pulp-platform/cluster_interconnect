@@ -1,4 +1,4 @@
-# Copyright (c) 2018 ETH Zurich.
+# Copyright (c) 2019 ETH Zurich.
 # Fabian Schuiki    <fschuiki@iis.ee.ethz.ch>
 # Michael Schaffner <schaffner@iis.ee.ethz.ch>
 
@@ -18,7 +18,7 @@ echo "DEFINE:      $DEFINE              "
 echo "LIB:         $LIB                 "
 echo "----------------------------------"
 
-set CPUS 1
+set CPUS 16
 
 set VARIANT "hp"
 
