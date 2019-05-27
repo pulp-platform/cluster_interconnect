@@ -1,6 +1,31 @@
+% Copyright 2019 ETH Zurich and University of Bologna.
+% Copyright and related rights are licensed under the Solderpad Hardware
+% License, Version 0.51 (the "License"); you may not use this file except in
+% compliance with the License.  You may obtain a copy of the License at
+% http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+% or agreed to in writing, software, hardware and materials distributed under
+% this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+% CONDITIONS OF ANY KIND, either express or implied. See the License for the
+% specific language governing permissions and limitations under the License.
+% 
+% Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
+% Date: 07.03.2019
+% Description: This function reads synthesis results and annotates the stats struct
+% configurations with no synthesis result will be set to NaN.
+%
+% Usage: [stats] = read_synth(directory, stats)
+%
+% Inputs: - directory: directory to simulation output folder.
+%         - stats: statistics struct, created with read_stats.
+%
+% Outputs: - stats: annotated statistics struct.
+%
+% See also: fairness_test, read_stats, plot_tests,
+% plot_tests, plot_scaling, scatterplot_tests
+
 function [stats] = read_synth(directory, stats)
-% this function reads synthesis results and annotates the stats struct
-% configurations with no synthesis result will be set to nan
+% read_synth this function reads synthesis results and annotates the stats struct
+% configurations with no synthesis result will be set to NaN.
     
     fprintf('\nreading synthesis results...\n');
     

@@ -160,7 +160,7 @@ end else if (Topology >= 1 && Topology <= 2) begin : g_bfly
   //       cycle   <= cycle + 1;
   //      if ((cycle % 9500) == 0 && (cycle>0)) begin
   //         $display("------------------------");
-  //         $display("--- LFSR Randomness: ---");
+  //         $display("--- LFSR Binning:    ---");
   //         $display("------------------------");
   //         for (int unsigned k=0; k<NumOut; k++) begin
   //           $display("Bin[%d] = %6f", k, real'(cnt[k]) / real'(cycle));
@@ -300,7 +300,7 @@ end else if (Topology==3) begin : g_clos
 end else begin : g_unknown
   // pragma translate_off
   initial begin
-    $fatal(1,"Unknown TCDM configuration %d. Choose either 0 for lic or 1 for bfly", Topology);
+    $fatal(1,"Unknown TCDM configuration %d. Choose either 0 for lic, 1-2 for radix-2/4 bfly's, or 3-5 for Clos variants.", Topology);
   end
   // pragma translate_on
 end

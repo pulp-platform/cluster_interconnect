@@ -1,7 +1,18 @@
-% this generates the clos parameters, to be dumped into the SV wrapper
-% m=2n
-k=[2:12];
+% Copyright 2019 ETH Zurich and University of Bologna.
+% Copyright and related rights are licensed under the Solderpad Hardware
+% License, Version 0.51 (the "License"); you may not use this file except in
+% compliance with the License.  You may obtain a copy of the License at
+% http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+% or agreed to in writing, software, hardware and materials distributed under
+% this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+% CONDITIONS OF ANY KIND, either express or implied. See the License for the
+% specific language governing permissions and limitations under the License.
+% 
+% Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
+% Date: 07.03.2019
+% Description: This generates the clos parameters, to be dumped into the SV wrapper
 
+k         = [2:12];
 bankFacts = [0:4];
 redFacts  = [0.5,1,2];
 width     = 16;

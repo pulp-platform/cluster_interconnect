@@ -1,5 +1,32 @@
+% Copyright 2019 ETH Zurich and University of Bologna.
+% Copyright and related rights are licensed under the Solderpad Hardware
+% License, Version 0.51 (the "License"); you may not use this file except in
+% compliance with the License.  You may obtain a copy of the License at
+% http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+% or agreed to in writing, software, hardware and materials distributed under
+% this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+% CONDITIONS OF ANY KIND, either express or implied. See the License for the
+% specific language governing permissions and limitations under the License.
+% 
+% Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
+% Date: 07.03.2019
+% Description: Plot scaling behavior of different networks, i.e. area in
+% dependency of the Master x Slave configuration.
+%
+% Usage: [] = plot_scaling(stats, configLabels, netLabels)
+%
+% Inputs: - stats: statistics struct, created with read_stats.
+%         - configLabels: cell array with network port configs, e.g. {'64x128', '64x256'}
+%         - netLabels: cell array with network labels, e.g. {'lic', 'bfly4_n1'}
+%
+% See also: read_stats, fairness_test, read_synth, plot_tests,
+% plot_tests, scatterplot_tests
+
+
 function [] = plot_scaling(stats, configLabels, netLabels)
-    
+% plot_scaling Plot scaling behavior of different networks, i.e. area in
+% dependency of the Master x Slave configuration.
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% global plot configs
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -84,13 +111,13 @@ function [] = plot_scaling(stats, configLabels, netLabels)
     end
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %% grant prob vs synth area
+    %% plot #ports versus area
     %%%%%%%%%%%%%%%%%%%%%%%%%%%   
 
     hold on;
     for k=1:size(res,1)
         for j=1:size(res,2)
-            plot(masterConfigs,squeeze(res(k,j,:)),'--','marker',markers(j),'color',cols(k,:),'markerEdgeColor','k');
+            plot(masterConfigs,squeeze(res(k,j,:)),'--','marker',markers(j),'color',cols(k,:),'markerEdgeColor','k','markerFaceColor',cols(k,:));
         end
     end
     box on;
@@ -104,61 +131,5 @@ function [] = plot_scaling(stats, configLabels, netLabels)
     title('scaling behavior');
     xlabel('master ports');
     ylabel('complexity [\mum^2]');
-% 
-%     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-%     %% grant prob vs synth area
-%     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-%     
-%     % plot the pareto line first
-%     x=1-res(:,:,1);
-%     y=res(:,:,3);
-%     x=x(:);
-%     y=y(:);
-% 
-%     [x,idx]=sortrows(x);
-%     y=y(idx);
-%     px = x(1);
-%     py = y(1);
-%     for k=2:length(x)
-%         if y(k)<py(end)
-%             px = [px;x(k);x(k)];
-%             py = [py;py(end);y(k)];
-%         end
-%     end    
-% 
-%     axx(1)=0;
-%     axx(2)=max(x)*1.1;
-%     axx(3)=0;
-%     axx(4)=max(y)*1.1;
-%     px = [px(1);px;axx(2)];
-%     py = [axx(4);py;py(end)];
-%     plot(px,py,'color',[0.5 0.5 0.5]);
-%     axis(axx);
-% 
-%     % plot the banking factor labels
-%     hold on
-%     sz = 35;
-%     fzs = 9;
-%     xoff=0.01;
-%     yoff=0;
-%     for k=1:size(res,2)
-%         for j=1:size(res,1)
-%             text(1-res(j,k,1)+xoff, res(j,k,3)+yoff, bankFacts{j}, 'FontSize', fzs);
-%         end
-%     end
-%     
-%     % plot the markers
-%     for k=1:size(res,2)
-%         h(k)=scatter(1-res(:,k,1), res(:,k,3), sz, 'filled', 'marker', markers(k),'MarkerEdgeColor','k','LineWidth',0.5);
-%     end
-%     
-%     % further annotation
-%     grid on
-%     box on
-%     ylabel('area [\mum^2]');
-%     xlabel('1 - p_{gnt}');
-% 
-%     legend(h,netLabels,'location','northeast','interpreter','none');
-%     title([masterConfig ' Master Ports']);
 
 end

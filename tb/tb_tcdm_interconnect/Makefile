@@ -140,7 +140,7 @@ batch-synth:
 	$(MAKE) $(addprefix $(results-dir)/, $(addsuffix _area.rpt, $(batch-name)))
 
 batch-plot:
-	$(matlab-ver) -nosplash -nodesktop -r "addpath(genpath('./matlab')); run plot_sims.m"
+	$(matlab-ver) -nosplash -nodesktop -r "addpath(genpath('./matlab')); run evaluation.m"
 
 batch-eval: batch-synth batch-sim
 	$(MAKE) batch-plot
