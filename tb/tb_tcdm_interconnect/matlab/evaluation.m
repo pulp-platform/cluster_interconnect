@@ -46,7 +46,7 @@ networkSel = {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4
 plot_tests(stats,  {'128x128','128x256','128x512'}, networkSel);
 export_fig 'plots/stats_selection_128x' -png -pdf
 %% selection x256
-networkSel = {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'bfly4_n8', 'lic'};
+networkSel = {'bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'bfly4_n8', 'lic'};
 plot_tests(stats,  {'256x256','256x512','256x1024'}, networkSel);
 export_fig 'plots/stats_selection_256x' -png -pdf
 %% plot only banking factor 2
@@ -61,36 +61,42 @@ export_fig 'plots/stats_bf2_64x' -png -pdf
 networkSel = {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
 scatterplot_tests(stats, '8x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_8x' -png -pdf
+%%
 scatterplot_tests(stats, '8x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_8x' -png -pdf
 %% 16 masters
 networkSel = {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
 scatterplot_tests(stats, '16x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_16x' -png -pdf
+%%
 scatterplot_tests(stats, '16x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_16x' -png -pdf
 %% 32 masters
 networkSel = {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
 scatterplot_tests(stats, '32x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_32x' -png -pdf
+%%
 scatterplot_tests(stats, '32x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_32x' -png -pdf
 %% 64 masters
 networkSel = {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
 scatterplot_tests(stats, '64x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_64x' -png -pdf
+%%
 scatterplot_tests(stats, '64x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_64x' -png -pdf
 %% 128 masters
 networkSel = {'clos_2mn', 'clos_m1n', 'clos_m2n', 'bfly2_n1', 'bfly2_n2','bfly2_n4', 'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'};
 scatterplot_tests(stats, '128x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_128x' -png -pdf
+%%
 scatterplot_tests(stats, '128x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_128x' -png -pdf
 %% 256 masters
 networkSel = {'bfly4_n1', 'bfly4_n2','bfly4_n4','bfly4_n8', 'lic'};
 scatterplot_tests(stats, '256x', networkSel,'random uniform (p_{req}=1.00)');
 export_fig 'plots/pareto_random_uniform_256x' -png -pdf
+%%
 scatterplot_tests(stats, '256x', networkSel,'random linear bursts (p_{req}=1.00, len_{max}=100.00)');
 export_fig 'plots/pareto_random_linear_256x' -png -pdf
 

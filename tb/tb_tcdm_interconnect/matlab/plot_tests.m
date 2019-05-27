@@ -83,9 +83,7 @@ function [] = plot_tests(stats, configLabels, netLabels)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
     %% gather results
     %%%%%%%%%%%%%%%%%%%%%%%%%%% 
-    
-%     totalP   = [];
-%     totalW   = [];
+
     totalRes = [];
     totalX   = [];
     labels   = {};
@@ -110,22 +108,16 @@ function [] = plot_tests(stats, configLabels, netLabels)
                     warning(['no result found for ' netLabels{n} ' ' configLabels{c} ' ' stats.testNamesFull{k}]);
                     res(c,n,1) = nan;
                     res(c,n,2) = nan;
-%                     p(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
-%                     w(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,4))) = stats.ports{idx}(:,4);
-                end
-                
-                idx = find(tst,1);  
-                res(c,n,1) = mean(stats.ports{idx}(:,3));
-                res(c,n,2) = mean(stats.ports{idx}(:,4));
-%                 p(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,3))) = stats.ports{idx}(:,3);
-%                 w(n+(c-1)*length(netLabels),1:length(stats.ports{idx}(:,4))) = stats.ports{idx}(:,4);
+                else
+                    idx = find(tst,1);
+                    res(c,n,1) = mean(stats.ports{idx}(:,3));
+                    res(c,n,2) = mean(stats.ports{idx}(:,4));
+                end    
             end
             tests  = [tests stats.testName{idx}];
             labels = [labels configLabels{c}]; 
         end
         totalRes = cat(1, totalRes, res);
-%         totalP   = cat(1, totalP, p);
-%         totalW   = cat(1, totalW, w);
         x = (1:length(configLabels))+(k-1)*(length(configLabels)+skip);
         totalX = [totalX x];
         pReq     = [pReq  stats.pReq(idx)];
