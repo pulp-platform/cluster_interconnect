@@ -2,7 +2,7 @@ package:
   name: cluster_interconnect
 
 dependencies:
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", rev: 7d024fb197693749d0a843ec98dd43ac77aab7c9 }
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", rev: 41bd5ab9a7b745b3afe97667fd4c7f3e037a2a03 }
 
 sources:
   # Source files grouped in levels. Files in level 0 have no dependencies on files in this
