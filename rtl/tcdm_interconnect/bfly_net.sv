@@ -73,10 +73,10 @@ logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][RespDataWidth-1:0] router_resp_
 
 // // inputs are on first level
 // make sure to evenly distribute masters in case of BankFactors > 1
-for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
+for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : gen_inputs
   // leave out input connections in interleaved way until we reach the radix
-  if (BankFact < Radix) begin : g_interleaved
-    if ((j % BankFact) == 0) begin : g_connect
+  if (BankFact < Radix) begin : gen_interleaved
+    if ((j % BankFact) == 0) begin : gen_connect
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = req_i[j/BankFact];
       assign gnt_o[j/BankFact]                   = router_gnt_out[0][j/Radix][j%Radix];
@@ -84,7 +84,7 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
       assign router_data_in[0][j/Radix][j%Radix] = wdata_i[j/BankFact];
       // resp
       assign rdata_o[j/BankFact]                 = router_resp_data_out[0][j/Radix][j%Radix];
-    end else begin : g_tie_off
+    end else begin : gen_tie_off
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = 1'b0;
       assign router_add_in[0][j/Radix][j%Radix]  = '0;
@@ -93,8 +93,8 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
   // we only enter this case if each input switchbox has 1 or zero connections
   // only connect to lower portion of switchboxes and tie off upper portion. this allows
   // us to reduce arbitration confligs on the first network layers.
-  end else begin : g_linear
-    if(j % Radix == 0 && j/Radix < NumIn) begin : g_connect
+  end else begin : gen_linear
+    if (((j % Radix) == 0) && (j/Radix < NumIn)) begin : gen_connect
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = req_i[j/Radix];
       assign gnt_o[j/Radix]                      = router_gnt_out[0][j/Radix][j%Radix];
@@ -102,7 +102,7 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
       assign router_data_in[0][j/Radix][j%Radix] = wdata_i[j/Radix];
       // resp
       assign rdata_o[j/Radix]                    = router_resp_data_out[0][j/Radix][j%Radix];
-    end else begin : g_tie_off
+    end else begin : gen_tie_off
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = 1'b0;
       assign router_add_in[0][j/Radix][j%Radix]  = '0;
@@ -112,15 +112,15 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_inputs
 end
 
 // outputs are on last level
-for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_outputs
-  if (j < NumOut) begin : g_connect
+for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : gen_outputs
+  if (j < NumOut) begin : gen_connect
     // req
     assign req_o[j]                                           = router_req_out[NumLevels-1][j/Radix][j%Radix];
     assign router_gnt_in[NumLevels-1][j/Radix][j%Radix]       = gnt_i[j];
     assign wdata_o[j]                                         = router_data_out[NumLevels-1][j/Radix][j%Radix];
     // resp
     assign router_resp_data_in[NumLevels-1][j/Radix][j%Radix] = rdata_i[j];
-  end else begin : g_tie_off
+  end else begin : gen_tie_off
     // req
     assign router_gnt_in[NumLevels-1][j/Radix][j%Radix]       = 1'b0;
     // resp
@@ -129,12 +129,12 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : g_outputs
 end
 
 // wire up connections between levels
-for (genvar l = 0; unsigned'(l) < NumLevels-1; l++) begin : g_levels
+for (genvar l = 0; unsigned'(l) < NumLevels-1; l++) begin : gen_levels
   // need to add a radix-2 stage in this case
-  if (l == 0 && NeedsR2Stage) begin : g_r4r2_level
+  if (l == 0 && NeedsR2Stage) begin : gen_r4r2_level
     localparam int unsigned pow = 2*Radix**(NumLevels-unsigned'(l)-2);
-    for (genvar r = 0; unsigned'(r) < 2*NumRouters; r++) begin : g_routers
-      for (genvar s = 0; unsigned'(s) < 2; s++) begin : g_ports
+    for (genvar r = 0; unsigned'(r) < 2*NumRouters; r++) begin : gen_routers
+      for (genvar s = 0; unsigned'(s) < 2; s++) begin : gen_ports
         localparam int unsigned k = pow * s + (r % pow) + (r / pow / 2) * pow * 2;
         localparam int unsigned j = (r / pow) % 2;
         assign router_req_in[l+1][k/2][(k%2)*2+j]     = router_req_out[l][r/2][(r%2)*2+s];
@@ -144,10 +144,10 @@ for (genvar l = 0; unsigned'(l) < NumLevels-1; l++) begin : g_levels
         assign router_resp_data_in[l][r/2][(r%2)*2+s] = router_resp_data_out[l+1][k/2][(k%2)*2+j];
       end
     end
-  end else begin : g_std_level
+  end else begin : gen_std_level
     localparam int unsigned pow = Radix**(NumLevels-unsigned'(l)-2);
-    for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers
-      for (genvar s = 0; unsigned'(s) < Radix; s++) begin : g_ports
+    for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : gen_routers
+      for (genvar s = 0; unsigned'(s) < Radix; s++) begin : gen_ports
         localparam int unsigned k = pow * s + (r % pow) + (r / pow / Radix) * pow * Radix;
         localparam int unsigned j = (r / pow) % Radix;
         assign router_req_in[l+1][k][j]     = router_req_out[l][r][s];
@@ -168,9 +168,9 @@ end
 logic [NumIn-1:0]                                        vld_d, vld_q;
 logic [$clog2(NumOut)-1:0]                               rr;
 
-if (ExtPrio) begin : g_ext_prio
+if (ExtPrio) begin : gen_ext_prio
   assign rr = rr_i;
-end else begin : g_no_ext_prio
+end else begin : gen_no_ext_prio
   // Although round robin arbitration works in some cases, it
   // it is quite likely that it interferes with linear access patterns
   // hence we use a relatively long LFSR + block cipher here to create a
@@ -206,21 +206,21 @@ end
 ////////////////////////////////////////////////////////////////////////
 logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][AddWidth+ReqDataWidth-1:0] data_in, data_out;
 
-for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
-  for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : g_routers2
+for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : gen_routers1
+  for (genvar r = 0; unsigned'(r) < NumRouters; r++) begin : gen_routers2
     // need to add a radix-2 stage in this case
-    if (l == 0 && NeedsR2Stage) begin : g_r4r2_level
+    if (l == 0 && NeedsR2Stage) begin : gen_r4r2_level
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][0:0] add;
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][0:0] prio;
 
-      for (genvar k=0; k<Radix; k++) begin : g_map
+      for (genvar k = 0; k < Radix; k++) begin : gen_map
         assign add[l][r][k]  = router_add_in[l][r][k][AddWidth-1];
         assign data_in[l][r][k] = {router_add_in[l][r][k]<<1, router_data_in[l][r][k]};
         assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[l][r][k];
         assign prio[l][r][k] = rr[$clog2(NumOut)-1];
       end
 
-      for (genvar k=0; k<2; k++) begin : g_xbar
+      for (genvar k = 0; k < 2; k++) begin : gen_xbar
         xbar #(
           .NumIn         ( 2             ),
           .NumOut        ( 2             ),
@@ -247,23 +247,23 @@ for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : g_routers1
         );
       end
     // instantiate switchbox of chosen Radix
-    end else begin : g_std_level
+    end else begin : gen_std_level
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] add;
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] prio;
 
-      for (genvar k=0; k<Radix; k++) begin : g_map
+      for (genvar k = 0; k < Radix; k++) begin : gen_map
         assign add[l][r][k]        = router_add_in[l][r][k][AddWidth-1:AddWidth-$clog2(Radix)];
         assign data_in[l][r][k]    = {router_add_in[l][r][k]<<$clog2(Radix), router_data_in[l][r][k]};
         assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[l][r][k];
 
         // depending on where the requests are connected in the radix 4 case, we have to flip the priority vector
         // this is needed because one of the bits may be constantly set to zero
-        if (BankFact < Radix) begin : g_reverse
-          for (genvar j=0; j<$clog2(Radix); j++) begin : g_connect
+        if (BankFact < Radix) begin : gen_reverse
+          for (genvar j = 0; j < $clog2(Radix); j++) begin : gen_connect
             assign prio[l][r][k][$clog2(Radix)-1-j] = rr[$clog2(NumOut)-(l+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + j];
           end
-        end else begin : g_no_reverse
-          for (genvar j=0; j<$clog2(Radix); j++) begin : g_connect
+        end else begin : gen_no_reverse
+          for (genvar j = 0; j < $clog2(Radix); j++) begin : gen_connect
             assign prio[l][r][k][j] = rr[$clog2(NumOut)-(l+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + j];
           end
         end
@@ -304,11 +304,10 @@ end
 
 // pragma translate_off
 initial begin
-  $display("\nBfly Net info:\nNumIn=%0d\nNumOut=%0d\nBankFact=%0d\nRadix=%0d\nNeedsR2Stage=%0d\nNumRouters=%0d\nNumLevels=%0d\n",
-    NumIn, NumOut, BankFact, Radix, NeedsR2Stage, NumRouters, NumLevels);
+  // some more info for debug purposes:
+  // $display("\nBfly Net info:\nNumIn=%0d\nNumOut=%0d\nBankFact=%0d\nRadix=%0d\nNeedsR2Stage=%0d\nNumRouters=%0d\nNumLevels=%0d\n",
+  //   NumIn, NumOut, BankFact, Radix, NeedsR2Stage, NumRouters, NumLevels);
 
-//  assert(BankFact inside {1,2,4}) else
-//    $fatal(1,"Only banking factors of 1-4 are supported.");
   assert(Radix inside {2,4}) else
     $fatal(1,"Only Radix-2 and Radix-4 is supported.");
   assert(2**$clog2(NumIn) == NumIn) else

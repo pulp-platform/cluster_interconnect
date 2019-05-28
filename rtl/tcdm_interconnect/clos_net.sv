@@ -81,12 +81,12 @@ logic [ClosR-1:0][ClosM-1:0][$clog2(ClosN)-1:0]  egress_add;
 logic [ClosR-1:0][ClosM-1:0][ReqDataWidth-1:0]   egress_req_data;
 logic [ClosR-1:0][ClosM-1:0][RespDataWidth-1:0]  egress_resp_data;
 
-for (genvar k = 0; unsigned'(k) < NumIn; k++) begin : g_cat
+for (genvar k = 0; unsigned'(k) < NumIn; k++) begin : gen_cat
   assign add_wdata[k] = {add_i[k], wdata_i[k]};
 end
 
-for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_connect1
-  for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_connect2
+for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : gen_connect1
+  for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : gen_connect2
     // ingress to/from middle
     // get bank address slice for next stage (middle stage contains RxR routers)
     assign ingress_add[r][m]         = ingress_req_data[r][m][ReqDataWidth+$clog2(NumOut)-1 :
@@ -154,7 +154,7 @@ lfsr #(
 // crossbars
 ////////////////////////////////////////////////////////////////////////
 
-for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
+for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : gen_ingress
   xbar #(
     .NumIn         ( NumInNode                     ),
     .NumOut        ( ClosM                         ),
@@ -182,14 +182,14 @@ for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_ingress
   );
 end
 
-for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_middle
+for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : gen_middle
   xbar #(
     .NumIn         ( ClosR                          ),
     .NumOut        ( ClosR                          ),
     .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
     .RespDataWidth ( RespDataWidth                  ),
     .RespLat       ( RespLat                        ),
-    .ExtPrio       ( 1'(ClosR>1)                    )
+    .ExtPrio       ( 1'(ClosR > 1)                  )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
@@ -208,14 +208,14 @@ for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : g_middle
   );
 end
 
-for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : g_egress
+for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : gen_egress
   xbar #(
     .NumIn         ( ClosM         ),
     .NumOut        ( ClosN         ),
     .ReqDataWidth  ( ReqDataWidth  ),
     .RespDataWidth ( RespDataWidth ),
     .RespLat       ( RespLat       ),
-    .ExtPrio       ( 1'(ClosM>1)   )
+    .ExtPrio       ( 1'(ClosM > 1) )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),
@@ -240,7 +240,9 @@ end
 
 // pragma translate_off
 initial begin
-  $display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
+  // some more info for debug purposes:
+  // $display("\nClos Net info:\nNumIn=%0d\nNumOut=%0d\nm=%0d\nn=%0d\nr=%0d\n", NumIn, NumOut, ClosM, ClosN, ClosR);
+
   // these are the LUT limits
   assert(ClosConfig <= 3 && ClosConfig >= 1) else
     $fatal(1,"Unknown clos ClosConfig.");

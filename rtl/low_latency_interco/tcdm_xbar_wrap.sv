@@ -49,7 +49,7 @@ module tcdm_xbar_wrap #(
   assign vld_d = req_o & gnt_i;
 
   // disable test and set
-  for (genvar k=0; k<NumMaster; k++) begin
+  for (genvar k = 0; k < NumMaster; k++) begin : gen_ts
     assign add[k] = {1'b0, add_i[k]};
   end
 
@@ -88,7 +88,7 @@ module tcdm_xbar_wrap #(
   );
 
   always_ff @(posedge clk_i) begin : p_regs
-    if(~rst_ni) begin
+    if (!rst_ni) begin
       id_q  <= '0;
       vld_q <= '0;
     end else begin

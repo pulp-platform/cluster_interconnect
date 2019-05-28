@@ -36,9 +36,7 @@ module tcdm_interconnect_wrap (
   input   logic [`NUM_MASTER * `BANK_FACT-1:0][`DATA_WIDTH-1:0]    rdata_i    // Read data
 );
 
-
-if (`MUT_IMPL == 0) begin : g_lic
-
+if (`MUT_IMPL == 0) begin : gen_lic
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT   ),
@@ -66,9 +64,7 @@ if (`MUT_IMPL == 0) begin : g_lic
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL == 1) begin : g_bfly2
-
+end else if (`MUT_IMPL == 1) begin : gen_bfly2
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                  ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT     ),
@@ -96,9 +92,7 @@ end else if (`MUT_IMPL == 1) begin : g_bfly2
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL == 2) begin : g_bfly4
-
+end else if (`MUT_IMPL == 2) begin : gen_bfly4
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                  ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT     ),
@@ -126,9 +120,7 @@ end else if (`MUT_IMPL == 2) begin : g_bfly4
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL == 3) begin : g_clos_m2n
-
+end else if (`MUT_IMPL == 3) begin : gen_clos_m2n
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                 ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
@@ -156,9 +148,7 @@ end else if (`MUT_IMPL == 3) begin : g_clos_m2n
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL == 4) begin : g_clos_m1n
-
+end else if (`MUT_IMPL == 4) begin : gen_clos_m1n
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                 ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
@@ -186,9 +176,7 @@ end else if (`MUT_IMPL == 4) begin : g_clos_m1n
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL == 5) begin : g_clos_m0p5n
-
+end else if (`MUT_IMPL == 5) begin : gen_clos_m0p5n
   tcdm_interconnect #(
     .NumIn         ( `NUM_MASTER                 ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
@@ -216,9 +204,7 @@ end else if (`MUT_IMPL == 5) begin : g_clos_m0p5n
     .be_o    ,
     .rdata_i
   );
-
-end else if (`MUT_IMPL==6)  begin : g_lic_old
-
+end else if (`MUT_IMPL==6)  begin : gen_lic_old
   tcdm_xbar_wrap #(
     .NumIn         ( `NUM_MASTER              ),
     .NumOut        ( `NUM_MASTER * `BANK_FACT ),

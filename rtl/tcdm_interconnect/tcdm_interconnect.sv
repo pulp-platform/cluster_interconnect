@@ -67,7 +67,7 @@ logic [NumIn-1:0][AggDataWidth-1:0]  data_agg_in;
 logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
 logic [NumIn-1:0][NumOutLog2-1:0] bank_sel;
 
-for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
+for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
   // extract bank index
   assign bank_sel[j] = add_i[j][AddrWordOff+NumOutLog2-1:AddrWordOff];
   // aggregate data to be routed to slaves
@@ -75,14 +75,14 @@ for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
 end
 
 // disaggregate data
-for (genvar k=0; unsigned'(k)<NumOut; k++) begin : g_outputs
+for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
   assign {wen_o[k], be_o[k], add_o[k], wdata_o[k]} = data_agg_out[k];
 end
 
 ////////////////////////////////////////////////////////////////////////
 // tuned logarithmic interconnect architecture, based on rr_arb_tree primitives
 ////////////////////////////////////////////////////////////////////////
-if (Topology == tcdm_interconnect_pkg::LIC) begin : g_lic
+if (Topology == tcdm_interconnect_pkg::LIC) begin : gen_lic
   xbar #(
     .NumIn         ( NumIn        ),
     .NumOut        ( NumOut       ),
@@ -90,7 +90,7 @@ if (Topology == tcdm_interconnect_pkg::LIC) begin : g_lic
     .RespDataWidth ( DataWidth    ),
     .RespLat       ( RespLat      ),
     .WriteRespOn   ( WriteRespOn  )
-  ) i_clos_node (
+  ) i_xbar (
     .clk_i   ( clk_i        ),
     .rst_ni  ( rst_ni       ),
     .req_i   ( req_i        ),
@@ -110,7 +110,7 @@ if (Topology == tcdm_interconnect_pkg::LIC) begin : g_lic
 // butterfly network (radix 2 or 4) with parallelization option
 // (NumPar>1 results in a hybrid between lic and bfly)
 ////////////////////////////////////////////////////////////////////////
-end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interconnect_pkg::BFLY4) begin : g_bfly
+end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interconnect_pkg::BFLY4) begin : gen_bfly
   localparam int unsigned NumPerSlice = NumIn/NumPar;
   localparam int unsigned Radix       = 2**Topology;
   logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
@@ -190,7 +190,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   // arbitration).
   assign rr1 = NumOutLog2'(rr[$high(rr):$clog2(NumPar)]);
 
-  for (genvar j=0; j<NumPar; j++) begin : g_bfly2_net
+  for (genvar j = 0; j < NumPar; j++) begin : gen_bfly2_net
     bfly_net #(
       .NumIn         ( NumPerSlice  ),
       .NumOut        ( NumOut       ),
@@ -219,9 +219,9 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   end
 
   // transpose between rr arbiters and parallel butterflies
-  for (genvar k=0; k<NumOut; k++) begin : g_trsp1
+  for (genvar k = 0; k < NumOut; k++) begin : gen_trsp1
     assign rdata1[k] = {NumPar{rdata_i[k]}};
-    for (genvar j=0; j<NumPar; j++) begin : g_trsp2
+    for (genvar j = 0; j < NumPar; j++) begin : gen_trsp2
       // request
       assign data1[k][j] = data1_trsp[j][k];
       assign req1[k][j]  = req1_trsp[j][k];
@@ -231,12 +231,12 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
     end
   end
 
-  if (NumPar>1) begin : g_rr_arb
+  if (NumPar > 1) begin : gen_rr_arb
 
     logic [$clog2(NumPar)-1:0] rr2;
     assign rr2 = $clog2(NumPar)'(rr[$clog2(NumPar)-1:0]);
 
-    for (genvar k=0; k<NumOut; k++) begin : g_par
+    for (genvar k = 0; k < NumOut; k++) begin : gen_par
       rr_arb_tree #(
         .NumIn     ( NumPar       ),
         .DataWidth ( AggDataWidth ),
@@ -255,7 +255,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
         .idx_o   (                 )// disabled
       );
     end
-  end else begin : g_no_rr_arb
+  end else begin : gen_no_rr_arb
       // just connect through in this case
       assign data_agg_out = data1;
       assign req_o        = req1;
@@ -270,7 +270,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
 ////////////////////////////////////////////////////////////////////////
 // clos network
 ////////////////////////////////////////////////////////////////////////
-end else if (Topology == tcdm_interconnect_pkg::CLOS) begin : g_clos
+end else if (Topology == tcdm_interconnect_pkg::CLOS) begin : gen_clos
   clos_net #(
     .NumIn         ( NumIn        ),
     .NumOut        ( NumOut       ),
@@ -295,7 +295,7 @@ end else if (Topology == tcdm_interconnect_pkg::CLOS) begin : g_clos
     .rdata_i  ( rdata_i      )
   );
 ////////////////////////////////////////////////////////////////////////
-end else begin : g_unknown
+end else begin : gen_unknown
   // pragma translate_off
   initial begin
     $fatal(1,"Unknown TCDM configuration %d.", Topology);

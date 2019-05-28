@@ -55,7 +55,7 @@ logic [NumIn-1:0][NumOut-1:0] ma_gnt, ma_req;
 ////////////////////////////////////////////////////////////////////////
 // instantiate bank address decoder/resp mux for each master
 ////////////////////////////////////////////////////////////////////////
-for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
+for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
   addr_dec_resp_mux #(
     .NumOut        ( NumOut        ),
     .ReqDataWidth  ( ReqDataWidth  ),
@@ -80,7 +80,7 @@ for (genvar j=0; unsigned'(j)<NumIn; j++) begin : g_inputs
   );
 
   // reshape connections between M/S
-  for (genvar k=0; unsigned'(k)<NumOut; k++) begin : g_reshape
+  for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_reshape
     assign sl_req[k][j]  = ma_req[j][k];
     assign ma_gnt[j][k]  = sl_gnt[k][j];
     assign sl_data[k][j] = ma_data[j][k];
@@ -90,12 +90,12 @@ end
 ////////////////////////////////////////////////////////////////////////
 // instantiate an RR arbiter for each endpoint
 ////////////////////////////////////////////////////////////////////////
-for (genvar k=0; unsigned'(k)<NumOut; k++) begin : g_outputs
+for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
   if(NumIn==1) begin
     assign req_o[k]      = sl_req[k][0];
     assign sl_gnt[k][0]  = gnt_i[k];
     assign wdata_o[k]    = sl_data[k][0];
-  end else begin : g_rr_arb_tree
+  end else begin : gen_rr_arb_tree
     rr_arb_tree #(
       .NumIn     ( NumIn        ),
       .DataWidth ( ReqDataWidth ),

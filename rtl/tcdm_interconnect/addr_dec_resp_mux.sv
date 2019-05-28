@@ -44,7 +44,7 @@ logic [RespLat-1:0] vld_d, vld_q;
 ////////////////////////////////////////////////////////////////////////
 // degenerate case
 ////////////////////////////////////////////////////////////////////////
-if (NumOut==1) begin : g_one_output
+if (NumOut == 1) begin : gen_one_output
 
   assign data_o[0] = data_i;
   assign gnt_o     = gnt_i[0];
@@ -52,9 +52,9 @@ if (NumOut==1) begin : g_one_output
   assign rdata_o   = rdata_i[0];
   assign vld_o     = vld_q[$high(vld_q)];
 
-  if (RespLat > 1) begin
+  if (RespLat > 1) begin : gen_lat_gt1
     assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
-  end else begin
+  end else begin : gen_lat_le1
     assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
   end
 
@@ -69,18 +69,18 @@ if (NumOut==1) begin : g_one_output
 ////////////////////////////////////////////////////////////////////////
 // normal case
 ////////////////////////////////////////////////////////////////////////
-end else begin : g_several_outputs
+end else begin : gen_several_outputs
 
   // address decoder
   always_comb begin : p_addr_dec
     req_o        = '0;
     if (BroadCastOn) begin
-    	if (req_i) begin
-  	  	req_o      = '1;
-  	  end
-  	end else begin
-  	  req_o[add_i] = req_i;
-  	end
+      if (req_i) begin
+        req_o      = '1;
+      end
+    end else begin
+      req_o[add_i] = req_i;
+    end
   end
 
   // connect data outputs
@@ -91,7 +91,7 @@ end else begin : g_several_outputs
   assign vld_o = vld_q[$high(vld_q)];
 
   // response path in case of broadcasts
-  if (BroadCastOn) begin
+  if (BroadCastOn) begin : gen_bcast
     logic [NumOut-1:0] gnt_d, gnt_q;
     logic [$clog2(NumOut)-1:0] bank_sel;
 
@@ -107,15 +107,15 @@ end else begin : g_several_outputs
       .empty_o()
     );
 
-    if (RespLat > 1) begin : g_lat_gt1
+    if (RespLat > 1) begin : gen_lat_gt1
       logic [RespLat-2:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
 
       assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
       assign vld_d   = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
 
-      if (RespLat == 2) begin : g_lat_eq2
+      if (RespLat == 2) begin : gen_lat_eq2
         assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-2:0], bank_sel, bank_sel};
-      end else begin
+      end else begin : gen_lat_le2
         assign bank_sel_d = bank_sel;
       end
 
@@ -127,12 +127,12 @@ end else begin : g_several_outputs
         end
       end
 
-    end else begin : g_lat_eq1
+    end else begin : gen_lat_eq1
       assign rdata_o    = rdata_i[bank_sel];
       assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
     end
 
-  	always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
+    always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
       if (!rst_ni) begin
         gnt_q      <= '0;
         vld_q      <= '0;
@@ -140,21 +140,21 @@ end else begin : g_several_outputs
         gnt_q      <= gnt_d;
         vld_q      <= vld_d;
       end
-  	end
+    end
 
   // non-broadcast case
-  end else begin : g_no_broadcast
+  end else begin : gen_no_broadcast
     logic [RespLat-1:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
 
     assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
 
-  	if (RespLat > 1) begin : g_lat_gt1
-  	  assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
+    if (RespLat > 1) begin : gen_lat_gt1
+      assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
       assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
-  	end else begin : g_lat_eq1
-  	  assign bank_sel_d = add_i;
+    end else begin : gen_lat_le1
+      assign bank_sel_d = add_i;
       assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
-  	end
+    end
 
     always_ff @(posedge clk_i or negedge rst_ni) begin : p_reg
       if (!rst_ni) begin

@@ -1,6 +1,16 @@
-# Copyright (c) 2019 ETH Zurich.
-# Fabian Schuiki    <fschuiki@iis.ee.ethz.ch>
-# Michael Schaffner <schaffner@iis.ee.ethz.ch>
+# Copyright 2019 ETH Zurich and University of Bologna.
+# Copyright and related rights are licensed under the Solderpad Hardware
+# License, Version 0.51 (the "License"); you may not use this file except in
+# compliance with the License.  You may obtain a copy of the License at
+# http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
+# or agreed to in writing, software, hardware and materials distributed under
+# this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations under the License.
+#
+# Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
+# Date: 06.03.2019
+# Description: Synthesis script for TCDM interconnect
 
 #####################
 ##   SETUP         ##
@@ -18,89 +28,31 @@ echo "DEFINE:      $DEFINE              "
 echo "LIB:         $LIB                 "
 echo "----------------------------------"
 
-set CPUS 16
-
-set VARIANT "hp"
-
-if {![info exists TCK]} {set TCK 1000}
-if {![info exists VARIANT]} {set VARIANT hp}
-if {![info exists CORNER_TRIM]} {set CORNER_TRIM 0}
-
-if {[info exists CPUS]} {
-    set_host_options -max_cores $CPUS
-}
+set CPUS        1
+set VARIANT     "hp"
+set TCK         1000
+set CORNER_TRIM 0
 
 #####################
-##   LOAD DESIGN   ##
+##   SET LIBRARY   ##
 #####################
 
-# Set libraries.
-if {$VARIANT == "hp"} {
-    set TEMP 125C
-    if {$CORNER_TRIM} {
-        set VBN 0P80
-        set VBP M0P80
-    } else {
-        set VBN 0P00
-        set VBP 0P00
-    }
-    dz_set_pvt [list \
-        GF22FDX_SC8T_104CPP_BASE_CSC20SL_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        GF22FDX_SC8T_104CPP_BASE_CSC24SL_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        GF22FDX_SC8T_104CPP_BASE_CSC28SL_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        GF22FDX_SC8T_104CPP_BASE_CSC20L_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        GF22FDX_SC8T_104CPP_BASE_CSC24L_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        GF22FDX_SC8T_104CPP_BASE_CSC28L_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP} \
-        IN22FDX_R1PH_NFHN_W00256B016M02C256_104cpp_SSG_0P720V_${VBN}0V_${VBP}0V_${TEMP} \
-        IN22FDX_R1PH_NFHN_W00256B046M02C256_104cpp_SSG_0P720V_${VBN}0V_${VBP}0V_${TEMP} \
-        IN22FDX_R1PH_NFHN_W00256B128M02C256_104cpp_SSG_0P720V_${VBN}0V_${VBP}0V_${TEMP} \
-    ]
-    set driving_cell SC8T_BUFX4_CSC28SL
-    set driving_cell_clk SC8T_CKBUFX4_CSC20SL
-    set load_cell SC8T_BUFX4_CSC28SL
-    set load_lib GF22FDX_SC8T_104CPP_BASE_CSC28SL_SSG_0P72V_0P00V_${VBN}V_${VBP}V_${TEMP}
-}
-if {$VARIANT == "lp"} {
-    dz_set_pvt [list \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC28SL_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC32SL_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC36SL_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC28L_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC32L_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        GF22FDX_SC7P5TLV_116CPP_BASE_CSC36L_SSG_0P45V_0P00V_0P85V_M1P15V_M40C \
-        IN22FDX_R1PL_NFLG_W00256B016M02C256_116cpp_SSG_0P450V_0P590V_0P850V_M1P150V_M40C \
-        IN22FDX_R1PL_NFLG_W00256B046M02C256_116cpp_SSG_0P450V_0P590V_0P850V_M1P150V_M40C \
-        IN22FDX_R1PL_NFLG_W00256B128M02C256_116cpp_SSG_0P450V_0P590V_0P850V_M1P150V_M40C \
-    ]
-    set driving_cell SC7P5TLV_BUFX4_CSC36SL
-    set driving_cell_clk SC7P5TLV_CKBUFX4_CSC28SL
-    set load_cell SC7P5TLV_BUFX4_CSC36SL
-    set load_lib GF22FDX_SC7P5TLV_116CPP_BASE_CSC36SL_SSG_0P45V_0P00V_0P85V_M1P15V_M40C
-}
+# TODO: set library and operating point here
 
-###########################
-##   Forbid some cells   ##
-###########################
-
-# # Forbid some of the standard cells.
-# if {$VARIANT == "hp"} {
-#     set_dont_use [get_lib_cells */*_CSC20SL]
-#     set_dont_use [get_lib_cells */*_CSC24SL]
-# }
-# if {$VARIANT == "lp"} {
-#     # set_dont_use [get_lib_cells */*_CSC28SL]
-#     # set_dont_use [get_lib_cells */*_CSC32SL]
-# }
-
-# # Generally forbid area-optimized and low drive strength cells.
-# set_dont_use [get_lib_cells */*_A_*]
-# set_dont_use [get_lib_cells */*X0P5_*]
+# TODO: define the following variables
+# set driving_cell
+# set driving_cell_clk
+# set load_cell
+# set load_lib
 
 ######################
 ##   CLOCK GATING   ##
 ######################
 
-set_clock_gating_style -num_stages 1 -positive_edge_logic integrated -control_point before -control_signal scan_enable
+set_clock_gating_style -num_stages 1                   \
+                       -positive_edge_logic integrated \
+                       -control_point before           \
+                       -control_signal scan_enable
 
 ###########################
 ##   ELABORATE DESIGN    ##
@@ -128,9 +80,6 @@ elaborate  ${TOP_ENTITY}
 set IN_DEL  0.0
 set OUT_DEL 0.0
 set DELAY   $TCK
-
-# set_critical_range 25 [current_design]
-# set_leakage_optimization true
 
 create_clock ${CLK_PIN} -period ${TCK}
 
