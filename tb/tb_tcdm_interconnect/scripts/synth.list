@@ -18,6 +18,7 @@
 ../../../common_cells/src/lzc.sv
 ../../../common_cells/src/lfsr.sv
 ../../../common_cells/src/rr_arb_tree.sv
+../../rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv
 ../../rtl/tcdm_interconnect/addr_dec_resp_mux.sv
 ../../rtl/tcdm_interconnect/xbar.sv
 ../../rtl/tcdm_interconnect/bfly_net.sv

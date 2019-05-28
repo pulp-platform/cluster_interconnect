@@ -26,6 +26,9 @@ fairness_test(stats, 0.13);
 % annotate this with synthesis results
 stats = read_synth('sim-results', stats);
 
+% backup results
+save('plots/stats.mat','stats');
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Statistical Evaluation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

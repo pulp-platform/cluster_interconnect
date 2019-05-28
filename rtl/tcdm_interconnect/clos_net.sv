@@ -40,57 +40,6 @@ module clos_net #(
   input   logic [NumOut-1:0][RespDataWidth-1:0] rdata_i    // data response (for load commands)
 );
 
-////////////////////////////////////////////////////////////////////////
-// LUT params for Clos net with configs: 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
-// to be indexed with [config_idx][$clog2(BankingFact)][$clog2(NumBanks)]
-// generated with MATLAB script gen_clos_params.m
-////////////////////////////////////////////////////////////////////////
-localparam logic [3:1][4:0][12:2][15:0] ClosNLut = {16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2};
-localparam logic [3:1][4:0][12:2][15:0] ClosMLut = {16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
-                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
-                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
-                                                    16'd128,16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,
-                                                    16'd128,16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
-                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
-                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
-                                                    16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,
-                                                    16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,16'd1,16'd1};
-localparam logic [3:1][4:0][12:2][15:0] ClosRLut = {16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2,16'd2,
-                                                    16'd64,16'd64,16'd32,16'd32,16'd16,16'd16,16'd8,16'd8,16'd4,16'd4,16'd2};
-
 // classic clos parameters, make sure they are aligned with powers of 2
 // good tradeoff in terms of router complexity (with b=banking factor):  N = sqrt(NumOut / (1+1/b)))
 // some values (banking factor of 2):
@@ -102,10 +51,9 @@ localparam logic [3:1][4:0][12:2][15:0] ClosRLut = {16'd64,16'd32,16'd32,16'd16,
 // 256 Banks -> N = 16,
 // 512 Banks -> N = 16
 localparam int unsigned BankFact = NumOut/NumIn;
-localparam int unsigned ClosN = 32'(ClosNLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
-localparam int unsigned ClosM = 32'(ClosMLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
-localparam int unsigned ClosR = 32'(ClosRLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
-
+localparam int unsigned ClosN = 32'(tcdm_interconnect_pkg::ClosNLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosM = 32'(tcdm_interconnect_pkg::ClosMLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
+localparam int unsigned ClosR = 32'(tcdm_interconnect_pkg::ClosRLut[ClosConfig][$clog2(BankFact)][$clog2(NumOut)]);
 
 ////////////////////////////////////////////////////////////////////////
 // network inter-level connections

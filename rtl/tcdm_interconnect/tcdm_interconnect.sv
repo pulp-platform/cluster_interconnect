@@ -18,23 +18,21 @@
 module tcdm_interconnect #(
   ///////////////////////////
   // global parameters
-  parameter int unsigned NumIn           = 128,          // number of initiator ports (must be aligned with power of 2 for bfly and clos)
-  parameter int unsigned NumOut          = 256,          // number of TCDM banks (must be aligned with power of 2 for bfly and clos)
-  parameter int unsigned AddrWidth       = 32,           // address width on initiator side
-  parameter int unsigned DataWidth       = 32,           // word width of data
-  parameter int unsigned BeWidth         = DataWidth/8,  // width of corresponding byte enables
-  parameter int unsigned AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter int unsigned Topology        = 0,            // 0 = lic, 1 = radix-2 bfly, 2 = radix-4 bfly, 3 = clos
-  parameter bit          WriteRespOn     = 1,            // defines whether the interconnect returns a write response
-  // TCDM read latency, usually 1 cycle, has no effect on butterfly topology (fixed to 1 in that case)
-  parameter int unsigned RespLat         = 1,
-  ///////////////////////////
-  // butterfly parameters
-  parameter int unsigned NumPar          = 1,
-  ///////////////////////////
-  // this detemines which clos config to use
-  // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,
-  parameter int unsigned ClosConfig      = 2
+  parameter int unsigned                  NumIn           = 128,          // number of initiator ports (must be aligned with power of 2 for bfly and clos)
+  parameter int unsigned                  NumOut          = 256,          // number of TCDM banks (must be aligned with power of 2 for bfly and clos)
+  parameter int unsigned                  AddrWidth       = 32,           // address width on initiator side
+  parameter int unsigned                  DataWidth       = 32,           // word width of data
+  parameter int unsigned                  BeWidth         = DataWidth/8,  // width of corresponding byte enables
+  parameter int unsigned                  AddrMemWidth    = 12,           // number of address bits per TCDM bank
+  parameter bit                           WriteRespOn     = 1,// defines whether the interconnect returns a write response
+  parameter int unsigned                  RespLat         = 1,// TCDM read latency, usually 1 cycle
+  // topology can be: LIC, BFLY2, BFLY4, CLOS
+  parameter tcdm_interconnect_pkg::topo_t Topology        = tcdm_interconnect_pkg::LIC,
+  // number of parallel butterfly's to use, only relevant for BFLY topologies
+  parameter int unsigned                  NumPar          = 1,
+  // this detemines which Clos config to use, only relevant for CLOS topologies
+  // 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n
+  parameter int unsigned                  ClosConfig      = 2
   ///////////////////////////
 ) (
   input  logic                                  clk_i,
@@ -84,7 +82,7 @@ end
 ////////////////////////////////////////////////////////////////////////
 // tuned logarithmic interconnect architecture, based on rr_arb_tree primitives
 ////////////////////////////////////////////////////////////////////////
-if (Topology==0) begin : g_lic
+if (Topology == tcdm_interconnect_pkg::LIC) begin : g_lic
   xbar #(
     .NumIn         ( NumIn        ),
     .NumOut        ( NumOut       ),
@@ -112,7 +110,7 @@ if (Topology==0) begin : g_lic
 // butterfly network (radix 2 or 4) with parallelization option
 // (NumPar>1 results in a hybrid between lic and bfly)
 ////////////////////////////////////////////////////////////////////////
-end else if (Topology >= 1 && Topology <= 2) begin : g_bfly
+end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interconnect_pkg::BFLY4) begin : g_bfly
   localparam int unsigned NumPerSlice = NumIn/NumPar;
   localparam int unsigned Radix       = 2**Topology;
   logic [NumOut-1:0][NumPar-1:0][AggDataWidth-1:0]  data1;
@@ -272,7 +270,7 @@ end else if (Topology >= 1 && Topology <= 2) begin : g_bfly
 ////////////////////////////////////////////////////////////////////////
 // clos network
 ////////////////////////////////////////////////////////////////////////
-end else if (Topology==3) begin : g_clos
+end else if (Topology == tcdm_interconnect_pkg::CLOS) begin : g_clos
   clos_net #(
     .NumIn         ( NumIn        ),
     .NumOut        ( NumOut       ),
@@ -300,7 +298,7 @@ end else if (Topology==3) begin : g_clos
 end else begin : g_unknown
   // pragma translate_off
   initial begin
-    $fatal(1,"Unknown TCDM configuration %d. Choose either 0 for lic, 1-2 for radix-2/4 bfly's, or 3-5 for Clos variants.", Topology);
+    $fatal(1,"Unknown TCDM configuration %d.", Topology);
   end
   // pragma translate_on
 end

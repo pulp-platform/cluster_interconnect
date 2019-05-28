@@ -11,6 +11,7 @@ sources:
   # Level 0
   - rtl/tcdm_interconnect/addr_dec_resp_mux.sv
   - rtl/tcdm_interconnect/amo_shim.sv
+  - rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv
   # Level 1
   - rtl/tcdm_interconnect/xbar.sv
   # Level 2

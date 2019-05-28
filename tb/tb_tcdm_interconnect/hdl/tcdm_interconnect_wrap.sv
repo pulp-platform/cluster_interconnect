@@ -37,16 +37,76 @@ module tcdm_interconnect_wrap (
 );
 
 
-if (`MUT_IMPL < 3) begin : g_licBfly
+if (`MUT_IMPL == 0) begin : g_lic
 
   tcdm_interconnect #(
-    .NumIn         ( `NUM_MASTER              ),
-    .NumOut        ( `NUM_MASTER * `BANK_FACT ),
-    .AddrWidth     ( `DATA_WIDTH              ),
-    .DataWidth     ( `DATA_WIDTH              ),
-    .AddrMemWidth  ( `MEM_ADDR_BITS           ),
-    .NumPar        ( `PAR_STAGES              ),
-    .Topology      ( `MUT_IMPL                )
+    .NumIn         ( `NUM_MASTER                ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT   ),
+    .AddrWidth     ( `DATA_WIDTH                ),
+    .DataWidth     ( `DATA_WIDTH                ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS             ),
+    .NumPar        ( `PAR_STAGES                ),
+    .Topology      ( tcdm_interconnect_pkg::LIC )
+  ) i_tcdm_interconnect (
+    .clk_i   ,
+    .rst_ni  ,
+    .req_i   ,
+    .add_i   ,
+    .wen_i   ,
+    .wdata_i ,
+    .be_i    ,
+    .gnt_o   ,
+    .vld_o   ,
+    .rdata_o ,
+    .req_o   ,
+    .gnt_i   ,
+    .add_o   ,
+    .wen_o   ,
+    .wdata_o ,
+    .be_o    ,
+    .rdata_i
+  );
+
+end else if (`MUT_IMPL == 1) begin : g_bfly2
+
+  tcdm_interconnect #(
+    .NumIn         ( `NUM_MASTER                  ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT     ),
+    .AddrWidth     ( `DATA_WIDTH                  ),
+    .DataWidth     ( `DATA_WIDTH                  ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS               ),
+    .NumPar        ( `PAR_STAGES                  ),
+    .Topology      ( tcdm_interconnect_pkg::BFLY2 )
+  ) i_tcdm_interconnect (
+    .clk_i   ,
+    .rst_ni  ,
+    .req_i   ,
+    .add_i   ,
+    .wen_i   ,
+    .wdata_i ,
+    .be_i    ,
+    .gnt_o   ,
+    .vld_o   ,
+    .rdata_o ,
+    .req_o   ,
+    .gnt_i   ,
+    .add_o   ,
+    .wen_o   ,
+    .wdata_o ,
+    .be_o    ,
+    .rdata_i
+  );
+
+end else if (`MUT_IMPL == 2) begin : g_bfly4
+
+  tcdm_interconnect #(
+    .NumIn         ( `NUM_MASTER                  ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT     ),
+    .AddrWidth     ( `DATA_WIDTH                  ),
+    .DataWidth     ( `DATA_WIDTH                  ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS               ),
+    .NumPar        ( `PAR_STAGES                  ),
+    .Topology      ( tcdm_interconnect_pkg::BFLY4 )
   ) i_tcdm_interconnect (
     .clk_i   ,
     .rst_ni  ,
@@ -70,13 +130,13 @@ if (`MUT_IMPL < 3) begin : g_licBfly
 end else if (`MUT_IMPL == 3) begin : g_clos_m2n
 
   tcdm_interconnect #(
-    .NumIn         ( `NUM_MASTER              ),
-    .NumOut        ( `NUM_MASTER * `BANK_FACT ),
-    .AddrWidth     ( `DATA_WIDTH              ),
-    .DataWidth     ( `DATA_WIDTH              ),
-    .AddrMemWidth  ( `MEM_ADDR_BITS           ),
-    .Topology      ( 3                        ),
-    .ClosConfig    ( 3                        )
+    .NumIn         ( `NUM_MASTER                 ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
+    .AddrWidth     ( `DATA_WIDTH                 ),
+    .DataWidth     ( `DATA_WIDTH                 ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS              ),
+    .Topology      ( tcdm_interconnect_pkg::CLOS ),
+    .ClosConfig    ( 3                           )
   ) i_tcdm_interconnect (
     .clk_i   ,
     .rst_ni  ,
@@ -100,13 +160,13 @@ end else if (`MUT_IMPL == 3) begin : g_clos_m2n
 end else if (`MUT_IMPL == 4) begin : g_clos_m1n
 
   tcdm_interconnect #(
-    .NumIn         ( `NUM_MASTER              ),
-    .NumOut        ( `NUM_MASTER * `BANK_FACT ),
-    .AddrWidth     ( `DATA_WIDTH              ),
-    .DataWidth     ( `DATA_WIDTH              ),
-    .AddrMemWidth  ( `MEM_ADDR_BITS           ),
-    .Topology      ( 3                        ),
-    .ClosConfig    ( 2                        )
+    .NumIn         ( `NUM_MASTER                 ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
+    .AddrWidth     ( `DATA_WIDTH                 ),
+    .DataWidth     ( `DATA_WIDTH                 ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS              ),
+    .Topology      ( tcdm_interconnect_pkg::CLOS ),
+    .ClosConfig    ( 2                           )
   ) i_tcdm_interconnect (
     .clk_i   ,
     .rst_ni  ,
@@ -130,13 +190,13 @@ end else if (`MUT_IMPL == 4) begin : g_clos_m1n
 end else if (`MUT_IMPL == 5) begin : g_clos_m0p5n
 
   tcdm_interconnect #(
-    .NumIn         ( `NUM_MASTER              ),
-    .NumOut        ( `NUM_MASTER * `BANK_FACT ),
-    .AddrWidth     ( `DATA_WIDTH              ),
-    .DataWidth     ( `DATA_WIDTH              ),
-    .AddrMemWidth  ( `MEM_ADDR_BITS           ),
-    .Topology      ( 3                        ),
-    .ClosConfig    ( 1                        )
+    .NumIn         ( `NUM_MASTER                 ),
+    .NumOut        ( `NUM_MASTER * `BANK_FACT    ),
+    .AddrWidth     ( `DATA_WIDTH                 ),
+    .DataWidth     ( `DATA_WIDTH                 ),
+    .AddrMemWidth  ( `MEM_ADDR_BITS              ),
+    .Topology      ( tcdm_interconnect_pkg::CLOS ),
+    .ClosConfig    ( 1                           )
   ) i_tcdm_interconnect (
     .clk_i   ,
     .rst_ni  ,
