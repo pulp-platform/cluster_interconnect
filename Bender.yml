@@ -2,16 +2,16 @@ package:
   name: cluster_interconnect
 
 dependencies:
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", rev: 41bd5ab9a7b745b3afe97667fd4c7f3e037a2a03 }
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", rev: v1.13.0 }
 
 sources:
   # Source files grouped in levels. Files in level 0 have no dependencies on files in this
   # package. Files in level 1 only depend on files in level 0, files in level 2 on files in
   # levels 1 and 0, etc. Files within a level are ordered alphabetically.
   # Level 0
+  - rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv
   - rtl/tcdm_interconnect/addr_dec_resp_mux.sv
   - rtl/tcdm_interconnect/amo_shim.sv
-  - rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv
   # Level 1
   - rtl/tcdm_interconnect/xbar.sv
   # Level 2

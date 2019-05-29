@@ -42,11 +42,11 @@ tcdm_interconnect:
   incdirs: [
   ]
   files: [
+    rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv,
     rtl/tcdm_interconnect/addr_dec_resp_mux.sv,
-    rtl/tcdm_interconnect/rr_arb_tree.sv,
-    rtl/tcdm_interconnect/clos_node.sv,
+    rtl/tcdm_interconnect/amo_shim.sv,
+    rtl/tcdm_interconnect/xbar.sv,
     rtl/tcdm_interconnect/clos_net.sv,
-    rtl/tcdm_interconnect/bfly_router.sv,
     rtl/tcdm_interconnect/bfly_net.sv,
     rtl/tcdm_interconnect/tcdm_interconnect.sv,
   ]
