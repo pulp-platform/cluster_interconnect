@@ -250,7 +250,7 @@ for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : gen_routers1
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] add;
       logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][$clog2(Radix)-1:0] prio;
 
-      for (genvar k = 0; k < Radix; k++) begin : gen_map
+      for (genvar k = 0; unsigned'(k) < Radix; k++) begin : gen_map
         assign add[l][r][k]        = router_add_in[l][r][k][AddWidth-1:AddWidth-$clog2(Radix)];
         assign data_in[l][r][k]    = {router_add_in[l][r][k]<<$clog2(Radix), router_data_in[l][r][k]};
         assign {router_add_out[l][r][k], router_data_out[l][r][k]} = data_out[l][r][k];
@@ -258,12 +258,12 @@ for (genvar l = 0; unsigned'(l) < NumLevels; l++) begin : gen_routers1
         // depending on where the requests are connected in the radix 4 case, we have to flip the priority vector
         // this is needed because one of the bits may be constantly set to zero
         if (BankFact < Radix) begin : gen_reverse
-          for (genvar j = 0; j < $clog2(Radix); j++) begin : gen_connect
-            assign prio[l][r][k][$clog2(Radix)-1-j] = rr[$clog2(NumOut)-(l+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + j];
+          for (genvar j = 0; unsigned'(j) < $clog2(Radix); j++) begin : gen_connect
+            assign prio[l][r][k][$clog2(Radix)-1-j] = rr[$clog2(NumOut)-(unsigned'(l)+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + unsigned'(j)];
           end
         end else begin : gen_no_reverse
-          for (genvar j = 0; j < $clog2(Radix); j++) begin : gen_connect
-            assign prio[l][r][k][j] = rr[$clog2(NumOut)-(l+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + j];
+          for (genvar j = 0; unsigned'(j) < $clog2(Radix); j++) begin : gen_connect
+            assign prio[l][r][k][j] = rr[$clog2(NumOut)-(unsigned'(l)+1-32'(NeedsR2Stage))*$clog2(Radix)-32'(NeedsR2Stage) + unsigned'(j)];
           end
         end
       end

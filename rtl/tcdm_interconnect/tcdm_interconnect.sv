@@ -132,7 +132,6 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   lfsr #(
     .LfsrWidth(64),
     .OutWidth($clog2(NumIn)),
-    .RstVal(1),
     .CipherLayers(3),
     .CipherReg(1'b1)
   ) lfsr_i (
@@ -190,7 +189,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   // arbitration).
   assign rr1 = NumOutLog2'(rr[$high(rr):$clog2(NumPar)]);
 
-  for (genvar j = 0; j < NumPar; j++) begin : gen_bfly2_net
+  for (genvar j = 0; unsigned'(j) < NumPar; j++) begin : gen_bfly2_net
     bfly_net #(
       .NumIn         ( NumPerSlice  ),
       .NumOut        ( NumOut       ),
@@ -219,9 +218,9 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   end
 
   // transpose between rr arbiters and parallel butterflies
-  for (genvar k = 0; k < NumOut; k++) begin : gen_trsp1
+  for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_trsp1
     assign rdata1[k] = {NumPar{rdata_i[k]}};
-    for (genvar j = 0; j < NumPar; j++) begin : gen_trsp2
+    for (genvar j = 0; unsigned'(j) < NumPar; j++) begin : gen_trsp2
       // request
       assign data1[k][j] = data1_trsp[j][k];
       assign req1[k][j]  = req1_trsp[j][k];
@@ -236,7 +235,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
     logic [$clog2(NumPar)-1:0] rr2;
     assign rr2 = $clog2(NumPar)'(rr[$clog2(NumPar)-1:0]);
 
-    for (genvar k = 0; k < NumOut; k++) begin : gen_par
+    for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_par
       rr_arb_tree #(
         .NumIn     ( NumPar       ),
         .DataWidth ( AggDataWidth ),
