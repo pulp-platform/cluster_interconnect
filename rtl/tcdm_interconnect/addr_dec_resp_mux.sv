@@ -44,7 +44,7 @@ logic [RespLat-1:0] vld_d, vld_q;
 ////////////////////////////////////////////////////////////////////////
 // degenerate case
 ////////////////////////////////////////////////////////////////////////
-if (NumOut == 1) begin : gen_one_output
+if (NumOut == unsigned'(1)) begin : gen_one_output
 
   assign data_o[0] = data_i;
   assign gnt_o     = gnt_i[0];
@@ -52,7 +52,7 @@ if (NumOut == 1) begin : gen_one_output
   assign rdata_o   = rdata_i[0];
   assign vld_o     = vld_q[$high(vld_q)];
 
-  if (RespLat > 1) begin : gen_lat_gt1
+  if (RespLat > unsigned'(1)) begin : gen_lat_gt1
     assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
   end else begin : gen_lat_le1
     assign vld_d      = gnt_o & (~wen_i | WriteRespOn);
@@ -107,13 +107,13 @@ end else begin : gen_several_outputs
       .empty_o()
     );
 
-    if (RespLat > 1) begin : gen_lat_gt1
+    if (RespLat > unsigned'(1)) begin : gen_lat_gt1
       logic [RespLat-2:0][$clog2(NumOut)-1:0] bank_sel_d, bank_sel_q;
 
       assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
       assign vld_d   = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
 
-      if (RespLat == 2) begin : gen_lat_eq2
+      if (RespLat == unsigned'(2)) begin : gen_lat_eq2
         assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-2:0], bank_sel, bank_sel};
       end else begin : gen_lat_le2
         assign bank_sel_d = bank_sel;
@@ -148,7 +148,7 @@ end else begin : gen_several_outputs
 
     assign rdata_o = rdata_i[bank_sel_q[$high(bank_sel_q)]];
 
-    if (RespLat > 1) begin : gen_lat_gt1
+    if (RespLat > unsigned'(1)) begin : gen_lat_gt1
       assign bank_sel_d = {bank_sel_q[$high(bank_sel_q)-1:0], add_i};
       assign vld_d      = {vld_q[$high(vld_q)-1:0], gnt_o & (~wen_i | WriteRespOn)};
     end else begin : gen_lat_le1

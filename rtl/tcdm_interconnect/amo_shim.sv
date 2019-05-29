@@ -95,7 +95,12 @@ module amo_shim #(
 
     always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-            state_q <= Idle;
+            state_q         <= Idle;
+            amo_op_q        <= amo_op_t'('0);
+            addr_q          <= '0;
+            amo_operand_b_q <= '0;
+            swap_value_q    <= '0;
+            upper_word_q    <= '0;
         end else begin
             if (load_amo) begin
                 amo_op_q        <= amo_op_t'(in_amo_i);
@@ -115,15 +120,15 @@ module amo_shim #(
     // ----------------
     // AMO ALU
     // ----------------
-    logic [32:0] adder_sum;
+    logic [33:0] adder_sum;
     logic [32:0] adder_operand_a, adder_operand_b;
 
     assign adder_sum = adder_operand_a + adder_operand_b;
     /* verilator lint_off WIDTH */
     always_comb begin : amo_alu
 
-        adder_operand_a = $signed(amo_operand_a);
-        adder_operand_b = $signed(amo_operand_b_q);
+        adder_operand_a = 33'($signed(amo_operand_a));
+        adder_operand_b = 33'($signed(amo_operand_b_q));
 
         amo_result = amo_operand_b_q;
 
@@ -143,12 +148,12 @@ module amo_shim #(
                 amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
             end
             AMOMaxu: begin
-                adder_operand_a = $unsigned(amo_operand_a);
+                adder_operand_a = 33'($unsigned(amo_operand_a));
                 adder_operand_b = -$unsigned(amo_operand_b_q);
                 amo_result = adder_sum[32] ? amo_operand_b_q : amo_operand_a;
             end
             AMOMinu: begin
-                adder_operand_a = $unsigned(amo_operand_a);
+                adder_operand_a = 33'($unsigned(amo_operand_a));
                 adder_operand_b = -$unsigned(amo_operand_b_q);
                 amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
             end

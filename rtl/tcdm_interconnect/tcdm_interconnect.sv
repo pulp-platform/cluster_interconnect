@@ -18,8 +18,8 @@
 module tcdm_interconnect #(
   ///////////////////////////
   // global parameters
-  parameter int unsigned                  NumIn           = 128,          // number of initiator ports (must be aligned with power of 2 for bfly and clos)
-  parameter int unsigned                  NumOut          = 256,          // number of TCDM banks (must be aligned with power of 2 for bfly and clos)
+  parameter int unsigned                  NumIn           = 32,           // number of initiator ports (must be aligned with power of 2 for bfly and clos)
+  parameter int unsigned                  NumOut          = 64,           // number of TCDM banks (must be aligned with power of 2 for bfly and clos)
   parameter int unsigned                  AddrWidth       = 32,           // address width on initiator side
   parameter int unsigned                  DataWidth       = 32,           // word width of data
   parameter int unsigned                  BeWidth         = DataWidth/8,  // width of corresponding byte enables
@@ -231,7 +231,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
     end
   end
 
-  if (NumPar > 1) begin : gen_rr_arb
+  if (NumPar > unsigned'(1)) begin : gen_rr_arb
 
     logic [$clog2(NumPar)-1:0] rr2;
     assign rr2 = $clog2(NumPar)'(rr[$clog2(NumPar)-1:0]);
@@ -263,7 +263,7 @@ end else if (Topology == tcdm_interconnect_pkg::BFLY2 || Topology == tcdm_interc
   end
   // pragma translate_off
   initial begin
-    assert(NumPar >= 1) else
+    assert(NumPar >= unsigned'(1)) else
       $fatal(1,"NumPar must be greater or equal 1.");
   end
   // pragma translate_on

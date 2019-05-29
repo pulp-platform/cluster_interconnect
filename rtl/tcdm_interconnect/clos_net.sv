@@ -124,11 +124,11 @@ logic [ClosN-1:0][$clog2(ClosM)-1:0] rr_egr;
 logic [$clog2(ClosM*ClosR)-1:0]      rr;
 
 
-if (ClosR > 1) begin : gen_rr_mid
+if (ClosR > unsigned'(1)) begin : gen_rr_mid
   assign rr_mid     = {ClosR{rr[$clog2(ClosR*ClosM)-1:$clog2(ClosM)]}};
 end
 
-if (ClosM > 1) begin : gen_rr_egr
+if (ClosM > unsigned'(1)) begin : gen_rr_egr
   assign rr_egr     = {ClosN{rr[$clog2(ClosM)-1:0]}};
 end
 
@@ -140,7 +140,6 @@ end
 lfsr #(
   .LfsrWidth(64),
   .OutWidth($clog2(ClosM*ClosR)),
-  .RstVal(1),
   .CipherLayers(3),
   .CipherReg(1'b1)
 ) lfsr_i (
@@ -189,13 +188,13 @@ for (genvar m = 0; unsigned'(m) < ClosM; m++) begin : gen_middle
     .ReqDataWidth  ( ReqDataWidth  + $clog2(ClosN)  ),
     .RespDataWidth ( RespDataWidth                  ),
     .RespLat       ( RespLat                        ),
-    .ExtPrio       ( 1'(ClosR > 1)                  )
+    .ExtPrio       ( 1'(ClosR > unsigned'(1))       )
   ) i_mid_node (
     .clk_i   ( clk_i                   ),
     .rst_ni  ( rst_ni                  ),
     .req_i   ( middle_req_in[m]        ),
     .add_i   ( middle_add_in[m]        ),
-    .wen_i   ( '0                      ),
+    .wen_i   ( ClosR'(0)               ),
     .wdata_i ( middle_req_data_in[m]   ),
     .gnt_o   ( middle_gnt_out[m]       ),
     .vld_o   (                         ),
@@ -210,18 +209,18 @@ end
 
 for (genvar r = 0; unsigned'(r) < ClosR; r++) begin : gen_egress
   xbar #(
-    .NumIn         ( ClosM         ),
-    .NumOut        ( ClosN         ),
-    .ReqDataWidth  ( ReqDataWidth  ),
-    .RespDataWidth ( RespDataWidth ),
-    .RespLat       ( RespLat       ),
-    .ExtPrio       ( 1'(ClosM > 1) )
+    .NumIn         ( ClosM                    ),
+    .NumOut        ( ClosN                    ),
+    .ReqDataWidth  ( ReqDataWidth             ),
+    .RespDataWidth ( RespDataWidth            ),
+    .RespLat       ( RespLat                  ),
+    .ExtPrio       ( 1'(ClosM > unsigned'(1)) )
   ) i_egress_node (
     .clk_i   ( clk_i                       ),
     .rst_ni  ( rst_ni                      ),
     .req_i   ( egress_req[r]               ),
     .add_i   ( egress_add[r]               ),
-    .wen_i   ( '0                          ),
+    .wen_i   ( ClosM'(0)                   ),
     .wdata_i ( egress_req_data[r]          ),
     .gnt_o   ( egress_gnt[r]               ),
     .vld_o   (                             ),

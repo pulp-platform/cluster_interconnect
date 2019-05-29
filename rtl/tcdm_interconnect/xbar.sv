@@ -91,7 +91,7 @@ end
 // instantiate an RR arbiter for each endpoint
 ////////////////////////////////////////////////////////////////////////
 for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
-  if(NumIn==1) begin
+  if (NumIn == unsigned'(1)) begin
     assign req_o[k]      = sl_req[k][0];
     assign sl_gnt[k][0]  = gnt_i[k];
     assign wdata_o[k]    = sl_data[k][0];

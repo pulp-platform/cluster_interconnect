@@ -56,7 +56,7 @@ localparam int unsigned NumRouters   = NumOut/Radix;
 localparam int unsigned NumLevels    = ($clog2(NumOut)+$clog2(Radix)-1)/$clog2(Radix);
 localparam int unsigned BankFact     = NumOut/NumIn;
 // check if the Radix-4 network needs a Radix-2 stage
-localparam bit NeedsR2Stage          = 1'(($clog2(NumOut) % 2) * int'(Radix == 4));
+localparam bit NeedsR2Stage          = 1'(($clog2(NumOut) % 2) * int'(Radix == unsigned'(4)));
 
 /* verilator lint_off UNOPTFLAT */
 logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0]                    router_req_in;
@@ -76,7 +76,7 @@ logic [NumLevels-1:0][NumRouters-1:0][Radix-1:0][RespDataWidth-1:0] router_resp_
 for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : gen_inputs
   // leave out input connections in interleaved way until we reach the radix
   if (BankFact < Radix) begin : gen_interleaved
-    if ((j % BankFact) == 0) begin : gen_connect
+    if ((j % BankFact) == unsigned'(0)) begin : gen_connect
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = req_i[j/BankFact];
       assign gnt_o[j/BankFact]                   = router_gnt_out[0][j/Radix][j%Radix];
@@ -94,7 +94,7 @@ for (genvar j = 0; unsigned'(j) < Radix*NumRouters; j++) begin : gen_inputs
   // only connect to lower portion of switchboxes and tie off upper portion. this allows
   // us to reduce arbitration confligs on the first network layers.
   end else begin : gen_linear
-    if (((j % Radix) == 0) && (j/Radix < NumIn)) begin : gen_connect
+    if (((j % Radix) == unsigned'(0)) && (j/Radix < NumIn)) begin : gen_connect
       // req
       assign router_req_in[0][j/Radix][j%Radix]  = req_i[j/Radix];
       assign gnt_o[j/Radix]                      = router_gnt_out[0][j/Radix][j%Radix];
@@ -179,7 +179,6 @@ end else begin : gen_no_ext_prio
   lfsr #(
     .LfsrWidth(64),
     .OutWidth($clog2(NumOut)),
-    .RstVal(1),
     .CipherLayers(3),
     .CipherReg(1'b1)
   ) lfsr_i (
