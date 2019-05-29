@@ -15,7 +15,7 @@
 
 package tcdm_interconnect_pkg;
 
-typedef enum logic [1:0] { LIC, BFLY2, BFLY4, CLOS } topo_t;
+typedef enum logic [1:0] { LIC, BFLY2, BFLY4, CLOS } topo_e;
 
 ////////////////////////////////////////////////////////////////////////
 // LUT params for Clos net with configs: 1: m=0.50*n, 2: m=1.00*n, 3: m=2.00*n,

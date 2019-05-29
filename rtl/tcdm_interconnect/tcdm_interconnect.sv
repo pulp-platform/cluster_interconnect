@@ -27,7 +27,7 @@ module tcdm_interconnect #(
   parameter bit                           WriteRespOn     = 1,// defines whether the interconnect returns a write response
   parameter int unsigned                  RespLat         = 1,// TCDM read latency, usually 1 cycle
   // topology can be: LIC, BFLY2, BFLY4, CLOS
-  parameter tcdm_interconnect_pkg::topo_t Topology        = tcdm_interconnect_pkg::LIC,
+  parameter tcdm_interconnect_pkg::topo_e Topology        = tcdm_interconnect_pkg::LIC,
   // number of parallel butterfly's to use, only relevant for BFLY topologies
   parameter int unsigned                  NumPar          = 1,
   // this detemines which Clos config to use, only relevant for CLOS topologies
