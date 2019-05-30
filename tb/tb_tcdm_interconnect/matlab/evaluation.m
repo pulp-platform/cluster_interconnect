@@ -36,6 +36,14 @@ save('plots/stats.mat','stats');
 %% clos networks
 plot_tests(stats, {'32x32','32x64','32x128'}, {'clos_2mn', 'clos_m1n', 'clos_m2n','lic'});
 export_fig 'plots/stats_clos_32x' -png -pdf
+%% selection x8
+networkSel = {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
+plot_tests(stats,  {'8x8','8x16','8x32'}, networkSel);
+export_fig 'plots/stats_selection_8x' -png -pdf
+%% selection x16
+networkSel = {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
+plot_tests(stats,  {'16x16','16x32','16x64'}, networkSel);
+export_fig 'plots/stats_selection_16x' -png -pdf
 %% selection x32
 networkSel = {'bfly2_n1', 'bfly2_n2','bfly2_n4','bfly4_n1', 'bfly4_n2','bfly4_n4', 'lic'};
 plot_tests(stats,  {'32x32','32x64','32x128'}, networkSel);
