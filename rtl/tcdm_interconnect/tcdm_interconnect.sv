@@ -24,8 +24,12 @@ module tcdm_interconnect #(
   parameter int unsigned                  DataWidth       = 32,           // word width of data
   parameter int unsigned                  BeWidth         = DataWidth/8,  // width of corresponding byte enables
   parameter int unsigned                  AddrMemWidth    = 12,           // number of address bits per TCDM bank
-  parameter bit                           WriteRespOn     = 1,// defines whether the interconnect returns a write response
-  parameter int unsigned                  RespLat         = 1,// TCDM read latency, usually 1 cycle
+  parameter bit                           WriteRespOn     = 1,            // defines whether the interconnect returns a write response
+  parameter int unsigned                  RespLat         = 1,            // TCDM read latency, usually 1 cycle
+  // determines the width of the byte offset in a memory word. normally this can be left at the default vaule,
+  // but sometimes it needs to be overridden (e.g. when meta-data is supplied to the memory via the wdata signal).
+  parameter int unsigned                  ByteOffWidth    = $clog2(DataWidth-1)-3,
+
   // topology can be: LIC, BFLY2, BFLY4, CLOS
   parameter tcdm_interconnect_pkg::topo_e Topology        = tcdm_interconnect_pkg::LIC,
   // number of parallel butterfly's to use, only relevant for BFLY topologies
@@ -61,7 +65,6 @@ module tcdm_interconnect #(
 ////////////////////////////////////////////////////////////////////////
 
 localparam int unsigned NumOutLog2    = $clog2(NumOut);
-localparam int unsigned AddrWordOff   = $clog2(DataWidth-1)-3;
 localparam int unsigned AggDataWidth  = 1+BeWidth+AddrMemWidth+DataWidth;
 logic [NumIn-1:0][AggDataWidth-1:0]  data_agg_in;
 logic [NumOut-1:0][AggDataWidth-1:0] data_agg_out;
@@ -69,9 +72,9 @@ logic [NumIn-1:0][NumOutLog2-1:0] bank_sel;
 
 for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
   // extract bank index
-  assign bank_sel[j] = add_i[j][AddrWordOff+NumOutLog2-1:AddrWordOff];
+  assign bank_sel[j] = add_i[j][ByteOffWidth+NumOutLog2-1:ByteOffWidth];
   // aggregate data to be routed to slaves
-  assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][AddrWordOff+NumOutLog2+AddrMemWidth-1:AddrWordOff+NumOutLog2], wdata_i[j]};
+  assign data_agg_in[j] = {wen_i[j], be_i[j], add_i[j][ByteOffWidth+NumOutLog2+AddrMemWidth-1:ByteOffWidth+NumOutLog2], wdata_i[j]};
 end
 
 // disaggregate data
