@@ -10,7 +10,7 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the //
 // specific language governing permissions and limitations under the License. //
 //                                                                            //
-// Company:        Micrel Lab @ DEIS - University of Bologna                  //  
+// Company:        Micrel Lab @ DEIS - University of Bologna                  //
 //                    Viale Risorgimento 2 40136                              //
 //                    Bologna - fax 0512093785 -                              //
 //                                                                            //
@@ -20,8 +20,8 @@
 //                                                                            //
 //                                                                            //
 //                                                                            //
-// Create Date:    03/07/2011                                                 // 
-// Design Name:    LOG_INTERCONNECT                                           // 
+// Create Date:    03/07/2011                                                 //
+// Design Name:    LOG_INTERCONNECT                                           //
 // Module Name:    XBAR_TCDM                                                  //
 // Language:       SystemVerilog                                              //
 //                                                                            //
@@ -44,7 +44,7 @@
 `include "parameters.v"
 
 
-module XBAR_TCDM 
+module XBAR_TCDM
 #(
     parameter N_CH0           = 16, //--> CH0
     parameter N_CH1           = 4,   //--> CH1
@@ -73,22 +73,22 @@ module XBAR_TCDM
     output logic [N_CH0+N_CH1-1:0]                         data_r_valid_o,        // Data Response Valid (For LOAD/STORE commands)
     output logic [N_CH0+N_CH1-1:0][DATA_WIDTH-1:0]         data_r_rdata_o,        // Data Response DATA (For LOAD commands)
 
-    // ---------------- MM_SIDE (Interleaved) -------------------------- 
+    // ---------------- MM_SIDE (Interleaved) --------------------------
     output  logic [N_SLAVE-1:0]                            data_req_o,            // Data request
     output  logic [N_SLAVE-1:0]                            data_ts_set_o,         // Current Request is a SET during a test&set
     output  logic [N_SLAVE-1:0][ADDR_MEM_WIDTH-1:0]        data_add_o,            // Data request Address
     output  logic [N_SLAVE-1:0]                            data_wen_o,            // Data request type : 0--> Store, 1 --> Load
     output  logic [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_wdata_o,          // Data request Wrire data
-    output  logic [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_o,             // Data request Byte enable 
-    output  logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_ID_o,             // Data request Byte enable 
+    output  logic [N_SLAVE-1:0][BE_WIDTH-1:0]              data_be_o,             // Data request Byte enable
+    output  logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_ID_o,             // Data request Byte enable
 `ifdef GNT_BASED_FC
     input   logic [N_SLAVE-1:0]                            data_gnt_i,            // Grant In
 `else
     input   logic [N_SLAVE-1:0]                            data_stall_i,          // Stall In
 `endif
     input   logic [N_SLAVE-1:0][DATA_WIDTH-1:0]            data_r_rdata_i,        // Data Response DATA (For LOAD commands)
-    input   logic [N_SLAVE-1:0]                            data_r_valid_i,        // Valid Response 
-    input   logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_r_ID_i,           // ID Response 
+    input   logic [N_SLAVE-1:0]                            data_r_valid_i,        // Valid Response
+    input   logic [N_SLAVE-1:0][ID_WIDTH-1:0]              data_r_ID_i,           // ID Response
 
     input   logic [1:0]                                    TCDM_arb_policy_i,
 
@@ -97,7 +97,7 @@ module XBAR_TCDM
 );
 
     localparam ADDR_OFFSET = `ADDR_OFFSET(DATA_WIDTH);
-    
+
     // DATA ID array FORM address decoders to Request tree. // UNPACKED ARRAY
     logic      [N_CH0+N_CH1-1:0][ID_WIDTH-1:0]             data_ID;
 
@@ -153,16 +153,16 @@ module XBAR_TCDM
             begin : CH0_CH1
                 RequestBlock2CH
                 #(
-                    .ADDR_MEM_WIDTH ( ADDR_MEM_WIDTH ), 
+                    .ADDR_MEM_WIDTH ( ADDR_MEM_WIDTH ),
                     .N_CH0          ( N_CH0          ),
                     .N_CH1          ( N_CH1          ),
                     .ID_WIDTH       ( ID_WIDTH       ),
                     .DATA_WIDTH     ( DATA_WIDTH     ),
                     .BE_WIDTH       ( BE_WIDTH       )
-                ) 
+                )
                 i_RequestBlock2CH
                 (
-                    // CHANNEL CH0 --> (example: Used for cores) 
+                    // CHANNEL CH0 --> (example: Used for cores)
                     .data_req_CH0_i     ( data_req_to_MEM[j][N_CH0-1:0]     ),
                     .data_add_CH0_i     ( data_add[N_CH0-1:0]               ), //Memory cut address + T&S
                     .data_wen_CH0_i     ( data_wen_i[N_CH0-1:0]             ),
@@ -212,15 +212,15 @@ module XBAR_TCDM
             begin : CH0_ONLY
                 RequestBlock1CH
                 #(
-                    .ADDR_MEM_WIDTH     ( ADDR_MEM_WIDTH           ), 
-                    .N_CH0              ( N_CH0                    ), 
+                    .ADDR_MEM_WIDTH     ( ADDR_MEM_WIDTH           ),
+                    .N_CH0              ( N_CH0                    ),
                     .ID_WIDTH           ( ID_WIDTH                 ),
                     .DATA_WIDTH         ( DATA_WIDTH               ),
                     .BE_WIDTH           ( BE_WIDTH                 )
-                ) 
+                )
                 i_RequestBlock1CH
                 (
-                    // CHANNEL CH0 --> (example: Used for cores) 
+                    // CHANNEL CH0 --> (example: Used for cores)
                     .data_req_CH0_i     ( data_req_to_MEM[j]       ),
                     .data_add_CH0_i     ( data_add                 ),
                     .data_wen_CH0_i     ( data_wen_i               ),
@@ -258,11 +258,11 @@ module XBAR_TCDM
         for (j=0; j<  N_CH0+N_CH1; j++)
           begin : ResponseBlock
           ResponseBlock
-          #( 
-              .ID              ( 2**j                      ),
-              .ID_WIDTH        ( ID_WIDTH                  ),
-              .N_SLAVE         ( N_SLAVE                   ),
-              .DATA_WIDTH      ( DATA_WIDTH                )
+          #(
+              .ID              ( {{(ID_WIDTH-1){1'b0}}, 1'b1}<<j ),
+              .ID_WIDTH        ( ID_WIDTH                        ),
+              .N_SLAVE         ( N_SLAVE                         ),
+              .DATA_WIDTH      ( DATA_WIDTH                      )
           )
           i_ResponseBlock
           (

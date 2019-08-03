@@ -1,5 +1,5 @@
 low_latency_interco:
-  incdirs: 
+  incdirs:
     - rtl/low_latency_interco
   files:
     - rtl/low_latency_interco/FanInPrimitive_Req.sv
@@ -37,4 +37,16 @@ peripheral_interco:
     rtl/peripheral_interco/ResponseBlock_PE.sv,
     rtl/peripheral_interco/ResponseTree_PE.sv,
     rtl/peripheral_interco/XBAR_PE.sv,
+  ]
+tcdm_interconnect:
+  incdirs: [
+  ]
+  files: [
+    rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv,
+    rtl/tcdm_interconnect/addr_dec_resp_mux.sv,
+    rtl/tcdm_interconnect/amo_shim.sv,
+    rtl/tcdm_interconnect/xbar.sv,
+    rtl/tcdm_interconnect/clos_net.sv,
+    rtl/tcdm_interconnect/bfly_net.sv,
+    rtl/tcdm_interconnect/tcdm_interconnect.sv,
   ]
