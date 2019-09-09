@@ -19,6 +19,7 @@ low_latency_interco:
     - rtl/low_latency_interco/TCDM_PIPE_RESP.sv
     - rtl/low_latency_interco/grant_mask.sv
     - rtl/low_latency_interco/priority_Flag_Req.sv
+
 peripheral_interco:
   incdirs: [
     rtl/peripheral_interco,
