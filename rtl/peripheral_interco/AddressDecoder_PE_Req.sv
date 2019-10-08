@@ -43,7 +43,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 `include "parameters.v"
-`include "ulpsoc_defines.sv"
+`include "pulp_soc_defines.sv"
 
 module AddressDecoder_PE_Req 
 #(
