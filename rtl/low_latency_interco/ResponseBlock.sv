@@ -10,7 +10,7 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the //
 // specific language governing permissions and limitations under the License. //
 //                                                                            //
-// Company:        Micrel Lab @ DEIS - University of Bologna                  //  
+// Company:        Micrel Lab @ DEIS - University of Bologna                  //
 //                    Viale Risorgimento 2 40136                              //
 //                    Bologna - fax 0512093785 -                              //
 //                                                                            //
@@ -20,8 +20,8 @@
 //                                                                            //
 //                                                                            //
 //                                                                            //
-// Create Date:    02/07/2011                                                 // 
-// Design Name:    LOG_INTERCONNECT                                           // 
+// Create Date:    02/07/2011                                                 //
+// Design Name:    LOG_INTERCONNECT                                           //
 // Module Name:    ArbitrationTree                                            //
 // Project Name:   MegaLEON                                                   //
 // Language:       SystemVerilog                                              //
@@ -48,11 +48,11 @@
 
 module ResponseBlock
 #(
-    parameter ID            = 1,
-    parameter ID_WIDTH      = 20,
-    parameter N_SLAVE       = 8,
-    parameter DATA_WIDTH    = 32,
-    parameter ROUT_WIDTH    = `log2_non_zero(N_SLAVE-1)
+    parameter                        ID_WIDTH    = 20,
+    parameter logic [ID_WIDTH-1:0 ]  ID          = 1'b1,
+    parameter                        N_SLAVE     = 8,
+    parameter                        DATA_WIDTH  = 32,
+    parameter                        ROUT_WIDTH  = `log2_non_zero(N_SLAVE-1)
 )
 (
     // -----------------------------------------------------------//
@@ -85,19 +85,19 @@ module ResponseBlock
 
 generate
     case(N_SLAVE)
-        1: 
+        1:
         begin : SINGLE_SLAVE
                 assign data_r_valid_o =  data_r_valid_i[0];
                 assign data_r_rdata_o =  data_r_rdata_i[0];
         end
-        
+
         2:
         begin : DUAL_SLAVE
-         FanInPrimitive_Resp 
+         FanInPrimitive_Resp
          #(
              .DATA_WIDTH       ( DATA_WIDTH         )
          )
-         i_FanInPrimitive_Resp 
+         i_FanInPrimitive_Resp
          (
              // RIGTH SIDE
              .data_r_rdata0_i  ( data_r_rdata_i[0]  ),
@@ -113,8 +113,8 @@ generate
         default:
         begin : MULTI_SLAVE
             // Response Tree
-            ResponseTree 
-            #( 
+            ResponseTree
+            #(
                 .N_SLAVE         ( N_SLAVE         ),
                 .DATA_WIDTH      ( DATA_WIDTH      )
             )
@@ -132,10 +132,10 @@ generate
 
 endgenerate
 
-    AddressDecoder_Req 
-    #( 
-        .ID_WIDTH   ( ID_WIDTH ), 
-        .ID         ( ID       ), 
+    AddressDecoder_Req
+    #(
+        .ID_WIDTH   ( ID_WIDTH ),
+        .ID         ( ID       ),
         .N_SLAVE    ( N_SLAVE  )
     )
     i_AddressDecoder_Req
