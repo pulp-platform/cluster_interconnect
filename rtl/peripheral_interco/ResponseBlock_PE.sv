@@ -32,6 +32,7 @@
 // Revision v0.1 02/07/2011  - File Created                                   //
 //          v0.2 15/08/2012  - Improved the Interface Structure,              //
 //                             Changed the routing mechanism                  //
+//          v0.4 20/04/2018  - Supporting non power of 2 N_SLAVE              //
 //                                                                            //
 // Additional Comments:                                                       //
 //                                                                            //
@@ -95,19 +96,62 @@ module ResponseBlock_PE
 );
         
 
+     // Response channel exploded to powr of 2 inputs
+     logic [2**$clog2(N_SLAVE)-1:0]                   data_r_valid_int;
+     logic [2**$clog2(N_SLAVE)-1:0][DATA_WIDTH-1:0]   data_r_rdata_int;
+     logic [2**$clog2(N_SLAVE)-1:0]                   data_r_opc_int;
+
+
+
+     genvar i;
+
+     generate
+      if(2**$clog2(N_SLAVE) == N_SLAVE)
+      begin : EXACT_POW2
+
+        for(i=0;i<N_SLAVE;i++)
+        begin
+          assign data_r_valid_int[i] = data_r_valid_i[i];
+          assign data_r_rdata_int[i] = data_r_rdata_i[i];
+          assign data_r_opc_int[i]   = data_r_opc_i[i];
+        end
+
+      end
+      else
+      begin : NOT_POW2
+
+        for(i=0; i<2**$clog2(N_SLAVE); i++)
+        begin
+            if(i<N_SLAVE)
+            begin
+              assign data_r_valid_int[i] = data_r_valid_i[i];
+              assign data_r_rdata_int[i] = data_r_rdata_i[i];
+              assign data_r_opc_int[i]   = data_r_opc_i[i];
+            end
+            else
+            begin
+              assign data_r_valid_int[i] = 1'b0;
+              assign data_r_rdata_int[i] = '0;
+              assign data_r_opc_int[i]   = 1'b0;
+            end
+        end
+
+      end
+     endgenerate
+
 
       // Response Tree
       ResponseTree_PE 
       #( 
-          .N_SLAVE(N_SLAVE), 
+          .N_SLAVE( 2**$clog2(N_SLAVE) ), 
           .DATA_WIDTH(DATA_WIDTH)
       )  
       i_ResponseTree_PE
       (
             // Response Input Channel
-            .data_r_valid_i(data_r_valid_i),
-            .data_r_rdata_i(data_r_rdata_i),
-            .data_r_opc_i(data_r_opc_i),
+            .data_r_valid_i(data_r_valid_int),
+            .data_r_rdata_i(data_r_rdata_int),
+            .data_r_opc_i(data_r_opc_int),
             // Response Output Channel
             .data_r_valid_o(data_r_valid_o),
             .data_r_rdata_o(data_r_rdata_o),

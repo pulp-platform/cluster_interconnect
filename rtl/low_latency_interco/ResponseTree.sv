@@ -67,8 +67,8 @@ module ResponseTree
 
     generate
 
-       logic [DATA_WIDTH-1:0]   data_r_rdata_LEVEL[N_WIRE-1:0];
-       logic                    data_r_valid_LEVEL[N_WIRE-1:0];
+       logic [N_WIRE-1:0][DATA_WIDTH-1:0]   data_r_rdata_LEVEL;
+       logic [N_WIRE-1:0]                   data_r_valid_LEVEL;
 
        for(j=0; j < LOG_SLAVE; j++) // Iteration for the number of the stages minus one
        begin : STAGE

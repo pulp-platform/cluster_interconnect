@@ -36,6 +36,7 @@
 // Revision:                                                                  //
 // Revision v0.1 - File Created                                               //
 // Revision v0.2 - Code Restyling (19/02/2015)                                //
+// Revision v0.3 - Improved identation (19/04/2018)                           //
 //                                                                            //
 // Additional Comments:                                                       //
 //                                                                            //
@@ -108,36 +109,36 @@ module ArbitrationTree_PE
                 (
                   .RR_FLAG(RR_FLAG),
                   // LEFT SIDE"
-                  .data_wdata0_i(data_wdata_i[0]),
-                  .data_wdata1_i(data_wdata_i[1]),
-                  .data_add0_i(data_add_i[0]),
-                  .data_add1_i(data_add_i[1]),    
-                  .data_req0_i(data_req_i[0]),
-                  .data_req1_i(data_req_i[1]),
-                  .data_wen0_i(data_wen_i[0]),
-                  .data_wen1_i(data_wen_i[1]),
-                  .data_ID0_i(data_ID_i[0]),
-                  .data_ID1_i(data_ID_i[1]),
-                  .data_be0_i(data_be_i[0]),
-                  .data_be1_i(data_be_i[1]),
+                  .data_wdata0_i ( data_wdata_i[0] ),
+                  .data_wdata1_i ( data_wdata_i[1] ),
+                  .data_add0_i   ( data_add_i  [0] ),
+                  .data_add1_i   ( data_add_i  [1] ),    
+                  .data_req0_i   ( data_req_i  [0] ),
+                  .data_req1_i   ( data_req_i  [1] ),
+                  .data_wen0_i   ( data_wen_i  [0] ),
+                  .data_wen1_i   ( data_wen_i  [1] ),
+                  .data_ID0_i    ( data_ID_i   [0] ),
+                  .data_ID1_i    ( data_ID_i   [1] ),
+                  .data_be0_i    ( data_be_i   [0] ),
+                  .data_be1_i    ( data_be_i   [1] ),
             `ifdef GNT_BASED_FC
-                  .data_gnt0_o(data_gnt_o[0]),
-                  .data_gnt1_o(data_gnt_o[1]),
+                  .data_gnt0_o   ( data_gnt_o  [0] ),
+                  .data_gnt1_o   ( data_gnt_o  [1] ),
             `else
-                  .data_stall0_o(data_stall_o[0]),
-                  .data_stall1_o(data_stall_o[1]),
+                  .data_stall0_o ( data_stall_o[0] ),
+                  .data_stall1_o ( data_stall_o[1] ),
             `endif
                   // RIGTH SIDE"
-                  .data_wdata_o(data_wdata_o),
-                  .data_add_o(data_add_o),
-                  .data_req_o(data_req_o),
-                  .data_wen_o(data_wen_o),
-                  .data_ID_o(data_ID_o),
-                  .data_be_o(data_be_o),
+                  .data_wdata_o  ( data_wdata_o    ),
+                  .data_add_o    ( data_add_o      ),
+                  .data_req_o    ( data_req_o      ),
+                  .data_wen_o    ( data_wen_o      ),
+                  .data_ID_o     ( data_ID_o       ),
+                  .data_be_o     ( data_be_o       ),
             `ifdef GNT_BASED_FC
-                  .data_gnt_i(data_gnt_i)
+                  .data_gnt_i    ( data_gnt_i      )
             `else
-                  .data_stall_i(data_stall_i)
+                  .data_stall_i  ( data_stall_i    )
             `endif
                   );
       end // END OF MASTER  == 2
@@ -146,16 +147,16 @@ module ArbitrationTree_PE
           //// ---------------------------------------------------------------------- ////
           //// -------               REQ ARBITRATION TREE WIRES           ----------- ////
           //// ---------------------------------------------------------------------- ////      
-          logic [DATA_WIDTH-1:0]      data_wdata_LEVEL[N_WIRE-1:0];
-          logic [ADDR_WIDTH-1:0]      data_add_LEVEL[N_WIRE-1:0];
-          logic                       data_req_LEVEL[N_WIRE-1:0];
-          logic                       data_wen_LEVEL[N_WIRE-1:0];
-          logic [ID_WIDTH-1:0]        data_ID_LEVEL[N_WIRE-1:0];
-          logic [BE_WIDTH-1:0]        data_be_LEVEL[N_WIRE-1:0];
+          logic [N_WIRE-1:0][DATA_WIDTH-1:0]      data_wdata_LEVEL;
+          logic [N_WIRE-1:0][ADDR_WIDTH-1:0]      data_add_LEVEL;
+          logic [N_WIRE-1:0]                      data_req_LEVEL;
+          logic [N_WIRE-1:0]                      data_wen_LEVEL;
+          logic [N_WIRE-1:0][ID_WIDTH-1:0]        data_ID_LEVEL;
+          logic [N_WIRE-1:0][BE_WIDTH-1:0]        data_be_LEVEL;
       `ifdef GNT_BASED_FC
-          logic                       data_gnt_LEVEL[N_WIRE-1:0];
+          logic [N_WIRE-1:0]                      data_gnt_LEVEL;
       `else
-          logic                       data_stall_LEVEL[N_WIRE-1:0];
+          logic [N_WIRE-1:0]                      data_stall_LEVEL;
       `endif
 
             for(j=0; j < LOG_MASTER; j++) // Iteration for the number of the stages minus one
@@ -173,38 +174,38 @@ module ArbitrationTree_PE
                     )
                     i_FanInPrimitive_Req_PE
                     (
-                        .RR_FLAG(RR_FLAG[LOG_MASTER-j-1]),
+                        .RR_FLAG       ( RR_FLAG[LOG_MASTER-j-1] ),
                         // LEFT SIDE
-                        .data_wdata0_i(data_wdata_LEVEL[2*k]),
-                        .data_wdata1_i(data_wdata_LEVEL[2*k+1]),
-                        .data_add0_i(data_add_LEVEL[2*k]),
-                        .data_add1_i(data_add_LEVEL[2*k+1]),
-                        .data_req0_i(data_req_LEVEL[2*k]),
-                        .data_req1_i(data_req_LEVEL[2*k+1]),
-                        .data_wen0_i(data_wen_LEVEL[2*k]),
-                        .data_wen1_i(data_wen_LEVEL[2*k+1]),
-                        .data_ID0_i(data_ID_LEVEL[2*k]),
-                        .data_ID1_i(data_ID_LEVEL[2*k+1]),
-                        .data_be0_i(data_be_LEVEL[2*k]),
-                        .data_be1_i(data_be_LEVEL[2*k+1]),
+                        .data_wdata0_i ( data_wdata_LEVEL[2*k]   ),
+                        .data_wdata1_i ( data_wdata_LEVEL[2*k+1] ),
+                        .data_add0_i   ( data_add_LEVEL  [2*k]   ),
+                        .data_add1_i   ( data_add_LEVEL  [2*k+1] ),
+                        .data_req0_i   ( data_req_LEVEL  [2*k]   ),
+                        .data_req1_i   ( data_req_LEVEL  [2*k+1] ),
+                        .data_wen0_i   ( data_wen_LEVEL  [2*k]   ),
+                        .data_wen1_i   ( data_wen_LEVEL  [2*k+1] ),
+                        .data_ID0_i    ( data_ID_LEVEL   [2*k]   ),
+                        .data_ID1_i    ( data_ID_LEVEL   [2*k+1] ),
+                        .data_be0_i    ( data_be_LEVEL   [2*k]   ),
+                        .data_be1_i    ( data_be_LEVEL   [2*k+1] ),
                     `ifdef GNT_BASED_FC
-                        .data_gnt0_o(data_gnt_LEVEL[2*k]),
-                        .data_gnt1_o(data_gnt_LEVEL[2*k+1]),
+                        .data_gnt0_o   ( data_gnt_LEVEL  [2*k]   ),
+                        .data_gnt1_o   ( data_gnt_LEVEL  [2*k+1] ),
                     `else
-                        .data_stall0_o(data_stall_LEVEL[2*k]),
-                        .data_stall1_o(data_stall_LEVEL[2*k+1]),
+                        .data_stall0_o ( data_stall_LEVEL[2*k]   ),
+                        .data_stall1_o ( data_stall_LEVEL[2*k+1] ),
                     `endif
                         // RIGTH SIDE
-                        .data_wdata_o(data_wdata_o),
-                        .data_add_o(data_add_o),
-                        .data_req_o(data_req_o),
-                        .data_wen_o(data_wen_o),
-                        .data_ID_o(data_ID_o),
-                        .data_be_o(data_be_o),
+                        .data_wdata_o  ( data_wdata_o            ),
+                        .data_add_o    ( data_add_o              ),
+                        .data_req_o    ( data_req_o              ),
+                        .data_wen_o    ( data_wen_o              ),
+                        .data_ID_o     ( data_ID_o               ),
+                        .data_be_o     ( data_be_o               ),
                     `ifdef GNT_BASED_FC
-                        .data_gnt_i(data_gnt_i)
+                        .data_gnt_i    ( data_gnt_i              )
                     `else
-                        .data_stall_i(data_stall_i)
+                        .data_stall_i  ( data_stall_i            )
                     `endif
                     );
                   end 
@@ -221,37 +222,37 @@ module ArbitrationTree_PE
                           (
                               .RR_FLAG(RR_FLAG[LOG_MASTER-j-1]),
                               // LEFT SIDE
-                              .data_wdata0_i (data_wdata_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_wdata1_i (data_wdata_LEVEL[((2**j)*2-2) + 2*k +1]),
-                              .data_add0_i   (data_add_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_add1_i   (data_add_LEVEL[((2**j)*2-2) + 2*k+1]),
-                              .data_req0_i   (data_req_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_req1_i   (data_req_LEVEL[((2**j)*2-2) + 2*k+1]),
-                              .data_wen0_i   (data_wen_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_wen1_i   (data_wen_LEVEL[((2**j)*2-2) + 2*k+1]),
-                              .data_ID0_i    (data_ID_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_ID1_i    (data_ID_LEVEL[((2**j)*2-2) + 2*k+1]),
-                              .data_be0_i    (data_be_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_be1_i    (data_be_LEVEL[((2**j)*2-2) + 2*k+1]),
+                              .data_wdata0_i (data_wdata_LEVEL [((2**j)*2-2) + 2*k]     ),
+                              .data_wdata1_i (data_wdata_LEVEL [((2**j)*2-2) + 2*k +1]  ),
+                              .data_add0_i   (data_add_LEVEL   [((2**j)*2-2) + 2*k]     ),
+                              .data_add1_i   (data_add_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
+                              .data_req0_i   (data_req_LEVEL   [((2**j)*2-2) + 2*k]     ),
+                              .data_req1_i   (data_req_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
+                              .data_wen0_i   (data_wen_LEVEL   [((2**j)*2-2) + 2*k]     ),
+                              .data_wen1_i   (data_wen_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
+                              .data_ID0_i    (data_ID_LEVEL    [((2**j)*2-2) + 2*k]     ),
+                              .data_ID1_i    (data_ID_LEVEL    [((2**j)*2-2) + 2*k+1]   ),
+                              .data_be0_i    (data_be_LEVEL    [((2**j)*2-2) + 2*k]     ),
+                              .data_be1_i    (data_be_LEVEL    [((2**j)*2-2) + 2*k+1]   ),
                         `ifdef GNT_BASED_FC
-                              .data_gnt0_o   (data_gnt_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_gnt1_o   (data_gnt_LEVEL[((2**j)*2-2) + 2*k+1]),
+                              .data_gnt0_o   (data_gnt_LEVEL   [((2**j)*2-2) + 2*k]     ),
+                              .data_gnt1_o   (data_gnt_LEVEL   [((2**j)*2-2) + 2*k+1]   ),
                         `else
-                              .data_stall0_o (data_stall_LEVEL[((2**j)*2-2) + 2*k]),
-                              .data_stall1_o (data_stall_LEVEL[((2**j)*2-2) + 2*k+1]),
+                              .data_stall0_o (data_stall_LEVEL [((2**j)*2-2) + 2*k]     ),
+                              .data_stall1_o (data_stall_LEVEL [((2**j)*2-2) + 2*k+1]   ),
                         `endif
 
                               // RIGTH SIDE
-                              .data_wdata_o(data_wdata_LEVEL[((2**(j-1))*2-2) + k]),
-                              .data_add_o(data_add_LEVEL[((2**(j-1))*2-2) + k]),
-                              .data_req_o(data_req_LEVEL[((2**(j-1))*2-2) + k]),
-                              .data_wen_o(data_wen_LEVEL[((2**(j-1))*2-2) + k]),
-                              .data_ID_o(data_ID_LEVEL[((2**(j-1))*2-2) + k]),
-                              .data_be_o(data_be_LEVEL[((2**(j-1))*2-2) + k]),
+                              .data_wdata_o  (data_wdata_LEVEL [((2**(j-1))*2-2) + k]   ),
+                              .data_add_o    (data_add_LEVEL   [((2**(j-1))*2-2) + k]   ),
+                              .data_req_o    (data_req_LEVEL   [((2**(j-1))*2-2) + k]   ),
+                              .data_wen_o    (data_wen_LEVEL   [((2**(j-1))*2-2) + k]   ),
+                              .data_ID_o     (data_ID_LEVEL    [((2**(j-1))*2-2) + k]   ),
+                              .data_be_o     (data_be_LEVEL    [((2**(j-1))*2-2) + k]   ),
                         `ifdef GNT_BASED_FC
-                              .data_gnt_i(data_gnt_LEVEL[((2**(j-1))*2-2) + k])
+                              .data_gnt_i    (data_gnt_LEVEL   [((2**(j-1))*2-2) + k]   )
                         `else
-                              .data_stall_i(data_stall_LEVEL[((2**(j-1))*2-2) + k])
+                              .data_stall_i  (data_stall_LEVEL [((2**(j-1))*2-2) + k]   )
                         `endif
                           );
                         end  // END of MIDDLE LEVELS Nodes   
@@ -268,37 +269,37 @@ module ArbitrationTree_PE
                             (
                                 .RR_FLAG(RR_FLAG[LOG_MASTER-j-1]),
                                 // LEFT SIDE
-                                .data_wdata0_i(data_wdata_i[2*k]),
-                                .data_wdata1_i(data_wdata_i[2*k+1]),
-                                .data_add0_i(data_add_i[2*k]),
-                                .data_add1_i(data_add_i[2*k+1]),
-                                .data_req0_i(data_req_i[2*k]),
-                                .data_req1_i(data_req_i[2*k+1]),
-                                .data_wen0_i(data_wen_i[2*k]),
-                                .data_wen1_i(data_wen_i[2*k+1]),
-                                .data_ID0_i(data_ID_i[2*k]),
-                                .data_ID1_i(data_ID_i[2*k+1]),
-                                .data_be0_i(data_be_i[2*k]),
-                                .data_be1_i(data_be_i[2*k+1]),
+                                .data_wdata0_i ( data_wdata_i [2*k]   ),
+                                .data_wdata1_i ( data_wdata_i [2*k+1] ),
+                                .data_add0_i   ( data_add_i   [2*k]   ),
+                                .data_add1_i   ( data_add_i   [2*k+1] ),
+                                .data_req0_i   ( data_req_i   [2*k]   ),
+                                .data_req1_i   ( data_req_i   [2*k+1] ),
+                                .data_wen0_i   ( data_wen_i   [2*k]   ),
+                                .data_wen1_i   ( data_wen_i   [2*k+1] ),
+                                .data_ID0_i    ( data_ID_i    [2*k]   ),
+                                .data_ID1_i    ( data_ID_i    [2*k+1] ),
+                                .data_be0_i    ( data_be_i    [2*k]   ),
+                                .data_be1_i    ( data_be_i    [2*k+1] ),
                           `ifdef GNT_BASED_FC
-                                .data_gnt0_o(data_gnt_o[2*k]),
-                                .data_gnt1_o(data_gnt_o[2*k+1]),
+                                .data_gnt0_o   ( data_gnt_o   [2*k]   ),
+                                .data_gnt1_o   ( data_gnt_o   [2*k+1] ),
                           `else
-                                .data_stall0_o(data_stall_o[2*k]),
-                                .data_stall1_o(data_stall_o[2*k+1]),
+                                .data_stall0_o ( data_stall_o [2*k]   ),
+                                .data_stall1_o ( data_stall_o [2*k+1] ),
                           `endif
   
                                 // RIGTH SIDE
-                                .data_wdata_o(data_wdata_LEVEL[((2**(j-1))*2-2) + k]),
-                                .data_add_o(data_add_LEVEL[((2**(j-1))*2-2) + k]),
-                                .data_req_o(data_req_LEVEL[((2**(j-1))*2-2) + k]),
-                                .data_wen_o(data_wen_LEVEL[((2**(j-1))*2-2) + k]),
-                                .data_ID_o(data_ID_LEVEL[((2**(j-1))*2-2) + k]),
-                                .data_be_o(data_be_LEVEL[((2**(j-1))*2-2) + k]),
+                                .data_wdata_o ( data_wdata_LEVEL [((2**(j-1))*2-2) + k] ),
+                                .data_add_o   ( data_add_LEVEL   [((2**(j-1))*2-2) + k] ),
+                                .data_req_o   ( data_req_LEVEL   [((2**(j-1))*2-2) + k] ),
+                                .data_wen_o   ( data_wen_LEVEL   [((2**(j-1))*2-2) + k] ),
+                                .data_ID_o    ( data_ID_LEVEL    [((2**(j-1))*2-2) + k] ),
+                                .data_be_o    ( data_be_LEVEL    [((2**(j-1))*2-2) + k] ),
                           `ifdef GNT_BASED_FC
-                                .data_gnt_i(data_gnt_LEVEL[((2**(j-1))*2-2) + k])
+                                .data_gnt_i   ( data_gnt_LEVEL   [((2**(j-1))*2-2) + k] )
                           `else
-                                .data_stall_i(data_stall_LEVEL[((2**(j-1))*2-2) + k])
+                                .data_stall_i ( data_stall_LEVEL [((2**(j-1))*2-2) + k] )
                           `endif
                             );
                         end // End of FIRST LEVEL Nodes (LEAF)
@@ -312,19 +313,19 @@ module ArbitrationTree_PE
     //COUNTER USED TO SWITCH PERIODICALLY THE PRIORITY FLAG"
     RR_Flag_Req_PE 
     #( 
-        .WIDTH(LOG_MASTER),
-        .MAX_COUNT(MAX_COUNT)
+        .WIDTH     ( LOG_MASTER),
+        .MAX_COUNT ( MAX_COUNT)
     )  
     RR_REQ
     (
-      .clk(clk),
-      .rst_n(rst_n),
-      .RR_FLAG_o(RR_FLAG),
-      .data_req_i(data_req_o),
+      .clk          ( clk          ),
+      .rst_n        ( rst_n        ),
+      .RR_FLAG_o    ( RR_FLAG      ),
+      .data_req_i   ( data_req_o   ),
     `ifdef GNT_BASED_FC
-      .data_gnt_i(data_gnt_i)
+      .data_gnt_i   ( data_gnt_i   )
     `else
-      .data_stall_i(data_stall_i)
+      .data_stall_i ( data_stall_i )
     `endif
     );
 

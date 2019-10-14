@@ -292,12 +292,12 @@ module RequestBlock2CH_PE
         begin : CH0_ARB_TREE
             ArbitrationTree_PE 
             #(
-                  .ADDR_WIDTH ( ADDR_WIDTH ), 
-                  .ID_WIDTH   ( ID_WIDTH   ), 
-                  .N_MASTER   ( N_CH0      ),
-                  .DATA_WIDTH ( DATA_WIDTH ),
-                  .BE_WIDTH   ( BE_WIDTH   ),
-                  .MAX_COUNT  ( N_CH0 - 1  )
+                  .ADDR_WIDTH ( ADDR_WIDTH       ), 
+                  .ID_WIDTH   ( ID_WIDTH         ), 
+                  .N_MASTER   ( 2**$clog2(N_CH0) ),
+                  .DATA_WIDTH ( DATA_WIDTH       ),
+                  .BE_WIDTH   ( BE_WIDTH         ),
+                  .MAX_COUNT  ( N_CH0 - 1        )
             )
             i_ArbitrationTree_PE
             (
@@ -334,12 +334,12 @@ module RequestBlock2CH_PE
         begin : CH1_ARB_TREE
             ArbitrationTree_PE 
               #(
-                  .ADDR_WIDTH    ( ADDR_WIDTH ), 
-                  .ID_WIDTH      ( ID_WIDTH   ), 
-                  .N_MASTER      ( N_CH1      ),
-                  .DATA_WIDTH    ( DATA_WIDTH ),
-                  .BE_WIDTH      ( BE_WIDTH   ),
-                  .MAX_COUNT     ( N_CH1 - 1  )
+                  .ADDR_WIDTH    ( ADDR_WIDTH        ), 
+                  .ID_WIDTH      ( ID_WIDTH          ), 
+                  .N_MASTER      ( 2**$clog2(N_CH1)  ),
+                  .DATA_WIDTH    ( DATA_WIDTH        ),
+                  .BE_WIDTH      ( BE_WIDTH          ),
+                  .MAX_COUNT     ( N_CH1 - 1         )
               )
               i_ArbitrationTree_PE
               (
