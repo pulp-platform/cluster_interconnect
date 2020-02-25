@@ -27,10 +27,10 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     parameter int unsigned BeWidth            = DataWidth/8          , // Byte Strobe Width
     parameter int unsigned AddrMemWidth       = 12                   , // Number of Address bits per Target
     // Registers
-    parameter bit unsigned SpillInitiatorReq  = 1'b1                 ,
+    parameter bit unsigned SpillInitiatorReq  = 1'b0                 ,
     parameter bit unsigned SpillInitiatorResp = 1'b0                 ,
     parameter bit unsigned SpillTargetReq     = 1'b0                 ,
-    parameter bit unsigned SpillTargetResp    = 1'b1                 ,
+    parameter bit unsigned SpillTargetResp    = 1'b0                 ,
     // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
     // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
     parameter int unsigned ByteOffWidth       = $clog2(DataWidth-1)-3,
