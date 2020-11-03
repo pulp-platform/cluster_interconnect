@@ -21,7 +21,7 @@ sources:
   - rtl/tcdm_interconnect/tcdm_interconnect.sv
 
   - include_dirs:
-      - rtl_low_latency_interco
+      - rtl/low_latency_interco
     files:
       - rtl/low_latency_interco/FanInPrimitive_Req.sv
       - rtl/low_latency_interco/ArbitrationTree.sv
