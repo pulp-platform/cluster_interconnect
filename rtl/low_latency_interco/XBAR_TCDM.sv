@@ -96,7 +96,7 @@ module XBAR_TCDM
     input  logic                                           rst_n
 );
 
-    localparam ADDR_OFFSET = `ADDR_OFFSET(DATA_WIDTH);
+    localparam ADDR_OFFSET = $clog2(BE_WIDTH);
 
     // DATA ID array FORM address decoders to Request tree. // UNPACKED ARRAY
     logic      [N_CH0+N_CH1-1:0][ID_WIDTH-1:0]             data_ID;
