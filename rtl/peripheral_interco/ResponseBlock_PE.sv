@@ -57,6 +57,7 @@ module ResponseBlock_PE
     parameter ADDR_WIDTH     = 32,
     parameter PE_ROUTING_LSB = 16,
     parameter PE_ROUTING_MSB = 19,
+    parameter CLUSTER_ALIAS  = 1'b0,
     parameter CLUSTER_ALIAS_BASE = 12'h000
 )
 (
@@ -168,6 +169,7 @@ module ResponseBlock_PE
           .ADDR_WIDTH      ( ADDR_WIDTH      ),
           .PE_ROUTING_LSB  ( PE_ROUTING_LSB  ),
           .PE_ROUTING_MSB  ( PE_ROUTING_MSB  ),
+          .CLUSTER_ALIAS   ( CLUSTER_ALIAS   ),
           .CLUSTER_ALIAS_BASE (CLUSTER_ALIAS_BASE)
       )
       i_AddressDecoder_PE_Req

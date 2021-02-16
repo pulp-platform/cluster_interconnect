@@ -62,6 +62,7 @@ module XBAR_PE
     parameter PE_ROUTING_LSB = 10,
     parameter PE_ROUTING_MSB = PE_ROUTING_LSB+$clog2(N_SLAVE)-1,
 
+    parameter CLUSTER_ALIAS  = 1'b0,
     parameter CLUSTER_ALIAS_BASE = 12'h000,
 
     parameter ADDR_PE_WIDTH = PE_MSB - PE_LSB + 1
@@ -273,6 +274,7 @@ module XBAR_PE
                 .ADDR_WIDTH     ( ADDR_WIDTH     ),
                 .PE_ROUTING_LSB ( PE_ROUTING_LSB ),
                 .PE_ROUTING_MSB ( PE_ROUTING_MSB ),
+                .CLUSTER_ALIAS  ( CLUSTER_ALIAS  ),
                 .CLUSTER_ALIAS_BASE (CLUSTER_ALIAS_BASE)
             ) 
             i_ResponseBlock_PE
