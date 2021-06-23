@@ -32,6 +32,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     // The layers are counted starting at 0 from the initiator, for the requests, and from the target, for the responses.
     parameter logic [63:0] SpillRegisterReq  = 64'h0                ,
     parameter logic [63:0] SpillRegisterResp = 64'h0                ,
+    parameter bit FallThroughRegister        = 1'b0                 , // Insert a fall-through register, if missing a spill register in that stage
     // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
     // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
     parameter int unsigned ByteOffWidth      = $clog2(DataWidth-1)-3,
@@ -101,13 +102,14 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   // Tuned logarithmic interconnect architecture, based on rr_arb_tree primitives
   if (Topology == tcdm_interconnect_pkg::LIC) begin : gen_lic
     full_duplex_xbar #(
-      .NumIn            (NumIn               ),
-      .NumOut           (NumOut              ),
-      .ReqDataWidth     (IniAggDataWidth     ),
-      .RespDataWidth    (DataWidth           ),
-      .AxiVldRdy        (AxiVldRdy           ),
-      .SpillRegisterReq (SpillRegisterReq[0] ),
-      .SpillRegisterResp(SpillRegisterResp[0])
+      .NumIn              (NumIn               ),
+      .NumOut             (NumOut              ),
+      .ReqDataWidth       (IniAggDataWidth     ),
+      .RespDataWidth      (DataWidth           ),
+      .AxiVldRdy          (AxiVldRdy           ),
+      .SpillRegisterReq   (SpillRegisterReq[0] ),
+      .SpillRegisterResp  (SpillRegisterResp[0]),
+      .FallThroughRegister(FallThroughRegister )
     ) i_xbar (
       .clk_i          (clk_i          ),
       .rst_ni         (rst_ni         ),
@@ -177,13 +179,14 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     assign resp_rr = '0;
 
     variable_latency_bfly_net #(
-      .NumIn        (NumIn           ),
-      .NumOut       (NumOut          ),
-      .DataWidth    (IniAggDataWidth ),
-      .Radix        (Radix           ),
-      .ExtPrio      (1'b0            ),
-      .SpillRegister(SpillRegisterReq),
-      .AxiVldRdy    (AxiVldRdy       )
+      .NumIn              (NumIn               ),
+      .NumOut             (NumOut              ),
+      .DataWidth          (IniAggDataWidth     ),
+      .Radix              (Radix               ),
+      .ExtPrio            (1'b0                ),
+      .SpillRegister      (SpillRegisterReq    ),
+      .AxiVldRdy          (AxiVldRdy           ),
+      .FallThroughRegister(FallThroughRegister )
     ) i_req_bfly_net (
       .clk_i     (clk_i          ),
       .rst_ni    (rst_ni         ),
@@ -202,13 +205,14 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     );
 
     variable_latency_bfly_net #(
-      .NumIn        (NumOut           ),
-      .NumOut       (NumIn            ),
-      .DataWidth    (DataWidth        ),
-      .Radix        (Radix            ),
-      .ExtPrio      (1'b0             ),
-      .SpillRegister(SpillRegisterResp),
-      .AxiVldRdy    (AxiVldRdy        )
+      .NumIn              (NumOut              ),
+      .NumOut             (NumIn               ),
+      .DataWidth          (DataWidth           ),
+      .Radix              (Radix               ),
+      .ExtPrio            (1'b0                ),
+      .SpillRegister      (SpillRegisterResp   ),
+      .AxiVldRdy          (AxiVldRdy           ),
+      .FallThroughRegister(FallThroughRegister )
     ) i_resp_bfly_net (
       .clk_i     (clk_i          ),
       .rst_ni    (rst_ni         ),
