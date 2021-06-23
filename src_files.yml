@@ -40,6 +40,7 @@ peripheral_interco:
   ]
 tcdm_interconnect:
   incdirs: [
+    rtl/low_latency_interco
   ]
   files: [
     rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv,
