@@ -60,6 +60,12 @@ module variable_latency_bfly_net #(
     input  logic [NumOut-1:0][RespDataWidth-1:0] resp_rdata_i     // Data response (for load commands)
   );
 
+  /****************
+   *   Includes   *
+   ****************/
+
+  `include "common_cells/registers.svh"
+
   /*******************
    *   Network I/O   *
    *******************/
@@ -113,7 +119,10 @@ module variable_latency_bfly_net #(
     // hence we use a relatively long LFSR + block cipher here to create a
     // pseudo random sequence with good randomness. the block cipher layers
     // are used to break shift register linearity.
-    lfsr #(
+    /*
+     // NOTE(matheusd): This is a long path. We are removing this for now.
+
+     lfsr #(
       .LfsrWidth   (64            ),
       .OutWidth    ($clog2(NumOut)),
       .CipherLayers(3             ),
@@ -135,7 +144,10 @@ module variable_latency_bfly_net #(
       .rst_ni(rst_ni                        ),
       .en_i  (|(resp_ready_i & resp_valid_o)),
       .out_o (resp_rr                       )
-    );
+    );*/
+
+    assign req_rr  = '0;
+    assign resp_rr = '0;
   end
 
   /**************************
@@ -308,7 +320,7 @@ module variable_latency_bfly_net #(
             .NumOut           (2                                    ),
             .ReqDataWidth     (AddWidth + IniAddWidth + ReqDataWidth),
             .RespDataWidth    (RespDataWidth + RespIniAddWidth      ),
-            .ExtPrio          (1'b1                                 ),
+            .ExtPrio          (ExtPrio                              ),
             .SpillRegisterReq (SpillRegisterReq[l]                  ),
             .SpillRegisterResp(SpillRegisterResp[NumStages-l-1]     ),
             .AxiVldRdy        (AxiVldRdy                            )
@@ -373,7 +385,7 @@ module variable_latency_bfly_net #(
           .NumOut           (Radix                                ),
           .ReqDataWidth     (AddWidth + IniAddWidth + ReqDataWidth),
           .RespDataWidth    (RespDataWidth + RespIniAddWidth      ),
-          .ExtPrio          (1'b1                                 ),
+          .ExtPrio          (ExtPrio                              ),
           .SpillRegisterReq (SpillRegisterReq[l]                  ),
           .SpillRegisterResp(SpillRegisterResp[NumStages-l-1]     ),
           .AxiVldRdy        (AxiVldRdy                            )

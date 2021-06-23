@@ -197,7 +197,10 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     // hence we use a relatively long LFSR + block cipher here to create a
     // pseudo random sequence with good randomness. the block cipher layers
     // are used to break shift register linearity.
-    lfsr #(
+    /*
+     // NOTE(matheusd): This is a long path. We are removing it for now.
+
+     lfsr #(
       .LfsrWidth   (64            ),
       .OutWidth    ($clog2(NumOut)),
       .CipherLayers(3             ),
@@ -219,7 +222,10 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .rst_ni(rst_ni                            ),
       .en_i  (|(tgt_resp_valid & tgt_resp_ready)),
       .out_o (resp_rr                           )
-    );
+    );*/
+
+    assign req_rr  = '0;
+    assign resp_rr = '0;
 
     variable_latency_bfly_net #(
       .NumIn            (NumIn                 ),
@@ -227,7 +233,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .ReqDataWidth     (IniAggDataWidth       ),
       .RespDataWidth    (DataWidth             ),
       .Radix            (Radix                 ),
-      .ExtPrio          (1'b1                  ),
+      .ExtPrio          (1'b0                  ),
       .SpillRegisterReq (SpillRegisterReq >> 1 ),
       .SpillRegisterResp(SpillRegisterResp >> 1),
       .AxiVldRdy        (AxiVldRdy             )
