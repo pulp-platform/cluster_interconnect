@@ -24,7 +24,7 @@ module full_duplex_xbar #(
     parameter bit ExtPrio                = 1'b0, // Use external arbiter priority flags
     parameter bit SpillRegisterReq       = 1'b0, // Insert a spill register on the request path (after arbitration)
     parameter bit SpillRegisterResp      = 1'b0, // Insert a spill register on the response path (after arbitration)
-    parameter bit AxiVldRdy              = 1'b1
+    parameter bit AxiVldRdy              = 1'b0  // Valid/ready signaling
   ) (
     input  logic                                 clk_i,
     input  logic                                 rst_ni,
@@ -64,17 +64,17 @@ module full_duplex_xbar #(
     .SpillRegister(SpillRegisterReq),
     .AxiVldRdy    (AxiVldRdy       )
   ) req_xbar (
-    .clk_i        (clk_i         ),
-    .rst_ni       (rst_ni        ),
-    .rr_i         (req_rr_i      ),
-    .valid_i      (req_valid_i   ),
-    .ready_o      (req_ready_o   ),
-    .tgt_address_i(req_tgt_addr_i),
-    .wdata_i      (req_wdata_i   ),
-    .valid_o      (req_valid_o   ),
-    .ini_address_o(req_ini_addr_o),
-    .ready_i      (req_ready_i   ),
-    .wdata_o      (req_wdata_o   )
+    .clk_i     (clk_i         ),
+    .rst_ni    (rst_ni        ),
+    .rr_i      (req_rr_i      ),
+    .valid_i   (req_valid_i   ),
+    .ready_o   (req_ready_o   ),
+    .tgt_addr_i(req_tgt_addr_i),
+    .wdata_i   (req_wdata_i   ),
+    .valid_o   (req_valid_o   ),
+    .ini_addr_o(req_ini_addr_o),
+    .ready_i   (req_ready_i   ),
+    .wdata_o   (req_wdata_o   )
   );
 
   simplex_xbar #(
@@ -85,17 +85,17 @@ module full_duplex_xbar #(
     .SpillRegister(SpillRegisterResp),
     .AxiVldRdy    (AxiVldRdy        )
   ) resp_xbar (
-    .clk_i        (clk_i          ),
-    .rst_ni       (rst_ni         ),
-    .rr_i         (resp_rr_i      ),
-    .valid_i      (resp_valid_i   ),
-    .ready_o      (resp_ready_o   ),
-    .tgt_address_i(resp_ini_addr_i),
-    .wdata_i      (resp_rdata_i   ),
-    .valid_o      (resp_valid_o   ),
-    .ini_address_o(/* Unused */   ),
-    .ready_i      (resp_ready_i   ),
-    .wdata_o      (resp_rdata_o   )
+    .clk_i     (clk_i          ),
+    .rst_ni    (rst_ni         ),
+    .rr_i      (resp_rr_i      ),
+    .valid_i   (resp_valid_i   ),
+    .ready_o   (resp_ready_o   ),
+    .tgt_addr_i(resp_ini_addr_i),
+    .wdata_i   (resp_rdata_i   ),
+    .valid_o   (resp_valid_o   ),
+    .ini_addr_o(/* Unused */   ),
+    .ready_i   (resp_ready_i   ),
+    .wdata_o   (resp_rdata_o   )
   );
 
   /******************

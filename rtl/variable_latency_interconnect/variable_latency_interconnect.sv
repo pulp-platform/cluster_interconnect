@@ -79,12 +79,12 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
    *********************/
 
   // Request
-  logic [NumIn-1:0]                ini_req_valid;
-  logic [NumIn-1:0]                ini_req_ready;
+  logic [NumIn-1:0]                ini_req_valid ;
+  logic [NumIn-1:0]                ini_req_ready ;
   logic [NumIn-1:0][AddrWidth-1:0] ini_req_tgt_addr;
-  logic [NumIn-1:0]                ini_req_wen;
-  logic [NumIn-1:0][DataWidth-1:0] ini_req_wdata;
-  logic [NumIn-1:0][BeWidth-1:0]   ini_req_be;
+  logic [NumIn-1:0]                ini_req_wen ;
+  logic [NumIn-1:0][DataWidth-1:0] ini_req_wdata ;
+  logic [NumIn-1:0][BeWidth-1:0]   ini_req_be ;
 
   for (genvar i = 0; i < NumIn; i++) begin: gen_req_spill_registers
     spill_register #(
@@ -156,9 +156,9 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .NumOut           (NumOut              ),
       .ReqDataWidth     (IniAggDataWidth     ),
       .RespDataWidth    (DataWidth           ),
+      .AxiVldRdy        (AxiVldRdy           ),
       .SpillRegisterReq (SpillRegisterReq[1] ),
-      .SpillRegisterResp(SpillRegisterResp[1]),
-      .AxiVldRdy        (AxiVldRdy           )
+      .SpillRegisterResp(SpillRegisterResp[1])
     ) i_xbar (
       .clk_i          (clk_i            ),
       .rst_ni         (rst_ni           ),
@@ -228,38 +228,53 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     assign resp_rr = '0;
 
     variable_latency_bfly_net #(
-      .NumIn            (NumIn                 ),
-      .NumOut           (NumOut                ),
-      .ReqDataWidth     (IniAggDataWidth       ),
-      .RespDataWidth    (DataWidth             ),
-      .Radix            (Radix                 ),
-      .ExtPrio          (1'b0                  ),
-      .SpillRegisterReq (SpillRegisterReq >> 1 ),
-      .SpillRegisterResp(SpillRegisterResp >> 1),
-      .AxiVldRdy        (AxiVldRdy             )
-    ) i_bfly_net (
-      .clk_i          (clk_i            ),
-      .rst_ni         (rst_ni           ),
+      .NumIn        (NumIn                ),
+      .NumOut       (NumOut               ),
+      .DataWidth    (IniAggDataWidth      ),
+      .Radix        (Radix                ),
+      .ExtPrio      (1'b0                 ),
+      .SpillRegister(SpillRegisterReq >> 1),
+      .AxiVldRdy    (AxiVldRdy            )
+    ) i_req_bfly_net (
+      .clk_i     (clk_i          ),
+      .rst_ni    (rst_ni         ),
       // Extern priority flags
-      .req_rr_i       (req_rr           ),
-      .resp_rr_i      (resp_rr          ),
+      .rr_i      ('0             ),
       // Initiator side
-      .req_valid_i    (ini_req_valid    ),
-      .req_ready_o    (ini_req_ready    ),
-      .req_tgt_addr_i (tgt_sel          ),
-      .req_wdata_i    (data_agg_in      ),
-      .resp_valid_o   (resp_valid_o     ),
-      .resp_ready_i   (resp_ready_i     ),
-      .resp_rdata_o   (resp_rdata_o     ),
+      .valid_i   (ini_req_valid  ),
+      .ready_o   (ini_req_ready  ),
+      .tgt_addr_i(tgt_sel        ),
+      .wdata_i   (data_agg_in    ),
       // Target side
-      .req_valid_o    (req_valid_o      ),
-      .req_ini_addr_o (req_ini_addr_o   ),
-      .req_ready_i    (req_ready_i      ),
-      .req_wdata_o    (data_agg_out     ),
-      .resp_valid_i   (tgt_resp_valid   ),
-      .resp_ready_o   (tgt_resp_ready   ),
-      .resp_ini_addr_i(tgt_resp_ini_addr),
-      .resp_rdata_i   (tgt_resp_rdata   )
+      .valid_o   (req_valid_o    ),
+      .ini_addr_o(req_ini_addr_o ),
+      .ready_i   (req_ready_i    ),
+      .wdata_o   (data_agg_out   )
+    );
+
+    variable_latency_bfly_net #(
+      .NumIn        (NumOut                ),
+      .NumOut       (NumIn                 ),
+      .DataWidth    (DataWidth             ),
+      .Radix        (Radix                 ),
+      .ExtPrio      (1'b0                  ),
+      .SpillRegister(SpillRegisterResp >> 1),
+      .AxiVldRdy    (AxiVldRdy             )
+    ) i_resp_bfly_net (
+      .clk_i     (clk_i            ),
+      .rst_ni    (rst_ni           ),
+      // Extern priority flags
+      .rr_i      ('0               ),
+      // Target side
+      .valid_i   (tgt_resp_valid   ),
+      .ready_o   (tgt_resp_ready   ),
+      .tgt_addr_i(tgt_resp_ini_addr),
+      .wdata_i   (tgt_resp_rdata   ),
+      // Initiator side
+      .valid_o   (resp_valid_o     ),
+      .ready_i   (resp_ready_i     ),
+      .ini_addr_o(/* Unused */     ),
+      .wdata_o   (resp_rdata_o     )
     );
   end
 
@@ -273,7 +288,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
    ******************/
 
   if (AddrMemWidth + NumOutLog2 > AddrWidth)
-    $fatal(1, "[variable_latency_interconnect] Address is not wide enough to accomodate the requested TCDM configuration.");
+    $fatal(1, "[variable_latency_interconnect] Address is not wide enough to accommodate the requested TCDM configuration.");
 
   if (Topology != tcdm_interconnect_pkg::LIC && NumOut < NumIn)
     $fatal(1, "[variable_latency_interconnect] NumOut < NumIn is not supported with the chosen TCDM configuration.");

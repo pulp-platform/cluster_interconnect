@@ -20,22 +20,22 @@ module simplex_xbar #(
     parameter int unsigned DataWidth = 32  , // Data Width
     parameter bit ExtPrio            = 1'b0, // Use external arbiter priority flags
     parameter bit SpillRegister      = 1'b0, // Insert a spill register per target after the arbitration step.
-    parameter bit AxiVldRdy          = 1'b1
+    parameter bit AxiVldRdy          = 1'b0  // Valid/ready signaling
   ) (
     input  logic                                 clk_i,
     input  logic                                 rst_ni,
     // External priority signal
     input  logic [NumOut-1:0][$clog2(NumIn)-1:0] rr_i,
     // Initiator side
-    input  logic [NumIn-1:0]                     valid_i,       // Valid signal
-    output logic [NumIn-1:0]                     ready_o,       // Ready signal
-    input  logic [NumIn-1:0][$clog2(NumOut)-1:0] tgt_address_i, // Target address
-    input  logic [NumIn-1:0][DataWidth-1:0]      wdata_i,       // Write data
+    input  logic [NumIn-1:0]                     valid_i,    // Valid signal
+    output logic [NumIn-1:0]                     ready_o,    // Ready signal
+    input  logic [NumIn-1:0][$clog2(NumOut)-1:0] tgt_addr_i, // Target address
+    input  logic [NumIn-1:0][DataWidth-1:0]      wdata_i,    // Write data
     // Target side
-    output logic [NumOut-1:0]                    valid_o,       // Valid signal
-    input  logic [NumOut-1:0]                    ready_i,       // Ready signal
-    output logic [NumOut-1:0][$clog2(NumIn)-1:0] ini_address_o, // Initiator address
-    output logic [NumOut-1:0][DataWidth-1:0]     wdata_o        // Write data
+    output logic [NumOut-1:0]                    valid_o,    // Valid signal
+    input  logic [NumOut-1:0]                    ready_i,    // Ready signal
+    output logic [NumOut-1:0][$clog2(NumIn)-1:0] ini_addr_o, // Initiator address
+    output logic [NumOut-1:0][DataWidth-1:0]     wdata_o     // Write data
   );
 
   /*************
@@ -50,13 +50,17 @@ module simplex_xbar #(
 
   logic [NumOut-1:0]                    arb_valid, arb_ready;
   logic [NumOut-1:0][DataWidth-1:0]     arb_data;
-  logic [NumOut-1:0][$clog2(NumIn)-1:0] arb_ini_add;
+  logic [NumOut-1:0][$clog2(NumIn)-1:0] arb_ini_addr;
 
-  /***********************
-   *   Address decoder   *
-   ***********************/
+  /******************
+   *   Initiators   *
+   ******************/
 
-  for (genvar j = 0; j < NumIn; j++) begin: gen_inputs
+  for (genvar j = 0; unsigned'(j) < NumIn; j++) begin: gen_inputs
+
+    /***********************
+     *   Address decoder   *
+     ***********************/
 
     // Instantiate a bank address decoder for each initiator
     addr_decoder #(
@@ -65,14 +69,14 @@ module simplex_xbar #(
       .AxiVldRdy(AxiVldRdy)
     ) i_addr_decoder (
       // Initiator side
-      .valid_i(valid_i[j]      ),
-      .addr_i (tgt_address_i[j]),
-      .data_i (wdata_i[j]      ),
-      .ready_o(ready_o[j]      ),
+      .valid_i(valid_i[j]   ),
+      .addr_i (tgt_addr_i[j]),
+      .data_i (wdata_i[j]   ),
+      .ready_o(ready_o[j]   ),
       // Target side
-      .valid_o(ini_valid[j]    ),
-      .ready_i(ini_ready[j]    ),
-      .data_o (ini_data[j]     )
+      .valid_o(ini_valid[j] ),
+      .ready_i(ini_ready[j] ),
+      .data_o (ini_data[j]  )
     );
 
     // Reshape connections between initiator and target
@@ -82,57 +86,53 @@ module simplex_xbar #(
       assign tgt_data[k][j]  = ini_data[j][k] ;
     end
 
-  end
+  end : gen_inputs
 
-  /****************
-   *   Arbiters   *
-   ****************/
+  /***************
+   *   Targets   *
+   ***************/
 
   for (genvar k = 0; k < NumOut; k++) begin: gen_rr_outputs
-    if (NumIn == 1) begin
 
-      assign arb_valid[k]    = tgt_valid[k][0];
-      assign tgt_ready[k][0] = arb_ready[k]   ;
-      assign arb_data[k]     = tgt_data[k][0] ;
+    /****************
+     *   Arbiters   *
+     ****************/
 
-    end else begin : gen_rr_arb_tree
+    // Instantiate an RR arbiter for each target
+    rr_arb_tree #(
+      .NumIn    (NumIn    ),
+      .DataWidth(DataWidth),
+      .ExtPrio  (ExtPrio  ),
+      .AxiVldRdy(AxiVldRdy)
+    ) i_rr_arb_tree (
+      .clk_i  (clk_i          ),
+      .rst_ni (rst_ni         ),
+      .flush_i(1'b0           ),
+      .rr_i   (rr_i[k]        ),
+      .req_i  (tgt_valid[k]   ),
+      .gnt_o  (tgt_ready[k]   ),
+      .data_i (tgt_data[k]    ),
+      .gnt_i  (arb_ready[k]   ),
+      .req_o  (arb_valid[k]   ),
+      .data_o (arb_data[k]    ),
+      .idx_o  (arb_ini_addr[k])
+    );
 
-      // Instantiate an RR arbiter for each target
-      rr_arb_tree #(
-        .NumIn    (NumIn    ),
-        .DataWidth(DataWidth),
-        .ExtPrio  (ExtPrio  ),
-        .AxiVldRdy(AxiVldRdy)
-      ) i_rr_arb_tree (
-        .clk_i  (clk_i         ),
-        .rst_ni (rst_ni        ),
-        .flush_i(1'b0          ),
-        .rr_i   (rr_i[k]       ),
-        .req_i  (tgt_valid[k]  ),
-        .gnt_o  (tgt_ready[k]  ),
-        .data_i (tgt_data[k]   ),
-        .gnt_i  (arb_ready[k]  ),
-        .req_o  (arb_valid[k]  ),
-        .data_o (arb_data[k]   ),
-        .idx_o  (arb_ini_add[k])
-      );
+    // Register the arbitrated result
+    spill_register #(
+      .Bypass(!SpillRegister                    ),
+      .T     (logic[DataWidth+$clog2(NumIn)-1:0])
+    ) i_register (
+      .clk_i  (clk_i                         ),
+      .rst_ni (rst_ni                        ),
+      .data_i ({arb_data[k], arb_ini_addr[k]}),
+      .valid_i(arb_valid[k]                  ),
+      .ready_o(arb_ready[k]                  ),
+      .data_o ({wdata_o[k], ini_addr_o[k]}   ),
+      .valid_o(valid_o[k]                    ),
+      .ready_i(ready_i[k]                    )
+    );
 
-      // Register the arbitrated result
-      spill_register #(
-        .Bypass(!SpillRegister                    ),
-        .T     (logic[DataWidth+$clog2(NumIn)-1:0])
-      ) i_register (
-        .clk_i  (clk_i                          ),
-        .rst_ni (rst_ni                         ),
-        .data_i ({arb_data[k], arb_ini_add[k]}  ),
-        .valid_i(arb_valid[k]                   ),
-        .ready_o(arb_ready[k]                   ),
-        .data_o ({wdata_o[k], ini_address_o[k]} ),
-        .valid_o(valid_o[k]                     ),
-        .ready_i(ready_i[k]                     )
-      );
-
-    end
   end : gen_rr_outputs
 
   /******************
