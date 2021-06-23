@@ -15,27 +15,30 @@
 // Description: Simplex (uni-directional) crossbar.
 
 module simplex_xbar #(
-    parameter int unsigned NumIn     = 4   , // Number of Initiators
-    parameter int unsigned NumOut    = 4   , // Number of Targets
-    parameter int unsigned DataWidth = 32  , // Data Width
-    parameter bit ExtPrio            = 1'b0, // Use external arbiter priority flags
-    parameter bit SpillRegister      = 1'b0, // Insert a spill register per target after the arbitration step.
-    parameter bit AxiVldRdy          = 1'b0  // Valid/ready signaling
+    parameter int unsigned NumIn      = 4   , // Number of Initiators
+    parameter int unsigned NumOut     = 4   , // Number of Targets
+    parameter int unsigned DataWidth  = 32  , // Data Width
+    parameter bit ExtPrio             = 1'b0, // Use external arbiter priority flags
+    parameter bit AxiVldRdy           = 1'b0, // Valid/ready signaling.
+    parameter bit SpillRegister       = 1'b0,
+    // Dependent parameters, DO NOT OVERRIDE!
+    localparam int unsigned NumInLog  = NumIn == 1 ? 1 : $clog2(NumIn),
+    localparam int unsigned NumOutLog = NumOut == 1 ? 1 : $clog2(NumOut)
   ) (
-    input  logic                                 clk_i,
-    input  logic                                 rst_ni,
+    input  logic                             clk_i,
+    input  logic                             rst_ni,
     // External priority signal
-    input  logic [NumOut-1:0][$clog2(NumIn)-1:0] rr_i,
+    input  logic [NumOut-1:0][NumInLog-1:0]  rr_i,
     // Initiator side
-    input  logic [NumIn-1:0]                     valid_i,    // Valid signal
-    output logic [NumIn-1:0]                     ready_o,    // Ready signal
-    input  logic [NumIn-1:0][$clog2(NumOut)-1:0] tgt_addr_i, // Target address
-    input  logic [NumIn-1:0][DataWidth-1:0]      wdata_i,    // Write data
+    input  logic [NumIn-1:0]                 valid_i,    // Valid signal
+    output logic [NumIn-1:0]                 ready_o,    // Ready signal
+    input  logic [NumIn-1:0][NumOutLog-1:0]  tgt_addr_i, // Target address
+    input  logic [NumIn-1:0][DataWidth-1:0]  data_i,     // Data
     // Target side
-    output logic [NumOut-1:0]                    valid_o,    // Valid signal
-    input  logic [NumOut-1:0]                    ready_i,    // Ready signal
-    output logic [NumOut-1:0][$clog2(NumIn)-1:0] ini_addr_o, // Initiator address
-    output logic [NumOut-1:0][DataWidth-1:0]     wdata_o     // Write data
+    output logic [NumOut-1:0]                valid_o,    // Valid signal
+    input  logic [NumOut-1:0]                ready_i,    // Ready signal
+    output logic [NumOut-1:0][NumInLog-1:0]  ini_addr_o, // Initiator address
+    output logic [NumOut-1:0][DataWidth-1:0] data_o      // Data
   );
 
   /*************
@@ -50,7 +53,7 @@ module simplex_xbar #(
 
   logic [NumOut-1:0]                    arb_valid, arb_ready;
   logic [NumOut-1:0][DataWidth-1:0]     arb_data;
-  logic [NumOut-1:0][$clog2(NumIn)-1:0] arb_ini_addr;
+  logic [NumOut-1:0][NumInLog-1:0]      arb_ini_addr;
 
   /******************
    *   Initiators   *
@@ -71,7 +74,7 @@ module simplex_xbar #(
       // Initiator side
       .valid_i(valid_i[j]   ),
       .addr_i (tgt_addr_i[j]),
-      .data_i (wdata_i[j]   ),
+      .data_i (data_i[j]    ),
       .ready_o(ready_o[j]   ),
       // Target side
       .valid_o(ini_valid[j] ),
@@ -120,8 +123,8 @@ module simplex_xbar #(
 
     // Register the arbitrated result
     spill_register #(
-      .Bypass(!SpillRegister                    ),
-      .T     (logic[DataWidth+$clog2(NumIn)-1:0])
+      .Bypass(!SpillRegister               ),
+      .T     (logic[DataWidth+NumInLog-1:0])
     ) i_register (
       .clk_i  (clk_i                         ),
       .rst_ni (rst_ni                        ),
