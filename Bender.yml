@@ -2,7 +2,10 @@ package:
   name: cluster_interconnect
 
 dependencies:
-  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.13.1 }
+  common_cells: { git: "https://github.com/pulp-platform/common_cells.git", version: 1.22.1 }
+
+workspace:
+  checkout_dir: "./deps"
 
 sources:
   # Source files grouped in levels. Files in level 0 have no dependencies on files in this
@@ -12,13 +15,19 @@ sources:
   - rtl/tcdm_interconnect/tcdm_interconnect_pkg.sv
   - rtl/tcdm_interconnect/addr_dec_resp_mux.sv
   - rtl/tcdm_interconnect/amo_shim.sv
+  - rtl/variable_latency_interconnect/addr_decoder.sv
   # Level 1
   - rtl/tcdm_interconnect/xbar.sv
+  - rtl/variable_latency_interconnect/simplex_xbar.sv
   # Level 2
   - rtl/tcdm_interconnect/clos_net.sv
   - rtl/tcdm_interconnect/bfly_net.sv
+  - rtl/variable_latency_interconnect/full_duplex_xbar.sv
   # Level 3
   - rtl/tcdm_interconnect/tcdm_interconnect.sv
+  - rtl/variable_latency_interconnect/variable_latency_bfly_net.sv
+  # Level 4
+  - rtl/variable_latency_interconnect/variable_latency_interconnect.sv
 
   - include_dirs:
       - rtl/low_latency_interco
@@ -67,3 +76,15 @@ sources:
       - tb/tb_tcdm_interconnect/hdl/tcdm_interconnect_wrap.sv
       # Level 2
       - tb/tb_tcdm_interconnect/hdl/tb.sv
+
+  - target: variable_latency_test
+    include_dirs:
+      - tb/common/
+      - tb/tb_variable_latency_interconnect/hdl
+    files:
+      # Level 0
+      - tb/tb_variable_latency_interconnect/hdl/tb_pkg.sv
+      # Level 2
+      - tb/tb_variable_latency_interconnect/hdl/variable_latency_interconnect_wrap.sv
+      # Level 2
+      - tb/tb_variable_latency_interconnect/hdl/variable_latency_interconnect_tb.sv
