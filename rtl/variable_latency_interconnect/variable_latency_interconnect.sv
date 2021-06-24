@@ -206,7 +206,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .clk_i     (clk_i          ),
       .rst_ni    (rst_ni         ),
       // Extern priority flags
-      .rr_i      ('0             ),
+      .rr_i      (req_rr         ),
       // Initiator side
       .valid_i   (req_valid_i    ),
       .ready_o   (req_ready_o    ),
@@ -232,7 +232,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .clk_i     (clk_i          ),
       .rst_ni    (rst_ni         ),
       // Extern priority flags
-      .rr_i      ('0             ),
+      .rr_i      (resp_rr        ),
       // Target side
       .valid_i   (resp_valid_i   ),
       .ready_o   (resp_ready_o   ),
