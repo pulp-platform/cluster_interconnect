@@ -16,12 +16,13 @@
 `include "tb.svh"
 `include "defaults.svh"
 
-import tb_pkg::*;
-
 module variable_latency_interconnect_tb;
 
   timeunit      1ps;
   timeprecision 1ps;
+
+  // Includes
+  import tb_pkg::*;
 
   // Network configuration
   localparam MutImpl     = `MUT_IMPL;
