@@ -16,22 +16,22 @@
 // Description: Address decoder for the simplex crossbar.
 
 module addr_decoder #(
-    parameter int unsigned NumOut    = 32,
-    parameter int unsigned DataWidth = 32,
-    parameter bit AxiVldRdy          = 1'b1,
-    // Dependent parameters, DO NOT OVERRIDE!
-    localparam int unsigned NumOutLog = NumOut == 1 ? 1 : $clog2(NumOut)
-  ) (
-    // Initiator side
-    input  logic                             valid_i, // Request valid from this initiator
-    input  logic [NumOutLog-1:0]             addr_i,  // Target selection index to be decoded
-    input  logic [DataWidth-1:0]             data_i,  // Data to be transported to the targets
-    output logic                             ready_o, // Ready to the initiator
-    // Target side
-    output logic [NumOut-1:0]                valid_o, // Request valid to this target
-    input  logic [NumOut-1:0]                ready_i, // Targets ready to accept data
-    output logic [NumOut-1:0][DataWidth-1:0] data_o
-  );
+  parameter int unsigned NumOut    = 32,
+  parameter int unsigned DataWidth = 32,
+  parameter bit AxiVldRdy          = 1'b1,
+  // Dependent parameters, DO NOT OVERRIDE!
+  localparam int unsigned NumOutLog = NumOut == 1 ? 1 : $clog2(NumOut)
+) (
+  // Initiator side
+  input  logic                             valid_i, // Request valid from this initiator
+  input  logic [NumOutLog-1:0]             addr_i,  // Target selection index to be decoded
+  input  logic [DataWidth-1:0]             data_i,  // Data to be transported to the targets
+  output logic                             ready_o, // Ready to the initiator
+  // Target side
+  output logic [NumOut-1:0]                valid_o, // Request valid to this target
+  input  logic [NumOut-1:0]                ready_i, // Targets ready to accept data
+  output logic [NumOut-1:0][DataWidth-1:0] data_o
+);
 
   /**********************
    *  Degenerated case  *

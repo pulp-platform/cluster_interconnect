@@ -19,53 +19,53 @@
 // aligned to a power of 2.
 
 module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
-    // Global parameters
-    parameter int unsigned NumIn             = 32                   , // Number of Initiators. Must be aligned with a power of 2 for butterflies.
-    parameter int unsigned NumOut            = 64                   , // Number of Targets. Must be aligned with a power of 2 for butterflies.
-    parameter int unsigned AddrWidth         = 32                   , // Address Width on the Initiator Side
-    parameter int unsigned DataWidth         = 32                   , // Data Word Width
-    parameter int unsigned BeWidth           = DataWidth/8          , // Byte Strobe Width
-    parameter int unsigned AddrMemWidth      = 12                   , // Number of Address bits per Target
-    parameter bit AxiVldRdy                  = 1'b1                 , // Valid/ready signaling
-    // Spill registers
-    // A bit set at position i indicates a spill register at the i-th crossbar layer.
-    // The layers are counted starting at 0 from the initiator, for the requests, and from the target, for the responses.
-    parameter logic [63:0] SpillRegisterReq  = 64'h0                ,
-    parameter logic [63:0] SpillRegisterResp = 64'h0                ,
-    parameter bit FallThroughRegister        = 1'b0                 , // Insert a fall-through register, if missing a spill register in that stage
-    // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
-    // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
-    parameter int unsigned ByteOffWidth      = $clog2(DataWidth-1)-3,
-    // Topology can be: LIC, BFLY2, BFLY4, CLOS
-    parameter topo_e Topology = tcdm_interconnect_pkg::LIC,
-    // Dependant parameters. DO NOT CHANGE!
-    parameter int unsigned NumInLog2         = NumIn == 1 ? 1 : $clog2(NumIn)
-  ) (
-    input  logic                                clk_i,
-    input  logic                                rst_ni,
-    // Initiator side
-    input  logic [NumIn-1:0]                    req_valid_i,     // Request valid
-    output logic [NumIn-1:0]                    req_ready_o,     // Request ready
-    input  logic [NumIn-1:0][AddrWidth-1:0]     req_tgt_addr_i,  // Target address
-    input  logic [NumIn-1:0]                    req_wen_i,       // Write enable
-    input  logic [NumIn-1:0][DataWidth-1:0]     req_wdata_i,     // Write data
-    input  logic [NumIn-1:0][BeWidth-1:0]       req_be_i,        // Byte enable
-    output logic [NumIn-1:0]                    resp_valid_o,    // Response valid
-    input  logic [NumIn-1:0]                    resp_ready_i,    // Response ready
-    output logic [NumIn-1:0][DataWidth-1:0]     resp_rdata_o,    // Data response
-    // Target side
-    output logic [NumOut-1:0]                   req_valid_o,     // Request valid
-    input  logic [NumOut-1:0]                   req_ready_i,     // Request ready
-    output logic [NumOut-1:0][NumInLog2-1:0]    req_ini_addr_o,  // Initiator address
-    output logic [NumOut-1:0][AddrMemWidth-1:0] req_tgt_addr_o,  // Target address
-    output logic [NumOut-1:0]                   req_wen_o,       // Write enable
-    output logic [NumOut-1:0][DataWidth-1:0]    req_wdata_o,     // Write data
-    output logic [NumOut-1:0][BeWidth-1:0]      req_be_o,        // Byte enable
-    input  logic [NumOut-1:0]                   resp_valid_i,    // Response valid
-    output logic [NumOut-1:0]                   resp_ready_o,    // Response ready
-    input  logic [NumOut-1:0][NumInLog2-1:0]    resp_ini_addr_i, // Initiator address
-    input  logic [NumOut-1:0][DataWidth-1:0]    resp_rdata_i     // Data response
-  );
+  // Global parameters
+  parameter int unsigned NumIn             = 32,                    // Number of Initiators. Must be aligned with a power of 2 for butterflies.
+  parameter int unsigned NumOut            = 64,                    // Number of Targets. Must be aligned with a power of 2 for butterflies.
+  parameter int unsigned AddrWidth         = 32,                    // Address Width on the Initiator Side
+  parameter int unsigned DataWidth         = 32,                    // Data Word Width
+  parameter int unsigned BeWidth           = DataWidth/8,           // Byte Strobe Width
+  parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
+  parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
+  // Spill registers
+  // A bit set at position i indicates a spill register at the i-th crossbar layer.
+  // The layers are counted starting at 0 from the initiator, for the requests, and from the target, for the responses.
+  parameter logic [63:0] SpillRegisterReq  = 64'h0,
+  parameter logic [63:0] SpillRegisterResp = 64'h0,
+  parameter bit FallThroughRegister        = 1'b0,                  // Insert a fall-through register, if missing a spill register in that stage
+  // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
+  // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
+  parameter int unsigned ByteOffWidth      = $clog2(DataWidth-1)-3,
+  // Topology can be: LIC, BFLY2, BFLY4, CLOS
+  parameter topo_e Topology = tcdm_interconnect_pkg::LIC,
+  // Dependant parameters. DO NOT CHANGE!
+  parameter int unsigned NumInLog2         = NumIn == 1 ? 1 : $clog2(NumIn)
+) (
+  input  logic                                clk_i,
+  input  logic                                rst_ni,
+  // Initiator side
+  input  logic [NumIn-1:0]                    req_valid_i,     // Request valid
+  output logic [NumIn-1:0]                    req_ready_o,     // Request ready
+  input  logic [NumIn-1:0][AddrWidth-1:0]     req_tgt_addr_i,  // Target address
+  input  logic [NumIn-1:0]                    req_wen_i,       // Write enable
+  input  logic [NumIn-1:0][DataWidth-1:0]     req_wdata_i,     // Write data
+  input  logic [NumIn-1:0][BeWidth-1:0]       req_be_i,        // Byte enable
+  output logic [NumIn-1:0]                    resp_valid_o,    // Response valid
+  input  logic [NumIn-1:0]                    resp_ready_i,    // Response ready
+  output logic [NumIn-1:0][DataWidth-1:0]     resp_rdata_o,    // Data response
+  // Target side
+  output logic [NumOut-1:0]                   req_valid_o,     // Request valid
+  input  logic [NumOut-1:0]                   req_ready_i,     // Request ready
+  output logic [NumOut-1:0][NumInLog2-1:0]    req_ini_addr_o,  // Initiator address
+  output logic [NumOut-1:0][AddrMemWidth-1:0] req_tgt_addr_o,  // Target address
+  output logic [NumOut-1:0]                   req_wen_o,       // Write enable
+  output logic [NumOut-1:0][DataWidth-1:0]    req_wdata_o,     // Write data
+  output logic [NumOut-1:0][BeWidth-1:0]      req_be_o,        // Byte enable
+  input  logic [NumOut-1:0]                   resp_valid_i,    // Response valid
+  output logic [NumOut-1:0]                   resp_ready_o,    // Response ready
+  input  logic [NumOut-1:0][NumInLog2-1:0]    resp_ini_addr_i, // Initiator address
+  input  logic [NumOut-1:0][DataWidth-1:0]    resp_rdata_i     // Data response
+);
 
   /******************
    *   Parameters   *

@@ -15,32 +15,32 @@
 // Description: Simplex (uni-directional) crossbar.
 
 module simplex_xbar #(
-    parameter int unsigned NumIn      = 4   , // Number of Initiators
-    parameter int unsigned NumOut     = 4   , // Number of Targets
-    parameter int unsigned DataWidth  = 32  , // Data Width
-    parameter bit ExtPrio             = 1'b0, // Use external arbiter priority flags
-    parameter bit AxiVldRdy           = 1'b0, // Valid/ready signaling.
-    parameter bit SpillRegister       = 1'b0,
-    parameter bit FallThroughRegister = 1'b0,
-    // Dependent parameters, DO NOT OVERRIDE!
-    localparam int unsigned NumInLog  = NumIn == 1 ? 1 : $clog2(NumIn),
-    localparam int unsigned NumOutLog = NumOut == 1 ? 1 : $clog2(NumOut)
-  ) (
-    input  logic                             clk_i,
-    input  logic                             rst_ni,
-    // External priority signal
-    input  logic [NumOut-1:0][NumInLog-1:0]  rr_i,
-    // Initiator side
-    input  logic [NumIn-1:0]                 valid_i,    // Valid signal
-    output logic [NumIn-1:0]                 ready_o,    // Ready signal
-    input  logic [NumIn-1:0][NumOutLog-1:0]  tgt_addr_i, // Target address
-    input  logic [NumIn-1:0][DataWidth-1:0]  data_i,     // Data
-    // Target side
-    output logic [NumOut-1:0]                valid_o,    // Valid signal
-    input  logic [NumOut-1:0]                ready_i,    // Ready signal
-    output logic [NumOut-1:0][NumInLog-1:0]  ini_addr_o, // Initiator address
-    output logic [NumOut-1:0][DataWidth-1:0] data_o      // Data
-  );
+  parameter int unsigned NumIn      = 4,    // Number of Initiators
+  parameter int unsigned NumOut     = 4,    // Number of Targets
+  parameter int unsigned DataWidth  = 32,   // Data Width
+  parameter bit ExtPrio             = 1'b0, // Use external arbiter priority flags
+  parameter bit AxiVldRdy           = 1'b0, // Valid/ready signaling.
+  parameter bit SpillRegister       = 1'b0,
+  parameter bit FallThroughRegister = 1'b0,
+  // Dependent parameters, DO NOT OVERRIDE!
+  localparam int unsigned NumInLog  = NumIn == 1 ? 1 : $clog2(NumIn),
+  localparam int unsigned NumOutLog = NumOut == 1 ? 1 : $clog2(NumOut)
+) (
+  input  logic                             clk_i,
+  input  logic                             rst_ni,
+  // External priority signal
+  input  logic [NumOut-1:0][NumInLog-1:0]  rr_i,
+  // Initiator side
+  input  logic [NumIn-1:0]                 valid_i,    // Valid signal
+  output logic [NumIn-1:0]                 ready_o,    // Ready signal
+  input  logic [NumIn-1:0][NumOutLog-1:0]  tgt_addr_i, // Target address
+  input  logic [NumIn-1:0][DataWidth-1:0]  data_i,     // Data
+  // Target side
+  output logic [NumOut-1:0]                valid_o,    // Valid signal
+  input  logic [NumOut-1:0]                ready_i,    // Ready signal
+  output logic [NumOut-1:0][NumInLog-1:0]  ini_addr_o, // Initiator address
+  output logic [NumOut-1:0][DataWidth-1:0] data_o      // Data
+);
 
   /*************
    *   Wires   *

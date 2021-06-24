@@ -23,33 +23,33 @@
 // non-power-of-radix parameterizations.
 
 module variable_latency_bfly_net #(
-    parameter int unsigned NumIn         = 32  , // Number of Initiators. Needs to be a power of 2
-    parameter int unsigned NumOut        = 32  , // Number of Targets. Needs to be a power of 2
-    parameter int unsigned DataWidth     = 32  , // Request Data Width
-    parameter bit ExtPrio                = 1'b0, // Use external arbiter priority flags
-    parameter int unsigned Radix         = 2   , // Butterfly Radix. Currently supported: 2 or 4.
-    parameter bit AxiVldRdy              = 1'b0, // Valid/ready signaling.
-    parameter bit FallThroughRegister    = 1'b1,
-    // Spill registers
-    // A bit set at position i indicates a spill register at the i-th crossbar layer.
-    // The layers are counted starting at 0 from the initiator.
-    parameter logic [63:0] SpillRegister = 64'h0
-  ) (
-    input  logic                                 clk_i,
-    input  logic                                 rst_ni,
-    // External priority signals
-    input  logic [$clog2(NumOut)-1:0]            rr_i,
-    // Initiator side
-    input  logic [NumIn-1:0]                     valid_i,    // Request valid
-    output logic [NumIn-1:0]                     ready_o,    // Request ready
-    input  logic [NumIn-1:0][$clog2(NumOut)-1:0] tgt_addr_i, // Target address
-    input  logic [NumIn-1:0][DataWidth-1:0]      wdata_i,    // Data
-    // Target side
-    output logic [NumOut-1:0]                    valid_o,    // Request valid
-    input  logic [NumOut-1:0]                    ready_i,    // Request ready
-    output logic [NumOut-1:0][$clog2(NumIn)-1:0] ini_addr_o, // Initiator address
-    output logic [NumOut-1:0][DataWidth-1:0]     wdata_o     // Data
-  );
+  parameter int unsigned NumIn         = 32,   // Number of Initiators. Needs to be a power of 2
+  parameter int unsigned NumOut        = 32,   // Number of Targets. Needs to be a power of 2
+  parameter int unsigned DataWidth     = 32,   // Request Data Width
+  parameter bit ExtPrio                = 1'b0, // Use external arbiter priority flags
+  parameter int unsigned Radix         = 2,    // Butterfly Radix. Currently supported: 2 or 4.
+  parameter bit AxiVldRdy              = 1'b0, // Valid/ready signaling.
+  parameter bit FallThroughRegister    = 1'b1,
+  // Spill registers
+  // A bit set at position i indicates a spill register at the i-th crossbar layer.
+  // The layers are counted starting at 0 from the initiator.
+  parameter logic [63:0] SpillRegister = 64'h0
+) (
+  input  logic                                 clk_i,
+  input  logic                                 rst_ni,
+  // External priority signals
+  input  logic [$clog2(NumOut)-1:0]            rr_i,
+  // Initiator side
+  input  logic [NumIn-1:0]                     valid_i,    // Request valid
+  output logic [NumIn-1:0]                     ready_o,    // Request ready
+  input  logic [NumIn-1:0][$clog2(NumOut)-1:0] tgt_addr_i, // Target address
+  input  logic [NumIn-1:0][DataWidth-1:0]      wdata_i,    // Data
+  // Target side
+  output logic [NumOut-1:0]                    valid_o,    // Request valid
+  input  logic [NumOut-1:0]                    ready_i,    // Request ready
+  output logic [NumOut-1:0][$clog2(NumIn)-1:0] ini_addr_o, // Initiator address
+  output logic [NumOut-1:0][DataWidth-1:0]     wdata_o     // Data
+);
 
   /****************
    *   Includes   *
