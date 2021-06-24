@@ -35,7 +35,7 @@ incdir         +="$(shell pwd)/../common/"+"$(shell pwd)/../../rtl/low_latency_i
 
 # points to DC folder
 dc-ver         ?= synopsys-2018.06 dc_shell
-synth-dir      := /usr/scratch/riseten/matheusd/interco/interco/tech/gf22/synopsys
+synth-dir      ?= gf22/synopsys
 synth-script   := scripts/synth.tcl
 
 # get sources
