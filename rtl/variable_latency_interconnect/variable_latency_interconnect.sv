@@ -82,14 +82,18 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
 
   logic [NumIn-1:0][IniAggDataWidth-1:0]  data_agg_in;
   logic [NumOut-1:0][IniAggDataWidth-1:0] data_agg_out;
-  logic [NumIn-1:0][NumOutLog2-1:0]       tgt_sel;
+  logic [NumIn-1:0][cf_math_pkg::idx_width(NumOut)-1:0] tgt_sel;
 
   for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
     // Extract target index
     if (NumIn == 1) begin
       assign tgt_sel[j] = '0;
     end else begin
-      assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
+      if (NumOut == 1) begin
+        assign tgt_sel[j] = 0;
+      end else begin
+        assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
+      end
     end
 
     // Aggregate data to be routed to targets
@@ -255,7 +259,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
    *   Assertions   *
    ******************/
 
-  if (AddrMemWidth + NumOutLog2 > AddrWidth)
+  if (NumOut != 1 && AddrMemWidth + NumOutLog2 > AddrWidth)
     $fatal(1, "[variable_latency_interconnect] Address is not wide enough to accommodate the requested TCDM configuration.");
 
   if (Topology != tcdm_interconnect_pkg::LIC && NumOut < NumIn)
