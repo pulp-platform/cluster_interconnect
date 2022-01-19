@@ -3,7 +3,8 @@
 
 /// Author: Florian Zaruba <zarubaf@iis.ee.ethz.ch>
 module amo_shim #(
-    parameter  int unsigned AddrMemWidth = 32
+    parameter  int unsigned AddrMemWidth = 32,
+    parameter  int unsigned DataWidth = 64
 ) (
     input   logic                     clk_i,
     input   logic                     rst_ni,
@@ -13,16 +14,16 @@ module amo_shim #(
     input   logic [AddrMemWidth-1:0]  in_add_i,     // Address
     input   logic [3:0]               in_amo_i,     // Atomic Memory Operation
     input   logic                     in_wen_i,     // 1: Store, 0: Load
-    input   logic [63:0]              in_wdata_i,   // Write data
-    input   logic [7:0]               in_be_i,      // Byte enable
-    output  logic [63:0]              in_rdata_o,   // Read data
+    input   logic [DataWidth-1:0]     in_wdata_i,   // Write data
+    input   logic [DataWidth/8-1:0]   in_be_i,      // Byte enable
+    output  logic [DataWidth-1:0]     in_rdata_o,   // Read data
     // slave side
     output  logic                     out_req_o,    // Bank request
     output  logic [AddrMemWidth-1:0]  out_add_o,    // Address
     output  logic                     out_wen_o,    // 1: Store, 0: Load
-    output  logic [63:0]              out_wdata_o,  // Write data
-    output  logic [7:0]               out_be_o,     // Byte enable
-    input   logic [63:0]              out_rdata_i   // Read data
+    output  logic [DataWidth-1:0]     out_wdata_o,  // Write data
+    output  logic [DataWidth/8-1:0]   out_be_o,     // Byte enable
+    input   logic [DataWidth-1:0]     out_rdata_i   // Read data
 );
 
     typedef enum logic [3:0] {
@@ -56,7 +57,13 @@ module amo_shim #(
     logic [31:0] swap_value_q;
     logic [31:0] amo_result; // result of atomic memory operation
 
-    assign amo_operand_a = upper_word_q ? out_rdata_i[63:32] : out_rdata_i[31:0];
+    always_comb begin
+        if (DataWidth == 64 && upper_word_q) begin
+            amo_operand_a = out_rdata_i[63:32];
+        end else begin
+            amo_operand_a = out_rdata_i[31:0];
+        end
+    end
 
     always_comb begin
         // feed-through
@@ -74,6 +81,7 @@ module amo_shim #(
             Idle: begin
                 if (in_req_i && amo_op_t'(in_amo_i) != AMONone) begin
                     load_amo = 1'b1;
+                    out_wen_o = 1'b0;
                 end
             end
 
@@ -85,9 +93,21 @@ module amo_shim #(
                 out_add_o   = addr_q;
                 out_wen_o   = 1'b1;
                 // shift up if the address was pointing to the upper 32 bits
-                out_be_o    = upper_word_q ?  8'b1111_0000 : 8'b0000_1111;
-                out_wdata_o = upper_word_q ? {amo_result, 32'b0} : {32'b0, amo_result};
-                in_rdata_o  = upper_word_q ? {amo_operand_a, 32'b0} : {32'b0, amo_operand_a};
+                if (DataWidth == 64) begin
+                    if (upper_word_q) begin
+                        out_be_o = 8'b1111_0000;
+                        out_wdata_o = {amo_result, 32'b0};
+                        in_rdata_o = {amo_operand_a, 32'b0};
+                    end else begin
+                        out_be_o = 8'b0000_1111;
+                        out_wdata_o = {32'b0, amo_result};
+                        in_rdata_o = {32'b0, amo_operand_a};
+                    end
+                end else begin
+                    out_be_o = 4'b1111;
+                    out_wdata_o = amo_result;
+                    in_rdata_o = amo_operand_a;
+                end
             end
             default:;
         endcase
@@ -105,11 +125,17 @@ module amo_shim #(
             if (load_amo) begin
                 amo_op_q        <= amo_op_t'(in_amo_i);
                 addr_q          <= in_add_i;
-                amo_operand_b_q <= in_be_i[0] ? in_wdata_i[31:0]  : in_wdata_i[63:32];
-                // swap value is located in the upper word
-                swap_value_q    <= in_be_i[0] ? in_wdata_i[63:32] : in_wdata_i[63:32];
+                if (DataWidth == 64) begin
+                    if (!in_be_i[0]) begin
+                        amo_operand_b_q <= in_wdata_i[63:32];
+                    end
+                    upper_word_q    <= in_be_i[4];
+                    // swap value is located in the upper word
+                    swap_value_q <= in_wdata_i[63:32];
+                end else begin
+                    amo_operand_b_q <= in_wdata_i[31:0];
+                end
                 state_q         <= DoAMO;
-                upper_word_q    <= in_be_i[4];
             end else begin
                 amo_op_q        <= AMONone;
                 state_q         <= Idle;
@@ -158,17 +184,32 @@ module amo_shim #(
                 amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
             end
             AMOCAS: begin
-                adder_operand_b = -$signed(amo_operand_b_q);
-                // values are equal -> update
-                if (adder_sum == '0) begin
-                    amo_result =  swap_value_q;
-                // values are not euqal -> don't update
+                if (DataWidth == 64) begin
+                    adder_operand_b = -$signed(amo_operand_b_q);
+                    // values are equal -> update
+                    if (adder_sum == '0) begin
+                        amo_result =  swap_value_q;
+                    // values are not euqal -> don't update
+                    end else begin
+                        amo_result =  upper_word_q ? out_rdata_i[63:32] : out_rdata_i[31:0];
+                    end
+                `ifndef TARGET_SYNTHESIS
                 end else begin
-                    amo_result =  upper_word_q ? out_rdata_i[63:32] : out_rdata_i[31:0];
+                    $error("AMOCAS not supported for DataWidth = 32 bit");
+                `endif
                 end
             end
             default: amo_result = '0;
         endcase
     end
     /* verilator lint_on WIDTH */
+
+    `ifndef VERILATOR
+    // pragma translate_off
+    initial begin
+        assert (DataWidth == 32 || DataWidth == 64)
+            else $fatal(1, "Unsupported data width!");
+    end
+    // pragma translate_on
+    `endif
 endmodule
