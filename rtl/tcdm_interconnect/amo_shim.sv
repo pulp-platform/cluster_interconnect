@@ -51,20 +51,32 @@ module amo_shim #(
     logic [AddrMemWidth-1:0] addr_q;
 
     logic [31:0] amo_operand_a;
-    logic [31:0] amo_operand_b_q;
+    logic [31:0] amo_operand_b_d,
+                 amo_operand_b_q;
     // requested amo should be performed on upper 32 bit
-    logic        upper_word_q;
-    logic [31:0] swap_value_q;
-    logic [31:0] amo_result; // result of atomic memory operation
+    logic        upper_word_d,
+                 upper_word_q;
+    logic [31:0] swap_value_d,
+                 swap_value_q;
+    logic [31:0] amo_res,
+                 amo_result; // result of atomic memory operation
 
     always_comb begin
-        if (DataWidth == 64 && upper_word_q) begin
-            amo_operand_a = out_rdata_i[63:32];
+        if (DataWidth == 64) begin
+           amo_operand_a   = (upper_word_q) ? out_rdata_i[DataWidth-1:DataWidth-32] : out_rdata_i[31:0];
+           amo_operand_b_d = (!in_be_i[0])  ? in_wdata_i[DataWidth-1:DataWidth-32]  : in_wdata_i[31:0];
+           upper_word_d    = in_be_i[4];
+           swap_value_d    = in_wdata_i[DataWidth-1:DataWidth-1];
+           amo_res         = out_rdata_i[DataWidth-1:DataWidth-32];
         end else begin
-            amo_operand_a = out_rdata_i[31:0];
+           amo_operand_a   = out_rdata_i[31:0];
+           amo_operand_b_d = in_wdata_i[31:0];
+           upper_word_d    = '0;
+           swap_value_d    = '0;
+           amo_res         = out_rdata_i[31:0];
         end
     end
-
+   
     always_comb begin
         // feed-through
         out_req_o   = in_req_i;
@@ -125,16 +137,9 @@ module amo_shim #(
             if (load_amo) begin
                 amo_op_q        <= amo_op_t'(in_amo_i);
                 addr_q          <= in_add_i;
-                if (DataWidth == 64) begin
-                    if (!in_be_i[0]) begin
-                        amo_operand_b_q <= in_wdata_i[63:32];
-                    end
-                    upper_word_q    <= in_be_i[4];
-                    // swap value is located in the upper word
-                    swap_value_q <= in_wdata_i[63:32];
-                end else begin
-                    amo_operand_b_q <= in_wdata_i[31:0];
-                end
+                amo_operand_b_q <= amo_operand_b_d;
+                upper_word_q    <= upper_word_d;
+                swap_value_q    <= swap_value_d;
                 state_q         <= DoAMO;
             end else begin
                 amo_op_q        <= AMONone;
@@ -191,7 +196,7 @@ module amo_shim #(
                         amo_result =  swap_value_q;
                     // values are not euqal -> don't update
                     end else begin
-                        amo_result =  upper_word_q ? out_rdata_i[63:32] : out_rdata_i[31:0];
+                        amo_result = amo_res;
                     end
                 `ifndef TARGET_SYNTHESIS
                 end else begin
