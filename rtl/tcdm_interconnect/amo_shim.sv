@@ -61,13 +61,13 @@ module amo_shim #(
     logic [31:0] amo_res,
                  amo_result; // result of atomic memory operation
 
-    always_comb begin // Generate parametric code for 64-bit datawidth
+    always_comb begin // Generate parametric code for 64-bit datawidth (only 32-bit and 64-bit supported)
         if (DataWidth == 64) begin
            amo_operand_a   = (upper_word_q) ? out_rdata_i[DataWidth-1:DataWidth-32] : out_rdata_i[31:0];
            amo_operand_b_d = (!in_be_i[0])  ? in_wdata_i[DataWidth-1:DataWidth-32]  : in_wdata_i[31:0];
            upper_word_d    = in_be_i[4];
            swap_value_d    = in_wdata_i[DataWidth-1:DataWidth-32];
-           amo_res         = out_rdata_i[DataWidth-1:DataWidth-32];
+           amo_res         = (upper_word_q) ? out_rdata_i[DataWidth-1:DataWidth-32] : out_rdata_i[31:0];
         end else begin // Standard 32-bit datawidth implementation
            amo_operand_a   = out_rdata_i[31:0];
            amo_operand_b_d = in_wdata_i[31:0];
