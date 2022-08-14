@@ -22,7 +22,7 @@ low_latency_interco:
 peripheral_interco:
   incdirs: [
     rtl/peripheral_interco,
-    ../../rtl/includes,
+    ../../hw/includes,
   ]
   files: [
     rtl/peripheral_interco/AddressDecoder_PE_Req.sv,
