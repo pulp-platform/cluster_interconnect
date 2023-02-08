@@ -315,7 +315,7 @@ end
 initial begin
 	assert(AddrMemWidth+NumOutLog2 <= AddrWidth) else
     $fatal(1,"Address not wide enough to accomodate the requested TCDM configuration.");
-  assert(NumOut >= NumIn) else
+  assert(NumOut >= NumIn | Topology == tcdm_interconnect_pkg::LIC) else
     $fatal(1,"NumOut < NumIn is not supported.");
 end
 // pragma translate_on
