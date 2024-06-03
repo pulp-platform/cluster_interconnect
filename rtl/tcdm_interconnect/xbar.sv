@@ -99,7 +99,8 @@ for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
     rr_arb_tree #(
       .NumIn     ( NumIn        ),
       .DataWidth ( ReqDataWidth ),
-      .ExtPrio   ( ExtPrio      )
+      .ExtPrio   ( ExtPrio      ),
+      .LockIn    ( 1'b1         )
     ) i_rr_arb_tree (
       .clk_i   ( clk_i      ),
       .rst_ni  ( rst_ni     ),
