@@ -26,6 +26,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   parameter int unsigned DataWidth         = 32,                    // Data Word Width
   parameter int unsigned BeWidth           = DataWidth/8,           // Byte Strobe Width
   parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
+  parameter int unsigned BurstWidth        = 1,                     // Burst Signal Width
   parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
   // Spill registers
   // A bit set at position i indicates a spill register at the i-th crossbar layer.
@@ -50,6 +51,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   input  logic [NumIn-1:0]                    req_wen_i,       // Write enable
   input  logic [NumIn-1:0][DataWidth-1:0]     req_wdata_i,     // Write data
   input  logic [NumIn-1:0][BeWidth-1:0]       req_be_i,        // Byte enable
+  input  logic [NumIn-1:0][BurstWidth-1:0]    req_burst_i,     // Burst data
   output logic [NumIn-1:0]                    resp_valid_o,    // Response valid
   input  logic [NumIn-1:0]                    resp_ready_i,    // Response ready
   output logic [NumIn-1:0][DataWidth-1:0]     resp_rdata_o,    // Data response
@@ -61,6 +63,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   output logic [NumOut-1:0]                   req_wen_o,       // Write enable
   output logic [NumOut-1:0][DataWidth-1:0]    req_wdata_o,     // Write data
   output logic [NumOut-1:0][BeWidth-1:0]      req_be_o,        // Byte enable
+  output logic [NumOut-1:0][BurstWidth-1:0]   req_burst_o,     // Burst data
   input  logic [NumOut-1:0]                   resp_valid_i,    // Response valid
   output logic [NumOut-1:0]                   resp_ready_o,    // Response ready
   input  logic [NumOut-1:0][NumInLog2-1:0]    resp_ini_addr_i, // Initiator address
@@ -74,7 +77,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   // localparams and aggregation of address, wen and payload data
 
   localparam int unsigned NumOutLog2      = $clog2(NumOut);
-  localparam int unsigned IniAggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth;
+  localparam int unsigned IniAggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth + BurstWidth;
 
   /*************
    *  Signals  *
@@ -97,12 +100,12 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     end
 
     // Aggregate data to be routed to targets
-    assign data_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j]};
+    assign data_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j], req_burst_i[j]};
   end
 
   // Disaggregate data
   for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
-    assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k]} = data_agg_out[k];
+    assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k], req_burst_o[k]} = data_agg_out[k];
   end
 
   /****************
