@@ -61,6 +61,11 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   input  logic [NumIn-1:0]                     resp_ready_i,    // Response ready
   output logic [NumIn-1:0][DataWidth-1:0]      resp_rdata_o,    // Data response
   output logic [NumIn-1:0][BurstRspWidth-1:0]  resp_burst_o,    // Burst response
+  // These two ports will only be used if a wen signal is needed for response channel
+  `ifdef TARGET_SPATZ
+  output logic [NumIn-1:0]                     resp_write_o,    // Data write enable
+  input  logic [NumOut-1:0]                    resp_write_i,    // Data write enable
+  `endif
   // Target side
   output logic [NumOut-1:0]                    req_valid_o,     // Request valid
   input  logic [NumOut-1:0]                    req_ready_i,     // Request ready
@@ -88,6 +93,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   parameter int unsigned BeWidth           = DataWidth/8,           // Byte Strobe Width
   parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
   parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
+  parameter int unsigned BurstWidth        = 0,                     // Burst Signal Width
   // Spill registers
   // A bit set at position i indicates a spill register at the i-th crossbar layer.
   // The layers are counted starting at 0 from the initiator, for the requests, and from the target, for the responses.
@@ -114,6 +120,11 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   output logic [NumIn-1:0]                     resp_valid_o,    // Response valid
   input  logic [NumIn-1:0]                     resp_ready_i,    // Response ready
   output logic [NumIn-1:0][DataWidth-1:0]      resp_rdata_o,    // Data response
+  // These two ports will only be used if a wen signal is needed for response channel
+  `ifdef TARGET_SPATZ
+  output logic [NumIn-1:0]                     resp_write_o,    // Data write enable
+  input  logic [NumOut-1:0]                    resp_write_i,    // Data write enable
+  `endif
   // Target side
   output logic [NumOut-1:0]                    req_valid_o,     // Request valid
   input  logic [NumOut-1:0]                    req_ready_i,     // Request ready
@@ -138,7 +149,20 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
 
   localparam int unsigned NumOutLog2      = $clog2(NumOut);
   localparam int unsigned ReqAggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth + BurstWidth;
-  localparam int unsigned RespAggDataWidth = DataWidth + 32;
+
+`ifdef USE_BURST
+  `ifdef TARGET_SPATZ
+    localparam int unsigned RespAggDataWidth = DataWidth + 32 + 1;
+  `else
+    localparam int unsigned RespAggDataWidth = DataWidth + 32;
+  `endif
+`else
+  `ifdef TARGET_SPATZ
+    localparam int unsigned RespAggDataWidth = DataWidth + 1;
+  `else
+    localparam int unsigned RespAggDataWidth = DataWidth;
+  `endif
+`endif
 
   /*************
    *  Signals  *
@@ -156,20 +180,37 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     // Aggregate data to be routed to targets
 `ifdef USE_BURST
     assign req_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j], req_burst_i[j]};
+  `ifdef TARGET_SPATZ
+    assign {resp_rdata_o[j], resp_burst_o[j], resp_write_o[j]} = resp_agg_out[j];
+  `else
+    assign {resp_rdata_o[j], resp_burst_o[j]}                  = resp_agg_out[j];
+  `endif
 `else
     assign req_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j]};
+  `ifdef TARGET_SPATZ
+    assign {resp_rdata_o[j], resp_write_o[j]} = resp_agg_out[j];
+  `else
+    assign resp_rdata_o[j]                    = resp_agg_out[j];
+  `endif
 `endif
-    assign {resp_rdata_o[j], resp_burst_o[j]} = resp_agg_out[j];
   end
 
   // Disaggregate data
   for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
 `ifdef USE_BURST
     assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k], req_burst_o[k]} = req_agg_out[k];
+  `ifdef TARGET_SPATZ
+    assign resp_agg_in[k] = {resp_rdata_i[k], resp_burst_i[k], resp_write_i[k]};
+  `else
     assign resp_agg_in[k] = {resp_rdata_i[k], resp_burst_i[k]};
+  `endif
 `else
     assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k]} = req_agg_out[k];
+  `ifdef TARGET_SPATZ
+    assign resp_agg_in[k] = {resp_rdata_i[k], resp_write_i[k]};
+  `else
     assign resp_agg_in[k] = resp_rdata_i[k];
+  `endif
 `endif
   end
 
