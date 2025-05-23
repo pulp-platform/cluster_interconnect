@@ -20,9 +20,14 @@ sources:
   - rtl/tcdm_interconnect/addr_dec_resp_mux.sv
   - rtl/tcdm_interconnect/amo_shim.sv
   - rtl/variable_latency_interconnect/addr_decoder.sv
+  - rtl/variable_latency_interconnect/burst_pkg.sv
   # Level 1
   - rtl/tcdm_interconnect/xbar.sv
   - rtl/variable_latency_interconnect/simplex_xbar.sv
+  - rtl/variable_latency_interconnect/burst_cutter.sv
+  - rtl/variable_latency_interconnect/burst_manager.sv
+  - rtl/variable_latency_interconnect/burst_req_grouper.sv
+  - rtl/variable_latency_interconnect/burst_rsp_grouper.sv
   # Level 2
   - rtl/tcdm_interconnect/clos_net.sv
   - rtl/tcdm_interconnect/bfly_net.sv
