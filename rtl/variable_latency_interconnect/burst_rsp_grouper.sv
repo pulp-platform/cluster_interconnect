@@ -22,7 +22,7 @@ module burst_rsp_grouper
   parameter int unsigned NumInLog2 = (NumIn == 1) ? 1 : $clog2(NumIn),
   // Burst response type can be overwritten for DataWidth > 32b
   // This can happen when the DataWidth includes transaction metadata
-  parameter type burst_resp_t = tcdm_burst_pkg::burst_gresp_t
+  parameter type burst_resp_t = burst_pkg::burst_gresp_t
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -62,8 +62,9 @@ module burst_rsp_grouper
     // Wait until all responses are valid
     if (&resp_valid_i) begin
       resp_valid_o[0] = 1'b1;
+      resp_burst_o[0].isburst = 1'b1;
       for (int unsigned i = 0; i < RspGF-1; i ++) begin
-        resp_burst_o[i] = resp_rdata_i[i+1];
+        resp_burst_o[0].gdata[i] = resp_rdata_i[i+1];
       end
     end
   end

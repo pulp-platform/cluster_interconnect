@@ -28,7 +28,7 @@ module burst_manager
   parameter int unsigned NumInLog2 = (NumIn == 1) ? 1 : $clog2(NumIn),
   // Burst response type can be overwritten for DataWidth > 32b
   // This can happen when the DataWidth includes transaction metadata
-  parameter type burst_resp_t = tcdm_burst_pkg::burst_gresp_t
+  parameter type burst_resp_t = burst_pkg::burst_gresp_t
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -343,11 +343,12 @@ module burst_manager
     end
 
     for (genvar i = 0; i < NumOut; i++) begin
-      assign resp_ini_addr_o[i] = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_ini_addr[i] : '0) : resp_ini_addr_i[i];
-      assign resp_rdata_o[i] = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_rdata[i] : '0) : resp_rdata_i[i];
-      assign resp_burst_o[i] = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_burst[i] : '0) : '0;
-      assign resp_valid_o[i] = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_valid[i] : '0) : resp_valid_i[i];
-      assign resp_ready_o[i] = group_mask_q[i] ? grouped_resp_ready[RspGF*(i/RspGF)] : resp_ready_i[i];
+      assign resp_ini_addr_o[i]      = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_ini_addr[i] : '0) : resp_ini_addr_i[i];
+      assign resp_rdata_o[i]         = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_rdata[i] : '0) : resp_rdata_i[i];
+      assign resp_burst_o[i].gdata   = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_burst[i].gdata : '0) : '0;
+      assign resp_burst_o[i].isburst = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_burst[i].isburst : 1'b0) : 1'b0;
+      assign resp_valid_o[i]         = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_valid[i] : '0) : resp_valid_i[i];
+      assign resp_ready_o[i]         = group_mask_q[i] ? grouped_resp_ready[RspGF*(i/RspGF)] : resp_ready_i[i];
     end
   end
 

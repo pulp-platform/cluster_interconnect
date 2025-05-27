@@ -138,7 +138,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
 
   localparam int unsigned NumOutLog2      = $clog2(NumOut);
   localparam int unsigned ReqAggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth + BurstWidth;
-  localparam int unsigned RespAggDataWidth = DataWidth + 32;
+  localparam int unsigned RespAggDataWidth = DataWidth + BurstRspWidth;
 
   /*************
    *  Signals  *
@@ -156,10 +156,12 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     // Aggregate data to be routed to targets
 `ifdef USE_BURST
     assign req_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j], req_burst_i[j]};
+    assign {resp_rdata_o[j], resp_burst_o[j]} = resp_agg_out[j];
 `else
     assign req_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j]};
+    assign resp_rdata_o[j] = resp_agg_out[j];
 `endif
-    assign {resp_rdata_o[j], resp_burst_o[j]} = resp_agg_out[j];
+
   end
 
   // Disaggregate data

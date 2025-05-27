@@ -26,7 +26,10 @@ module burst_req_grouper
   // Group Response Extension Grouping Factor for TCDM
   parameter int unsigned  RspGF = 1,
   // Dependant parameters. DO NOT CHANGE!
-  parameter int unsigned NumInLog2 = NumIn == 1 ? 1 : $clog2(NumIn)
+  parameter int unsigned NumInLog2 = NumIn == 1 ? 1 : $clog2(NumIn),
+  // Burst response type can be overwritten for DataWidth > 32b
+  // This can happen when the DataWidth includes transaction metadata
+  parameter type burst_resp_t = burst_pkg::burst_gresp_t
 )(
   input  logic clk_i,
   input  logic rst_ni,
@@ -55,7 +58,7 @@ module burst_req_grouper
   // Response in
   input  logic         [NumIn-1:0][NumInLog2-1:0] resp_ini_addr_i,
   input  logic         [NumIn-1:0][DataWidth-1:0] resp_rdata_i,
-  input  burst_gresp_t [NumIn-1:0]                resp_burst_i,
+  input  burst_resp_t  [NumIn-1:0]                resp_burst_i,
   input  logic         [NumIn-1:0]                resp_valid_i,
   output logic         [NumIn-1:0]                resp_ready_o
 );
@@ -81,14 +84,6 @@ module burst_req_grouper
   logic [BeWidth-1:0]   req_bursted_be;
   burst_t               req_bursted_burst;
   logic                 req_bursted_valid;
-
-  logic req_read_q, req_read_d;
-  logic store_burst;
-
-  // Save on-flight burst flag
-  assign store_burst = |(req_ready_i&req_valid_o);
-  assign req_read_d = req_bursted_burst.isburst;
-  `FFL(req_read_q, req_read_d, store_burst, 1'b0);
 
   always_comb begin
 
@@ -174,15 +169,25 @@ module burst_req_grouper
 
   always_comb begin
     for (int i = 0; i < NumIn; i++) begin
-      automatic int group_idx = i >> $clog2(RspGF);
+      automatic int grp_idx = i >> $clog2(RspGF);
+      automatic int grp_off = i % RspGF;
 
-      if (i < NumGroup*RspGF && req_read_q) begin
-        // Assign valid and data from grouped responses
-        resp_ini_addr_o[i] = i%RspGF == 0 ? resp_ini_addr_i[i] : resp_ini_addr_i[i] + i%RspGF;
-        resp_rdata_o[i]    = i%RspGF == 0 ? resp_rdata_i[i]    : resp_burst_i[group_idx*RspGF][(i%RspGF)-1];
-        resp_valid_o[i]    = resp_valid_i[group_idx*RspGF];
-        // Assign ready when all grouped responses are retired
-        resp_ready_o[i]    = i%RspGF == 0 ? &resp_ready_i[i+:RspGF] : 1'b0;
+      if (i < NumGroup*RspGF) begin
+
+        if (resp_valid_i[grp_idx*RspGF] && resp_burst_i[grp_idx*RspGF].isburst && !resp_valid_i[i]) begin
+          // Assign valid and data from grouped responses
+          resp_ini_addr_o[i] = grp_off == 0 ? resp_ini_addr_i[i] : resp_ini_addr_i[i] + grp_off;
+          resp_rdata_o[i]    = grp_off == 0 ? resp_rdata_i[i]    : resp_burst_i[grp_idx*RspGF].gdata[grp_off-1];
+          resp_valid_o[i]    = resp_valid_i[grp_idx*RspGF];
+          // Assign ready when all grouped responses are retired
+          resp_ready_o[i]    = grp_off == 0 ? &resp_ready_i[i+:RspGF] : 1'b0;
+        end else begin
+          resp_ini_addr_o[i] = resp_ini_addr_i[i];
+          resp_rdata_o[i] = resp_rdata_i[i];
+          resp_valid_o[i] = resp_valid_i[i];
+          resp_ready_o[i] = resp_ready_i[i];
+        end
+
       end else begin
         resp_ini_addr_o[i] = resp_ini_addr_i[i];
         resp_rdata_o[i] = resp_rdata_i[i];

@@ -37,6 +37,9 @@ package burst_pkg;
 
   // replace rdata payload with this when the response is grouped
   localparam int RspBurstMSB = (RspGF > 1) ? (RspGF - 2) : 0;
-  typedef logic [RspBurstMSB:0][31:0] burst_gresp_t;
+  typedef struct packed {
+    logic isburst;
+    logic [RspBurstMSB:0][31:0] gdata;
+  } burst_gresp_t;
 
 endpackage : burst_pkg
