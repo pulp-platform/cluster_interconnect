@@ -37,6 +37,7 @@ sources:
   - rtl/variable_latency_interconnect/variable_latency_bfly_net.sv
   # Level 4
   - rtl/variable_latency_interconnect/variable_latency_interconnect.sv
+  - rtl/variable_latency_interconnect/burst_variable_latency_interconnect.sv
 
   # Low-Latency Interco
   - rtl/low_latency_interco/FanInPrimitive_Req.sv
