@@ -85,6 +85,9 @@ module burst_req_grouper
   burst_t               req_bursted_burst;
   logic                 req_bursted_valid;
 
+  // To verify that the request goes to consecutive addresses
+  logic consecutive;
+
   always_comb begin
 
     // Assign input requests to cutter inputs
@@ -95,8 +98,17 @@ module burst_req_grouper
     req_cutter_burst.isburst = 1'b0;
     req_cutter_burst.blen = NumIn;
 
+    // Check if request goes to consecutive addresses
+    for (int i = 1; i < NumIn; i++) begin
+      if (req_valid_i[i] && req_valid_i[i-1]) begin
+        consecutive = (req_tgt_addr_i[i][AddrWidth-1:ByteOffWidth] == req_tgt_addr_i[i-1][AddrWidth-1:ByteOffWidth] + 1);
+      end else begin
+        consecutive = 1'b0;
+      end
+    end
+
     // Burst the request
-    if (&req_valid_i && !req_wen_i[0]) begin
+    if (&req_valid_i && !req_wen_i[0] && consecutive) begin
       // Send a burst request on the first port
       req_cutter_burst.isburst = 1'b1;
       req_tgt_addr_o[0] = req_bursted_tgt_addr;
