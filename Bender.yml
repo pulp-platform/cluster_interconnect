@@ -27,7 +27,6 @@ sources:
   - rtl/variable_latency_interconnect/burst_cutter.sv
   - rtl/variable_latency_interconnect/burst_manager.sv
   - rtl/variable_latency_interconnect/burst_req_grouper.sv
-  - rtl/variable_latency_interconnect/burst_rsp_grouper.sv
   # Level 2
   - rtl/tcdm_interconnect/clos_net.sv
   - rtl/tcdm_interconnect/bfly_net.sv

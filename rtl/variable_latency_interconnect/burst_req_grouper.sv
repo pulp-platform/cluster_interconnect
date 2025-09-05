@@ -180,32 +180,42 @@ module burst_req_grouper
   localparam int unsigned NumGroup = RspGF > 0 ? NumIn >> $clog2(RspGF) : NumIn;
 
   always_comb begin
-    for (int i = 0; i < NumIn; i++) begin
-      automatic int grp_idx = i >> $clog2(RspGF);
-      automatic int grp_off = i % RspGF;
 
-      if (i < NumGroup*RspGF) begin
+    // Default assignment
+    resp_ini_addr_o = resp_ini_addr_i;
+    resp_rdata_o = resp_rdata_i;
+    resp_valid_o = resp_valid_i;
+    resp_ready_o = resp_ready_i;
 
-        if (resp_valid_i[grp_idx*RspGF] && resp_burst_i[grp_idx*RspGF].isburst && !resp_valid_i[i]) begin
-          // Assign valid and data from grouped responses
-          resp_ini_addr_o[i] = grp_off == 0 ? resp_ini_addr_i[i] : resp_ini_addr_i[i] + grp_off;
-          resp_rdata_o[i]    = grp_off == 0 ? resp_rdata_i[i]    : resp_burst_i[grp_idx*RspGF].gdata[grp_off-1];
-          resp_valid_o[i]    = resp_valid_i[grp_idx*RspGF];
-          // Assign ready when all grouped responses are retired
-          resp_ready_o[i]    = grp_off == 0 ? &resp_ready_i[i+:RspGF] : 1'b0;
-        end else begin
-          resp_ini_addr_o[i] = resp_ini_addr_i[i];
-          resp_rdata_o[i] = resp_rdata_i[i];
-          resp_valid_o[i] = resp_valid_i[i];
-          resp_ready_o[i] = resp_ready_i[i];
+    for (int ii = 0; ii < NumGroup; ii++) begin
+
+        if (resp_valid_i[ii*RspGF] && resp_burst_i[ii*RspGF].isburst) begin
+
+          // If any of the other inputs is valid give them priority
+          if (|resp_valid_o[(ii*RspGF+1)+:(RspGF-1)]) begin
+            resp_ini_addr_o[ii*RspGF] = '0;
+            resp_rdata_o[ii*RspGF]    = '0;
+            resp_valid_o[ii*RspGF]    = 1'b0;
+            resp_ready_o[ii*RspGF]    = 1'b0;
+
+          end else begin
+            // Assign values from port ii*RspGF
+            resp_ini_addr_o[ii*RspGF] = resp_ini_addr_i[ii*RspGF];
+            resp_rdata_o[ii*RspGF] = resp_rdata_i[ii*RspGF];
+            resp_rdata_o[ii*RspGF][DataWidth-1:DataWidth-6] = resp_rdata_i[ii*RspGF][DataWidth-1:DataWidth-6];
+            resp_valid_o[ii*RspGF] = resp_valid_i[ii*RspGF];
+            // Send ready back only when all the ports are ready
+            resp_ready_o[ii*RspGF] = &resp_ready_i[ii*RspGF+:RspGF];
+            for (int jj = 1; jj < RspGF; jj++) begin
+              resp_ini_addr_o[ii*RspGF+jj] = resp_ini_addr_i[ii*RspGF] + jj;
+              resp_rdata_o[ii*RspGF+jj] = resp_burst_i[ii*RspGF].gdata[jj-1];
+              resp_rdata_o[ii*RspGF+jj][DataWidth-1:DataWidth-6] = resp_rdata_i[ii*RspGF][DataWidth-1:DataWidth-6];
+              resp_valid_o[ii*RspGF+jj] = resp_valid_i[ii*RspGF];
+              resp_ready_o[ii*RspGF+jj] = 1'b0;
+            end
+          end
+
         end
-
-      end else begin
-        resp_ini_addr_o[i] = resp_ini_addr_i[i];
-        resp_rdata_o[i] = resp_rdata_i[i];
-        resp_valid_o[i] = resp_valid_i[i];
-        resp_ready_o[i] = resp_ready_i[i];
-      end
 
     end
   end

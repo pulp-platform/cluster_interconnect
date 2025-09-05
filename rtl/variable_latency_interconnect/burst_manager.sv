@@ -37,7 +37,7 @@ module burst_manager
   input  logic   [NumOut-1:0][AddrWidth-1:0] req_tgt_addr_i,
   input  logic   [NumOut-1:0][DataWidth-1:0] req_wdata_i,
   input  logic   [NumOut-1:0]                req_wen_i,
-  input  logic   [NumOut-1:0][BeWidth-1:0]   req_ben_i,
+  input  logic   [NumOut-1:0][BeWidth-1:0]   req_be_i,
   input  burst_t [NumOut-1:0]                req_burst_i,
   input  logic   [NumOut-1:0]                req_valid_i,
   output logic   [NumOut-1:0]                req_ready_o,
@@ -52,7 +52,7 @@ module burst_manager
   output logic [NumOut-1:0][AddrWidth-1:0] req_tgt_addr_o,
   output logic [NumOut-1:0][DataWidth-1:0] req_wdata_o,
   output logic [NumOut-1:0]                req_wen_o,
-  output logic [NumOut-1:0][BeWidth-1:0]   req_ben_o,
+  output logic [NumOut-1:0][BeWidth-1:0]   req_be_o,
   output logic [NumOut-1:0]                req_valid_o,
   input  logic [NumOut-1:0]                req_ready_i,
   //
@@ -96,8 +96,8 @@ module burst_manager
   always_comb begin
     prearb_data    = '0;
     prearb_valid   = '0;
-    ready_mask     = '0;
     valid_mask     = req_valid_i;
+    ready_mask     = '0;
 
     for (int unsigned i = 0; i < NumOut; i++) begin
       if (req_valid_i[i] && req_burst_i[i].isburst) begin
@@ -105,10 +105,10 @@ module burst_manager
         prearb_data[i].tgt_addr = req_tgt_addr_i[i];
         prearb_data[i].wdata = req_wdata_i[i];
         prearb_data[i].wen = req_wen_i[i];
-        prearb_data[i].ben = req_ben_i[i];
+        prearb_data[i].ben = req_be_i[i];
         prearb_data[i].burst = req_burst_i[i];
         prearb_valid[i] = 1'b1;
-        valid_mask = 1'b0;
+        valid_mask[i] = 1'b0;
         // Mark retired burst requests
         if (prearb_ready[i]) begin
           ready_mask[i]   = 1'b1;
@@ -190,31 +190,30 @@ module burst_manager
     DoBurst // generate parallel requests when ready
   } req_gen_fsm_e;
 
-  // FSM state
+  // FSM state & signals
   req_gen_fsm_e state_d, state_q;
-  // FSM stored signals
-  fifo_data_t breq_d, breq_q;
-
+  fifo_data_t req_d, req_q;
+  // Indicates which req inputs are involved in a burst
   logic [NumOut-1:0] burst_mask_d, burst_mask_q;
-  // group mask used for response grouping
+  // Indicates which resp inputs are involved in a burst
   logic [NumOut-1:0] group_mask_d, group_mask_q;
-
-  // indicate if there is pending response to be picked
+  // indicates if there is pending response to be picked
   logic pending_rsp;
 
+  // Store FSM state and signals
   `FF(state_q, state_d, Idle, clk_i, rst_ni);
-  `FF(breq_q, breq_d, '0, clk_i, rst_ni);
+  `FF(req_q, req_d, '0, clk_i, rst_ni);
   `FF(burst_mask_q, burst_mask_d, '0, clk_i, rst_ni);
   `FF(group_mask_q, group_mask_d, '0, clk_i, rst_ni);
 
-  // Each element of a burst request must be retired to start request
+  // Block burstlen ports after the port receiving a burst
   assign req_ready_o = ready_mask | (req_ready_i & ~burst_mask_q);
 
   always_comb begin : request_generator
 
     // FSM defaults
     state_d = state_q;
-    breq_d = breq_q;
+    req_d = req_q;
     burst_mask_d  = burst_mask_q;
 
     // comb logic defaults
@@ -227,8 +226,7 @@ module burst_manager
     req_tgt_addr_o = req_tgt_addr_i;
     req_ini_addr_o = req_ini_addr_i;
     req_wen_o = req_wen_i;
-    req_ben_o = req_ben_i;
-
+    req_be_o = req_be_i;
     // Let valid requests not in burst pass
     req_valid_o = valid_mask;
 
@@ -245,11 +243,11 @@ module burst_manager
           // pop next element
           fifo_pop = 1'b1;
           // store request
-          breq_d = fifo_data;
+          req_d = fifo_data;
           // a mask with burst length ones
-          burst_mask_d = (1'b1 << breq_d.burst.blen) - 1'b1;
+          burst_mask_d = (1'b1 << req_d.burst.blen) - 1'b1;
           // shift the mask to the first bank index addressed by the burst
-          burst_mask_d = burst_mask_d << breq_d.idx;
+          burst_mask_d = burst_mask_d << req_d.idx;
           state_d   = DoBurst;
         end
 
@@ -257,18 +255,18 @@ module burst_manager
 
       DoBurst: begin
 
-        // If there is pending responses among the affected banks we wait
+        // Check if there is pending responses among the affected banks
         pending_rsp = |((resp_valid_o & ~resp_ready_i) & burst_mask_q);
-        // Send out requests when 1. required banks are all ready 2. no pending responses
-        if (&(req_ready_i | (~burst_mask_q)) & !pending_rsp) begin
+        // If no pending response and all the affected banks are ready send a new request
+        if (&(req_ready_i | (~burst_mask_q)) && !pending_rsp) begin
           for (int unsigned i = 0; i < NumOut; i++) begin
+            // Overwrite the request on affected banks
             if (burst_mask_q[i]) begin
-              req_wdata_o[i] = breq_q.wdata;
-              req_wen_o[i] = breq_q.wen;
-              req_ben_o[i] = breq_q.ben;
-              // overwrite tgt_addr
-              req_tgt_addr_o[i] = i + breq_q.tgt_addr - breq_q.idx;
-              req_ini_addr_o[i] = i + breq_q.ini_addr - breq_q.idx;
+              req_wdata_o[i] = req_q.wdata;
+              req_tgt_addr_o[i] = i + req_q.tgt_addr - req_q.idx;
+              req_ini_addr_o[i] = i + req_q.ini_addr - req_q.idx;
+              req_wen_o[i] = req_q.wen;
+              req_be_o[i] = req_q.ben;
               // Set the valid for burst requests
               req_valid_o[i] = 1'b1;
             end
@@ -306,49 +304,46 @@ module burst_manager
     logic         [NumOut-1:0]                grouped_resp_valid;
     logic         [NumOut-1:0]                grouped_resp_ready;
 
-    for (genvar i = 0; i < NumGroup; i ++) begin : gen_data_grouper
-      burst_rsp_grouper #(
-        .NumIn        ( NumIn        ),
-        .NumOut       ( NumOut       ),
-        .DataWidth    ( DataWidth    ),
-        .RspGF        ( RspGF        ),
-        .burst_resp_t ( burst_resp_t )
-      ) i_burst_rsp_grouper (
-        .clk_i  (clk_i  ),
-        .rst_ni (rst_ni ),
-        /// Bank side
-        .resp_ini_addr_i (resp_ini_addr_i[i*RspGF+:RspGF]       ),
-        .resp_rdata_i    (resp_rdata_i[i*RspGF+:RspGF]          ),
-        .resp_valid_i    (resp_valid_i[i*RspGF+:RspGF]          ),
-        .resp_ready_o    (grouped_resp_ready[i*RspGF+:RspGF]    ),
-        /// Xbar side
-        .resp_ini_addr_o (grouped_resp_ini_addr[i*RspGF+:RspGF] ),
-        .resp_rdata_o    (grouped_resp_rdata[i*RspGF+:RspGF]    ),
-        .resp_burst_o    (grouped_resp_burst[i*RspGF+:RspGF]    ),
-        .resp_valid_o    (grouped_resp_valid[i*RspGF+:RspGF]    ),
-        .resp_ready_i    (resp_ready_i[i*RspGF+:RspGF]          )
-      );
-    end
-
     always_comb begin
+      // Latch the new ports requested in burst
+      group_mask_d = group_mask_q;
       for (int i = 0; i < NumGroup; i ++) begin
-        if (state_q == DoBurst) begin
-          group_mask_d[i*RspGF+:RspGF] = {RspGF{&burst_mask_q[i*RspGF+:RspGF]}};
-        end else if (resp_ready_i[i*RspGF]) begin
+        if ((state_q == DoBurst) && !pending_rsp) begin
+          group_mask_d[i*RspGF+:RspGF] = group_mask_q[i*RspGF+:RspGF] | burst_mask_q[i*RspGF+:RspGF];
+        end else if (resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF]) begin
           group_mask_d[i*RspGF+:RspGF] = '0;
-        end else begin
-          group_mask_d[i*RspGF+:RspGF] = group_mask_q[i*RspGF+:RspGF];
         end
       end
     end
 
+    // Assign data to grouped response field
+    always_comb begin
+      for (int i = 0; i < NumGroup; i++) begin
+        grouped_resp_burst[i*RspGF].isburst  = &resp_valid_i[i*RspGF+:RspGF];
+        grouped_resp_valid[i*RspGF]          = &resp_valid_i[i*RspGF+:RspGF];
+        for (int j = 1; j < RspGF; j++) begin
+          grouped_resp_burst[i*RspGF].gdata[j-1] = resp_rdata_i[i*RspGF+j];
+          grouped_resp_burst[i*RspGF+j].isburst  = '0;
+          grouped_resp_valid[i*RspGF+j]          = 1'b0;
+        end
+      end
+    end
+
+    // Assign grouped outputs
+    // TODO: the code runs through, but there is a violation because the valid_o is sent before all the grouped factors are collected
+    // This gives an assertion error on the local_response_interconnect, because the response_data changes (we add the gdata), before
+    // the handshake happens.
     for (genvar i = 0; i < NumOut; i++) begin
-      assign resp_ini_addr_o[i]      = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_ini_addr[i] : '0) : resp_ini_addr_i[i];
-      assign resp_rdata_o[i]         = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_rdata[i] : '0) : resp_rdata_i[i];
-      assign resp_burst_o[i].gdata   = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_burst[i].gdata : '0) : '0;
-      assign resp_burst_o[i].isburst = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_burst[i].isburst : 1'b0) : 1'b0;
-      assign resp_valid_o[i]         = group_mask_q[i] ? (i % RspGF == 0 ? grouped_resp_valid[i] : '0) : resp_valid_i[i];
-      assign resp_ready_o[i]         = group_mask_q[i] ? grouped_resp_ready[RspGF*(i/RspGF)] : resp_ready_i[i];
+      assign grouped_resp_ini_addr[i]       = (i % RspGF == 0) ? resp_ini_addr_i[i] : '0;
+      assign grouped_resp_rdata[i]          = (i % RspGF == 0) ? resp_rdata_i[i] : '0;
+
+      assign grouped_resp_ready[i]   = (resp_valid_o[RspGF*(i/RspGF)] && resp_ready_i[RspGF*(i/RspGF)]);
+      assign resp_ini_addr_o[i]      = group_mask_q[i] ? grouped_resp_ini_addr[i]       : resp_ini_addr_i[i];
+      assign resp_rdata_o[i]         = group_mask_q[i] ? grouped_resp_rdata[i]          : resp_rdata_i[i];
+      assign resp_burst_o[i].gdata   = group_mask_q[i] ? grouped_resp_burst[i].gdata    : '0;
+      assign resp_burst_o[i].isburst = group_mask_q[i] ? grouped_resp_burst[i].isburst  : 1'b0;
+      assign resp_valid_o[i]         = group_mask_q[i] ? grouped_resp_valid[i]          : resp_valid_i[i];
+      assign resp_ready_o[i]         = group_mask_q[i] ? grouped_resp_ready[i]          : (resp_valid_o[i] && resp_ready_i[i]);
     end
   end
 
