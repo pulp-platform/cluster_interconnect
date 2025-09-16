@@ -202,14 +202,16 @@ module burst_req_grouper
             // Assign values from port ii*RspGF
             resp_ini_addr_o[ii*RspGF] = resp_ini_addr_i[ii*RspGF];
             resp_rdata_o[ii*RspGF] = resp_rdata_i[ii*RspGF];
-            resp_rdata_o[ii*RspGF][DataWidth-1:DataWidth-6] = resp_rdata_i[ii*RspGF][DataWidth-1:DataWidth-6];
             resp_valid_o[ii*RspGF] = resp_valid_i[ii*RspGF];
             // Send ready back only when all the ports are ready
             resp_ready_o[ii*RspGF] = &resp_ready_i[ii*RspGF+:RspGF];
             for (int jj = 1; jj < RspGF; jj++) begin
               resp_ini_addr_o[ii*RspGF+jj] = resp_ini_addr_i[ii*RspGF] + jj;
-              resp_rdata_o[ii*RspGF+jj] = resp_burst_i[ii*RspGF].gdata[jj-1];
-              resp_rdata_o[ii*RspGF+jj][DataWidth-1:DataWidth-6] = resp_rdata_i[ii*RspGF][DataWidth-1:DataWidth-6];
+              // TODO: This is necessary to assign all the response fields by
+              // default to the value of the (ii*RspGF)'th port. It assumes
+              // that the actual data payload is in the LSBs.
+              resp_rdata_o[ii*RspGF+jj] = (DataWidth > 32) ? {resp_rdata_i[ii*RspGF][DataWidth-1:32], resp_burst_i[ii*RspGF].gdata[jj-1]} :
+                                                             resp_burst_i[ii*RspGF].gdata[jj-1];
               resp_valid_o[ii*RspGF+jj] = resp_valid_i[ii*RspGF];
               resp_ready_o[ii*RspGF+jj] = 1'b0;
             end
