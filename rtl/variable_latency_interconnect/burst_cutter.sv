@@ -47,6 +47,8 @@ module burst_cutter
   input  logic                 req_ready_i
 );
 
+  `include "common_cells/registers.svh"
+
   localparam int unsigned BurstLen = NumIn;
   localparam int unsigned BurstLenWidth = NumInLog2;
   localparam int unsigned NumBanks = NumOut;
@@ -56,6 +58,15 @@ module burst_cutter
     Bypass, // normal requests, first cut of burst
     BurstCut // second cut of burst
   } burst_cutter_fsm_e;
+
+  // Keep everything same width
+  logic [31:0] bank_offset;
+  logic [31:0] max_blen;
+  logic [31:0] remaining_len;
+  assign bank_offset = {{(32-BankOffsetBits){1'b0}}, req_tgt_addr_i[AddrMemWidth-1 : ByteOffWidth]};
+  assign max_blen    = NumBanks - bank_offset;
+  assign remaining_len = {{(32-BurstLenWidth){1'b0}}, req_burst_i.blen} > max_blen ?
+                          {{(32-BurstLenWidth){1'b0}}, req_burst_i.blen} - max_blen : '0;
 
   // FSM state
   burst_cutter_fsm_e  state_d, state_q;
@@ -67,43 +78,27 @@ module burst_cutter
   logic [DataWidth-1:0] cut_wdata_d, cut_wdata_q;
   burst_t               cut_burst_d, cut_burst_q;
 
-  logic [BankOffsetBits-1:0] bank_offset;
-  logic [BurstLenWidth:0] max_blen;
-  logic [BurstLenWidth:0] remaining_len;
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin : burst_cutter_proc
-    if(~rst_ni) begin
-      state_q <= Bypass;
-      cut_burst_q <= '0;
-      cut_ini_addr_q <= '0;
-      cut_tgt_addr_q <= '0;
-      cut_wdata_q <= '0;
-    end else begin
-      state_q <= state_d;
-      cut_ini_addr_q <= cut_tgt_addr_d;
-      cut_tgt_addr_q <= cut_tgt_addr_d;
-      cut_wdata_q <= cut_wdata_d;
-      cut_burst_q <= cut_burst_d;
-    end
-  end
+  // Store FSM state and signals
+  `FF(state_q, state_d, Bypass, clk_i, rst_ni);
+  `FF(cut_burst_q, cut_burst_d, '0, clk_i, rst_ni);
+  `FF(cut_ini_addr_q, cut_ini_addr_d, '0, clk_i, rst_ni);
+  `FF(cut_tgt_addr_q, cut_tgt_addr_d, '0, clk_i, rst_ni);
+  `FF(cut_wdata_q, cut_wdata_d, '0, clk_i, rst_ni);
 
   always_comb begin
+
     // FSM defaults
-    state_d       = state_q;
-    cut_burst_d   = cut_burst_q;
-    cut_tgt_addr_d    = cut_tgt_addr_q;
-    cut_ini_addr_d    = cut_ini_addr_q;
-    cut_wdata_d   = cut_wdata_q;
-
-    bank_offset   = '0;
-    max_blen      = '0;
-    remaining_len = '0;
-
-    next_state    = Bypass;
+    state_d        = state_q;
+    cut_burst_d    = cut_burst_q;
+    cut_tgt_addr_d = cut_tgt_addr_q;
+    cut_ini_addr_d = cut_ini_addr_q;
+    cut_wdata_d    = cut_wdata_q;
 
     // Need to cut, use FSM to realize the logic
     case (state_q)
+
       Bypass: begin
+
         // Bypass the signals
         req_ini_addr_o = req_ini_addr_i;
         req_tgt_addr_o = req_tgt_addr_i;
@@ -113,70 +108,60 @@ module burst_cutter
         req_burst_o = req_burst_i;
         req_valid_o = req_valid_i;
         req_ready_o = req_ready_i;
-        // Keep current state by default
-        next_state = state_q;
 
         // Check if it is valid and being a burst request
         if (req_burst_i.isburst) begin
-          bank_offset = req_tgt_addr_i[AddrMemWidth-1 : ByteOffWidth];
-          max_blen = NumBanks - bank_offset;
 
+          // No support for write burst, tie to 0
           if (req_wen_i) begin
-            // no support for write burst, tie to 0
             req_burst_o = '0;
 
           end else begin
-            if (req_burst_i.blen > max_blen) begin
-              next_state = BurstCut;
-
+            // Cut burst when it is longer than the max length
+            if (remaining_len > 0) begin
+              if (remaining_len > NumBanks) begin
+                $error("Only one cut is supported, reduce the burst length.");
+              end
               // pause taking in new requests
               req_ready_o = 1'b0;
               // Send out the first burst
               req_burst_o.isburst = 1'b1;
               req_burst_o.blen = max_blen;
-
               // store the info for next burst
               cut_ini_addr_d = req_ini_addr_i + (max_blen << ByteOffWidth);
               cut_tgt_addr_d = req_tgt_addr_i + (max_blen << ByteOffWidth);
               cut_wdata_d = req_wdata_i[max_blen];
-
-              remaining_len = req_burst_i.blen - max_blen;
-              if (remaining_len > NumBanks) begin
-                $error("Only one cut is supported, reduce the burst length.");
-              end
-
               cut_burst_d.isburst = 1'b1;
-              cut_burst_d.blen = remaining_len;
-
+              cut_burst_d.blen = remaining_len[BurstLenWidth-1:0];
+              // Keep state until the current one is picked
+              if (req_ready_i) begin
+                state_d = BurstCut;
+              end
             end
+
           end
         end
-        // Keep state until the current one is picked
-        if (req_ready_i) begin
-          state_d = next_state;
-        end
+
       end
 
       BurstCut: begin
-        next_state = state_q;
         // assign the outputs
         // send out this part and wait for ready
         req_tgt_addr_o = cut_ini_addr_q;
         req_tgt_addr_o = cut_tgt_addr_q;
-        req_wdata_o = cut_wdata_q;
-        req_wen_o = '0; // only read burst is supported
-        req_be_o = '0;
-        req_burst_o = cut_burst_q;
-        req_valid_o   = 1'b1;
-        req_ready_o   = 1'b0;
+        req_wdata_o    = cut_wdata_q;
+        req_wen_o      = '0; // only read burst is supported
+        req_be_o       = '0;
+        req_burst_o    = cut_burst_q;
+        req_valid_o    = 1'b1;
+        req_ready_o    = 1'b0;
 
         // When we get the ready, the second part is out
         if (req_ready_i) begin
-          next_state    = Bypass;
           req_ready_o   = req_ready_i;
+          state_d       = Bypass;
         end
 
-        state_d = next_state;
       end
 
       default: state_d = Bypass;
