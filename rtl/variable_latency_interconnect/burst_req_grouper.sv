@@ -177,27 +177,37 @@ module burst_req_grouper
   /* Response  */
   /*************/
 
-  localparam int unsigned NumGroup = RspGF > 0 ? NumIn >> $clog2(RspGF) : NumIn;
 
-  always_comb begin
+  localparam int unsigned NumGroup = RspGF > 1 ? NumIn >> $clog2(RspGF) : NumIn;
+
+  if (RspGF == 1) begin: gen_default_assignment
 
     // Default assignment
-    resp_ini_addr_o = resp_ini_addr_i;
-    resp_rdata_o = resp_rdata_i;
-    resp_valid_o = resp_valid_i;
-    resp_ready_o = resp_ready_i;
+    assign resp_ini_addr_o = resp_ini_addr_i;
+    assign resp_rdata_o = resp_rdata_i;
+    assign resp_valid_o = resp_valid_i;
+    assign resp_ready_o = resp_ready_i;
 
-    for (int ii = 0; ii < NumGroup; ii++) begin
+  end else begin: gen_grouped_resp_assignment
 
+    always_comb begin
+      // Default assignment
+      resp_ini_addr_o = resp_ini_addr_i;
+      resp_rdata_o = resp_rdata_i;
+      resp_valid_o = resp_valid_i;
+      resp_ready_o = resp_ready_i;
+
+      for (int ii = 0; ii < NumGroup; ii++) begin
         if (resp_valid_i[ii*RspGF] && resp_burst_i[ii*RspGF].isburst) begin
-
-          // If any of the other inputs is valid give them priority
+          // If the response is grouped only one every RspGF input will be
+          // valid. If any of the other inputs is valid give them priority.
+          // Otherwise assign to the other ports the response from the
+          // (ii*RspGF)'th port and signal them valid.
           if (|resp_valid_o[(ii*RspGF+1)+:(RspGF-1)]) begin
             resp_ini_addr_o[ii*RspGF] = '0;
             resp_rdata_o[ii*RspGF]    = '0;
             resp_valid_o[ii*RspGF]    = 1'b0;
             resp_ready_o[ii*RspGF]    = 1'b0;
-
           end else begin
             // Assign values from port ii*RspGF
             resp_ini_addr_o[ii*RspGF] = resp_ini_addr_i[ii*RspGF];
@@ -216,10 +226,11 @@ module burst_req_grouper
               resp_ready_o[ii*RspGF+jj] = 1'b0;
             end
           end
-
         end
-
+      end
     end
+
   end
+
 
 endmodule : burst_req_grouper
