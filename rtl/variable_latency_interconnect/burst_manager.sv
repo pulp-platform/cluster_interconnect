@@ -81,7 +81,7 @@ module burst_manager
     logic   [AddrWidth-1:0] tgt_addr;
     logic   [DataWidth-1:0] wdata;
     logic                   wen;
-    logic   [BeWidth]       ben;
+    logic   [BeWidth-1:0]   ben;
     burst_t                 burst;
   } arb_data_t;
 
@@ -140,7 +140,7 @@ module burst_manager
     logic   [AddrWidth-1:0]  tgt_addr;
     logic   [DataWidth-1:0]  wdata;
     logic                    wen;
-    logic   [BeWidth]        ben;
+    logic   [BeWidth-1:0]    ben;
     burst_t                  burst;
     logic   [NumOutLog2-1:0] idx;
   } fifo_data_t;
