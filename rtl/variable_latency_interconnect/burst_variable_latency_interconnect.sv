@@ -78,8 +78,11 @@ module burst_variable_latency_interconnect import tcdm_interconnect_pkg::topo_e;
   localparam int unsigned ReqAggDataWidth = DataWidth + BurstWidth;
   localparam int unsigned RespAggDataWidth = DataWidth + BurstRspWidth;
 
-  logic [NumIn-1:0][ReqAggDataWidth-1:0]  req_agg_data_in, req_agg_data_out;
-  logic [NumIn-1:0][RespAggDataWidth-1:0]  resp_agg_data_out, resp_agg_data_in;
+  logic [NumIn-1:0][ReqAggDataWidth-1:0]  req_agg_data_in;
+  logic [NumOut-1:0][ReqAggDataWidth-1:0] req_agg_data_out;
+
+  logic [NumIn-1:0][RespAggDataWidth-1:0]  resp_agg_data_out;
+  logic [NumOut-1:0][RespAggDataWidth-1:0] resp_agg_data_in;
 
   for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
     assign req_agg_data_in[j] = {req_wdata_i[j], req_burst_i[j]};

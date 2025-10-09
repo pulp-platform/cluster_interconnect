@@ -105,14 +105,10 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
 
   for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_target
     // Extract target index
-    if (NumIn == 1) begin
-      assign tgt_sel[j] = '0;
+    if (NumOut == 1) begin
+      assign tgt_sel[j] = 0;
     end else begin
-      if (NumOut == 1) begin
-        assign tgt_sel[j] = 0;
-      end else begin
-        assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
-      end
+      assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
     end
   end
 
