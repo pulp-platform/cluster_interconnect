@@ -27,9 +27,8 @@ module burst_variable_latency_interconnect import tcdm_interconnect_pkg::topo_e;
   parameter int unsigned DataWidth         = 32,                    // Data Word Width
   parameter int unsigned BeWidth           = DataWidth/8,           // Byte Strobe Width
   parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
-  parameter int unsigned RspGF             = 1,                     // Grouping Factor for the Burst Response
   parameter int unsigned BurstWidth        = 1,                     // Burst Signal Width
-  parameter int unsigned BurstRspWidth     = (RspGF-1)*DataWidth,   // Burst Response Widening
+  parameter int unsigned BurstRspWidth     = 1,                     // Burst Response Widening
   parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
   // Spill registers
   // A bit set at position i indicates a spill register at the i-th crossbar layer.

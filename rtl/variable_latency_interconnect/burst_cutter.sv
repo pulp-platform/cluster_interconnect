@@ -127,12 +127,14 @@ module burst_cutter
               // Send out the first burst
               req_burst_o.isburst = 1'b1;
               req_burst_o.blen = max_blen;
+              req_burst_o.gdata = '0;
               // store the info for next burst
               cut_ini_addr_d = req_ini_addr_i + (max_blen << ByteOffWidth);
               cut_tgt_addr_d = req_tgt_addr_i + (max_blen << ByteOffWidth);
               cut_wdata_d = req_wdata_i[max_blen];
               cut_burst_d.isburst = 1'b1;
               cut_burst_d.blen = remaining_len[BurstLenWidth-1:0];
+              cut_burst_d.gdata = '0;
               // Keep state until the current one is picked
               if (req_ready_i) begin
                 state_d = BurstCut;

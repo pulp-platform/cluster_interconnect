@@ -22,10 +22,13 @@ module burst_manager
   // determines the width of the byte offset in a memory word. normally this can be left at the default vaule,
   // but sometimes it needs to be overridden (e.g. when meta-data is supplied to the memory via the wdata signal).
   parameter int unsigned  ByteOffWidth = $clog2(DataWidth-1)-3,
+  // Group Request Extension Grouping Factor for TCDM
+  parameter int unsigned ReqGF = 1,
   // Group Response Extension Grouping Factor for TCDM
   parameter int unsigned  RspGF = 1,
   // Dependant parameters. DO NOT CHANGE!
-  parameter int unsigned NumInLog2 = (NumIn == 1) ? 1 : $clog2(NumIn),
+  parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
+  parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1,
   // Burst response type can be overwritten for DataWidth > 32b
   // This can happen when the DataWidth includes transaction metadata
   parameter type burst_resp_t = burst_pkg::burst_gresp_t
@@ -70,11 +73,50 @@ module burst_manager
   // Include FF module
   `include "common_cells/registers.svh"
 
-  localparam int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1;
+  /***************
+   * Burst WRITE *
+   ***************/
 
-  /******************
-   * Burst Identify *
-   ******************/
+  localparam int unsigned NumGroupReq = ReqGF > 0 ? NumOut >> $clog2(ReqGF) : NumOut;
+  logic   [NumOut-1:0][NumInLog2-1:0] req_ini_addr;
+  logic   [NumOut-1:0][AddrWidth-1:0] req_tgt_addr;
+  logic   [NumOut-1:0][DataWidth-1:0] req_wdata;
+  logic   [NumOut-1:0]                req_wen;
+  logic   [NumOut-1:0][BeWidth-1:0]   req_be;
+  burst_t [NumOut-1:0]                req_burst;
+  logic   [NumOut-1:0]                req_valid;
+  logic   [NumOut-1:0]                req_ready;
+
+  // Write request ungrouper
+  always_comb begin
+    req_ini_addr = req_ini_addr_i;
+    req_tgt_addr = req_tgt_addr_i;
+    req_wdata    = req_wdata_i;
+    req_wen      = req_wen_i;
+    req_be       = req_be_i;
+    req_burst    = req_burst_i;
+    req_valid    = req_valid_i;
+    // Redistribute grouped write requests
+    for (int i = 0; i < NumGroupReq; i++) begin
+      for (int j = 0; j < ReqGF; j++) begin
+        if (req_burst[i*ReqGF].isburst && req_wen_i[i*ReqGF] && ReqGF > 1) begin
+          req_ini_addr[i*ReqGF+j] = req_ini_addr_i[i*ReqGF] + j;
+          req_tgt_addr[i*ReqGF+j] = req_tgt_addr_i[i*ReqGF] + j;
+          req_wen[i*ReqGF+j]      = req_wen_i[i*ReqGF];
+          req_be[i*ReqGF+j]       = req_be_i[i*ReqGF];
+          req_burst[i*ReqGF+j]    = '0;
+          req_valid[i*ReqGF+j]    = req_valid_i[i*ReqGF];
+          if (j > 0) begin
+            req_wdata[i*ReqGF+j]  = req_burst_i[i*ReqGF].gdata[j];
+          end
+        end
+      end
+    end
+  end
+
+  /**************
+   * Burst READ *
+   **************/
 
   typedef struct packed {
     logic   [NumInLog2-1:0] ini_addr;
@@ -93,21 +135,20 @@ module burst_manager
   logic      [NumOut-1:0]      ready_mask;
   logic      [NumOut-1:0]      valid_mask;
 
-
   always_comb begin
     prearb_data    = '0;
     prearb_valid   = '0;
-    valid_mask     = req_valid_i;
+    valid_mask     = req_valid;
     for (int unsigned i = 0; i < NumOut; i++) begin
-      if (req_valid_i[i] && req_burst_i[i].isburst) begin
-        prearb_data[i].ini_addr = req_ini_addr_i[i];
-        prearb_data[i].tgt_addr = req_tgt_addr_i[i];
-        prearb_data[i].wdata = req_wdata_i[i];
-        prearb_data[i].wen = req_wen_i[i];
-        prearb_data[i].ben = req_be_i[i];
-        prearb_data[i].burst = req_burst_i[i];
-        prearb_valid[i] = 1'b1;
-        valid_mask[i] = 1'b0;
+      if (req_valid[i] && req_burst[i].isburst) begin
+        prearb_data[i].ini_addr = req_ini_addr[i];
+        prearb_data[i].tgt_addr = req_tgt_addr[i];
+        prearb_data[i].wdata    = req_wdata[i];
+        prearb_data[i].wen      = req_wen[i];
+        prearb_data[i].ben      = req_be[i];
+        prearb_data[i].burst    = req_burst[i];
+        prearb_valid[i]         = 1'b1;
+        valid_mask[i]           = 1'b0;
       end
     end
   end
@@ -116,11 +157,11 @@ module burst_manager
   assign ready_mask = prearb_valid & prearb_ready;
 
   rr_arb_tree #(
-    .NumIn     ( NumOut       ),
-    .DataType  ( arb_data_t    ),
-    .ExtPrio   ( 1'b0),
-    .AxiVldRdy ( 1'b1),
-    .LockIn    ( 1'b1)
+    .NumIn     ( NumOut     ),
+    .DataType  ( arb_data_t ),
+    .ExtPrio   ( 1'b0       ),
+    .AxiVldRdy ( 1'b1       ),
+    .LockIn    ( 1'b1       )
   ) i_rr_arb_tree (
     .clk_i   ( clk_i           ),
     .rst_ni  ( rst_ni          ),
@@ -217,11 +258,11 @@ module burst_manager
     fifo_pop = 1'b0;
 
     // Bypass all requests by default
-    req_wdata_o    = req_wdata_i;
-    req_tgt_addr_o = req_tgt_addr_i;
-    req_ini_addr_o = req_ini_addr_i;
-    req_wen_o      = req_wen_i;
-    req_be_o       = req_be_i;
+    req_wdata_o    = req_wdata;
+    req_ini_addr_o = req_ini_addr;
+    req_tgt_addr_o = req_tgt_addr;
+    req_wen_o      = req_wen;
+    req_be_o       = req_be;
 
     case (state_q)
 
@@ -273,9 +314,9 @@ module burst_manager
     endcase
   end
 
-  /******************
-   *   Rsp Handling *
-   ******************/
+  /***********************
+   *   Response Handling *
+   ***********************/
 
   if (RspGF == 1) begin : gen_grouper_bypass
     // Bypass all responses if no grouping
@@ -288,7 +329,7 @@ module burst_manager
   end else begin : gen_grouper
 
     // Number of groups we will check for grouping rsp
-    localparam int unsigned NumGroup = RspGF > 0 ? NumOut >> $clog2(RspGF) : NumOut;
+    localparam int unsigned NumGroupRsp = RspGF > 0 ? NumOut >> $clog2(RspGF) : NumOut;
 
     logic         [NumOut-1:0][NumInLog2-1:0] grouped_resp_ini_addr;
     logic         [NumOut-1:0][DataWidth-1:0] grouped_resp_rdata;
@@ -298,7 +339,7 @@ module burst_manager
 
     always_comb begin
       // Latch the new ports requested in burst
-      for (int i = 0; i < NumGroup; i ++) begin
+      for (int i = 0; i < NumGroupRsp; i ++) begin
         // If ready cancel the reservation
         if (resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF]) begin
           group_mask_d[i*RspGF+:RspGF] = '0;
@@ -314,7 +355,7 @@ module burst_manager
 
     // Assign input data to grouped response
     always_comb begin
-      for (int i = 0; i < NumGroup; i++) begin
+      for (int i = 0; i < NumGroupRsp; i++) begin
         grouped_resp_ini_addr[i*RspGF]           = resp_ini_addr_i[i*RspGF];
         grouped_resp_rdata[i*RspGF]              = resp_rdata_i[i*RspGF];
         grouped_resp_burst[i*RspGF].isburst      = &resp_valid_i[i*RspGF+:RspGF];

@@ -23,6 +23,8 @@ module burst_req_grouper
   // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
   // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
   parameter int unsigned ByteOffWidth      = $clog2(DataWidth-1)-3,
+  // Group Request Extension Grouping Factor for TCDM
+  parameter int unsigned  ReqGF = 1,
   // Group Response Extension Grouping Factor for TCDM
   parameter int unsigned  RspGF = 1,
   // Dependant parameters. DO NOT CHANGE!
@@ -64,6 +66,8 @@ module burst_req_grouper
 );
 
   `include "common_cells/registers.svh"
+  localparam int unsigned NumGroupReq = ReqGF > 1 ? NumIn >> $clog2(ReqGF) : NumIn;
+  localparam int unsigned NumGroupRsp = RspGF > 1 ? NumIn >> $clog2(RspGF) : NumIn;
 
   /*************/
   /* Request   */
@@ -86,58 +90,94 @@ module burst_req_grouper
   logic                 req_bursted_valid;
 
   // To verify that the request goes to consecutive addresses
-  logic consecutive;
+  logic [NumIn-2:0] consecutive;
+  logic consecutive_read, consecutive_write;
 
   always_comb begin
 
-    // Assign input requests to cutter inputs
-    req_cutter_tgt_addr = req_tgt_addr_i[0];
-    req_cutter_wdata = req_wdata_i;
-    req_cutter_wen = req_wen_i[0];
-    req_cutter_be = req_be_i[0];
-    req_cutter_burst.isburst = 1'b0;
-    req_cutter_burst.blen = NumIn;
+    // Bypass input
+    req_ini_addr_o = req_ini_addr_i;
+    req_tgt_addr_o = req_tgt_addr_i;
+    req_wdata_o    = req_wdata_i;
+    req_wen_o      = req_wen_i;
+    req_be_o       = req_be_i;
+    req_burst_o    = '0;
+    req_valid_o    = req_valid_i;
+    req_ready_o    = req_ready_i;
 
     // Check if request goes to consecutive addresses
-    for (int i = 1; i < NumIn; i++) begin
-      if (req_valid_i[i] && req_valid_i[i-1]) begin
-        consecutive = (req_tgt_addr_i[i][AddrWidth-1:ByteOffWidth] == req_tgt_addr_i[i-1][AddrWidth-1:ByteOffWidth] + 1);
-      end else begin
-        consecutive = 1'b0;
+    for (int i = 0; i < NumIn-1; i++) begin
+      consecutive[i] = (req_tgt_addr_i[i+1][AddrWidth-1:ByteOffWidth]
+                      - req_tgt_addr_i[i][AddrWidth-1:ByteOffWidth]) == AddrWidth'(1);
+    end
+
+    /* WRITE */
+
+    // Assign grouped requests
+    if (ReqGF > 1) begin
+      for (int i = 0; i < NumGroupReq; i++) begin
+        consecutive_write = &consecutive[i*ReqGF+:(ReqGF-1)] && &req_wen_i[i*ReqGF+:ReqGF];
+        if (&req_valid_i[i*ReqGF+:ReqGF] && consecutive_write) begin
+          req_ini_addr_o[i*ReqGF]           = req_ini_addr_i[i*ReqGF];
+          req_tgt_addr_o[i*ReqGF]           = req_tgt_addr_i[i*ReqGF];
+          req_wdata_o[i*ReqGF]              = req_wdata_i[i*ReqGF];
+          req_wen_o[i*ReqGF]                = req_wen_i[i*ReqGF];
+          req_be_o[i*ReqGF]                 = req_be_i[i*ReqGF];
+          req_burst_o[i*ReqGF].isburst      = 1'b1;
+          req_burst_o[i*ReqGF].blen         = '0;
+          req_valid_o[i*ReqGF]              = req_valid_i[i*ReqGF];
+          req_ready_o[i*ReqGF]              = req_valid_o[i*ReqGF] && req_ready_i[i*ReqGF];
+          for (int j = 1; j < ReqGF; j++) begin
+            req_ini_addr_o[i*ReqGF+j]       = '0;
+            req_tgt_addr_o[i*ReqGF+j]       = '0;
+            req_wdata_o[i*ReqGF+j]          = '0;
+            req_wen_o[i*ReqGF+j]            = 1'b0;
+            req_be_o[i*ReqGF+j]             = '0;
+            req_burst_o[i*ReqGF+j]          = '0;
+            req_valid_o[i*ReqGF+j]          = 1'b0;
+            req_ready_o[i*ReqGF+j]          = req_valid_o[i*ReqGF] && req_ready_i[i*ReqGF];
+            // Redistribute the outputs from the i*RspGF'th input
+            req_burst_o[i*ReqGF].gdata      = req_wdata_i[i*ReqGF+j];
+          end
+        end
       end
     end
 
-    // Burst the request
-    if (&req_valid_i && !req_wen_i[0] && consecutive) begin
-      // Send a burst request on the first port
+    /* READ */
+
+    // Assign input requests to cutter inputs
+    req_cutter_tgt_addr      = req_tgt_addr_i[0];
+    req_cutter_wdata         = req_wdata_i;
+    req_cutter_wen           = req_wen_i[0];
+    req_cutter_be            = req_be_i[0];
+    req_cutter_burst.isburst = 1'b0;
+    req_cutter_burst.blen    = NumIn;
+    req_cutter_burst.gdata   = '0;
+
+    consecutive_read = &consecutive && (~|req_wen_i);
+
+    // Burst the read request
+    if (&req_valid_i && consecutive_read) begin
       req_cutter_burst.isburst = 1'b1;
-      req_tgt_addr_o[0] = req_bursted_tgt_addr;
-      req_wdata_o[0] = req_bursted_wdata;
-      req_wen_o[0] = req_bursted_wen;
-      req_be_o[0] = req_bursted_be;
-      req_burst_o[0] = req_bursted_burst;
-      req_valid_o[0] = req_bursted_valid;
-      req_ready_o[0] = cutter_ready;
+      req_ini_addr_o[0]        = req_bursted_ini_addr;
+      req_tgt_addr_o[0]        = req_bursted_tgt_addr;
+      req_wdata_o[0]           = req_bursted_wdata;
+      req_wen_o[0]             = req_bursted_wen;
+      req_be_o[0]              = req_bursted_be;
+      req_burst_o[0]           = req_bursted_burst;
+      req_valid_o[0]           = req_bursted_valid;
+      req_ready_o[0]           = cutter_ready;
       // Silence other ports
       for (int i = 1; i < NumIn; i++) begin
-        req_tgt_addr_o[i] = '0;
-        req_wdata_o[i] = '0;
-        req_wen_o[i] = 1'b0;
-        req_be_o[i] = '0;
-        req_burst_o[i] = '0;
-        req_valid_o[i] = 1'b0;
-        req_ready_o[i] = cutter_ready;
+        req_ini_addr_o[i]      = '0;
+        req_tgt_addr_o[i]      = '0;
+        req_wdata_o[i]         = '0;
+        req_wen_o[i]           = 1'b0;
+        req_be_o[i]            = '0;
+        req_burst_o[i]         = '0;
+        req_valid_o[i]         = 1'b0;
+        req_ready_o[i]         = cutter_ready;
       end
-    end else begin
-      // Bypass input
-      req_ini_addr_o = req_ini_addr_i;
-      req_tgt_addr_o = req_tgt_addr_i;
-      req_wdata_o = req_wdata_i;
-      req_wen_o = req_wen_i;
-      req_be_o = req_be_i;
-      req_burst_o = '0;
-      req_valid_o = req_valid_i;
-      req_ready_o = req_ready_i;
     end
 
   end
@@ -177,9 +217,6 @@ module burst_req_grouper
   /* Response  */
   /*************/
 
-
-  localparam int unsigned NumGroup = RspGF > 1 ? NumIn >> $clog2(RspGF) : NumIn;
-
   if (RspGF == 1) begin: gen_default_assignment
 
     // Default assignment
@@ -197,7 +234,7 @@ module burst_req_grouper
       resp_valid_o = resp_valid_i;
       resp_ready_o = resp_ready_i;
 
-      for (int ii = 0; ii < NumGroup; ii++) begin
+      for (int ii = 0; ii < NumGroupRsp; ii++) begin
         if (resp_valid_i[ii*RspGF] && resp_burst_i[ii*RspGF].isburst) begin
           // If the response is grouped only one every RspGF input will be
           // valid. If any of the other inputs is valid give them priority.

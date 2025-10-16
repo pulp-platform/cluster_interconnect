@@ -20,12 +20,17 @@ package burst_pkg;
   localparam integer unsigned BurstLen = `ifdef BURSTLEN `BURSTLEN `else 1 `endif;
   parameter int unsigned BurstLenWidth = BurstLen == 1 ? 1 : $clog2(BurstLen);
 
+  // Grouped request in bursted writes
+  localparam integer unsigned ReqGF = `ifdef GROUP_REQ `GROUP_REQ `else 1 `endif;
+  localparam int ReqBurstMSB = (ReqGF > 1) ? (ReqGF - 2) : 0;
+
   // Number of cuts if a burst crosses the target memory boundary
   localparam integer unsigned NumCuts = 1;
 
   typedef struct packed {
     logic isburst;
     logic [BurstLenWidth-1:0] blen;
+    logic [ReqBurstMSB:0][31:0] gdata;
   } burst_t;
 
   /********************************
@@ -34,9 +39,9 @@ package burst_pkg;
 
  // Grouping Factor of response data
   localparam integer unsigned RspGF = `ifdef GROUP_RSP `GROUP_RSP `else 1 `endif;
-
-  // replace rdata payload with this when the response is grouped
   localparam int RspBurstMSB = (RspGF > 1) ? (RspGF - 2) : 0;
+
+  // Add this to rdata payload when the response is grouped
   typedef struct packed {
     logic isburst;
     logic [RspBurstMSB:0][31:0] gdata;
