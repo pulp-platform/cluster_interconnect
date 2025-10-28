@@ -18,7 +18,7 @@ package burst_pkg;
 
   // Maximum length of the issued burst
   localparam integer unsigned BurstLen = `ifdef BURSTLEN `BURSTLEN `else 1 `endif;
-  parameter int unsigned BurstLenWidth = BurstLen == 1 ? 1 : $clog2(BurstLen);
+  parameter int unsigned BurstLenWidth = BurstLen == 1 ? 0 : $clog2(BurstLen)+1;
 
   // Grouped request in bursted writes
   localparam integer unsigned ReqGF = `ifdef GROUP_REQ `GROUP_REQ `else 1 `endif;
