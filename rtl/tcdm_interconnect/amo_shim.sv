@@ -59,7 +59,7 @@ module amo_shim #(
 
     always_comb begin
         if (DataWidth == 64 && upper_word_q) begin
-            amo_operand_a = out_rdata_i[63:32];
+            amo_operand_a = out_rdata_i[DataWidth-1:DataWidth/2];
         end else begin
             amo_operand_a = out_rdata_i[31:0];
         end
@@ -174,13 +174,13 @@ module amo_shim #(
                 amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
             end
             AMOMaxu: begin
-                adder_operand_a = 33'($unsigned(amo_operand_a));
-                adder_operand_b = -$unsigned(amo_operand_b_q);
+                adder_operand_a = 33'(amo_operand_a);
+                adder_operand_b = -amo_operand_b_q;
                 amo_result = adder_sum[32] ? amo_operand_b_q : amo_operand_a;
             end
             AMOMinu: begin
-                adder_operand_a = 33'($unsigned(amo_operand_a));
-                adder_operand_b = -$unsigned(amo_operand_b_q);
+                adder_operand_a = 33'(amo_operand_a);
+                adder_operand_b = -amo_operand_b_q;
                 amo_result = adder_sum[32] ? amo_operand_a : amo_operand_b_q;
             end
             AMOCAS: begin
