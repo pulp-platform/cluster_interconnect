@@ -24,8 +24,9 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   parameter int unsigned NumIn             = 32,                    // Number of Initiators. Must be aligned with a power of 2 for butterflies.
   parameter int unsigned NumOut            = 64,                    // Number of Targets. Must be aligned with a power of 2 for butterflies.
   parameter int unsigned AddrWidth         = 32,                    // Address Width on the Initiator Side
-  parameter int unsigned ReqDataWidth      = 32,                    // Data Word Width on the Request path
-  parameter int unsigned RespDataWidth     = 32,                    // Data Word Width on the Response path
+  parameter int unsigned DataWidth         = 32,
+  parameter int unsigned ReqDataWidth      = DataWidth,             // Data Word Width on the Request path
+  parameter int unsigned RespDataWidth     = DataWidth,             // Data Word Width on the Response path
   parameter int unsigned BeWidth           = ReqDataWidth/8,        // Byte Strobe Width
   parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
   parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
