@@ -44,8 +44,8 @@ module burst_variable_latency_interconnect import tcdm_interconnect_pkg::topo_e;
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2         = NumIn == 1 ? 1 : $clog2(NumIn)
 ) (
-  input  logic                                clk_i,
-  input  logic                                rst_ni,
+  input  logic clk_i,
+  input  logic rst_ni,
   // Initiator side
   input  logic [NumIn-1:0]                     req_valid_i,     // Request valid
   output logic [NumIn-1:0]                     req_ready_o,     // Request ready

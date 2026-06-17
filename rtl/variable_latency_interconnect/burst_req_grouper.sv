@@ -35,22 +35,22 @@ module burst_req_grouper
   input  logic clk_i,
   input  logic rst_ni,
   // Parallel input request port
-  input  logic   [NumIn-1:0][NumInLog2-1:0] req_ini_addr_i, // Initiator address
-  input  logic   [NumIn-1:0][AddrWidth-1:0] req_tgt_addr_i, // Target address
-  input  logic   [NumIn-1:0][DataWidth-1:0] req_wdata_i,
-  input  logic   [NumIn-1:0]                req_wen_i,
-  input  logic   [NumIn-1:0][BeWidth-1:0]   req_be_i,
-  input  logic   [NumIn-1:0]                req_valid_i,
-  output logic   [NumIn-1:0]                req_ready_o,
+  input  logic         [NumIn-1:0][NumInLog2-1:0] req_ini_addr_i, // Initiator address
+  input  logic         [NumIn-1:0][AddrWidth-1:0] req_tgt_addr_i, // Target address
+  input  logic         [NumIn-1:0][DataWidth-1:0] req_wdata_i,
+  input  logic         [NumIn-1:0]                req_wen_i,
+  input  logic         [NumIn-1:0][BeWidth-1:0]   req_be_i,
+  input  logic         [NumIn-1:0]                req_valid_i,
+  output logic         [NumIn-1:0]                req_ready_o,
   // Burst output request port
-  output logic   [NumIn-1:0][NumInLog2-1:0] req_ini_addr_o, // Initiator address
-  output logic   [NumIn-1:0][AddrWidth-1:0] req_tgt_addr_o, // Target address
-  output logic   [NumIn-1:0][DataWidth-1:0] req_wdata_o,
-  output logic   [NumIn-1:0]                req_wen_o,
-  output logic   [NumIn-1:0][BeWidth-1:0]   req_be_o,
-  output burst_t [NumIn-1:0]                req_burst_o,
-  output logic   [NumIn-1:0]                req_valid_o,
-  input  logic   [NumIn-1:0]                req_ready_i,
+  output logic         [NumIn-1:0][NumInLog2-1:0] req_ini_addr_o, // Initiator address
+  output logic         [NumIn-1:0][AddrWidth-1:0] req_tgt_addr_o, // Target address
+  output logic         [NumIn-1:0][DataWidth-1:0] req_wdata_o,
+  output logic         [NumIn-1:0]                req_wen_o,
+  output logic         [NumIn-1:0][BeWidth-1:0]   req_be_o,
+  output burst_t       [NumIn-1:0]                req_burst_o,
+  output logic         [NumIn-1:0]                req_valid_o,
+  input  logic         [NumIn-1:0]                req_ready_i,
   // Response out
   output logic         [NumIn-1:0][NumInLog2-1:0] resp_ini_addr_o,
   output logic         [NumIn-1:0][DataWidth-1:0] resp_rdata_o,
@@ -59,7 +59,7 @@ module burst_req_grouper
   // Response in
   input  logic         [NumIn-1:0][NumInLog2-1:0] resp_ini_addr_i,
   input  logic         [NumIn-1:0][DataWidth-1:0] resp_rdata_i,
-  input  burst_resp_t  [NumIn-1:0]                resp_burst_i,
+  input  burst_gresp_t [NumIn-1:0]                resp_burst_i,
   input  logic         [NumIn-1:0]                resp_valid_i,
   output logic         [NumIn-1:0]                resp_ready_o
 );
