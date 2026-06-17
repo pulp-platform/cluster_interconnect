@@ -22,6 +22,7 @@ package burst_pkg;
 
   // Grouped request in bursted writes
   localparam integer unsigned ReqGF = `ifdef GROUP_REQ `GROUP_REQ `else 1 `endif;
+  localparam integer unsigned GroupedDW = 32;
   localparam int ReqBurstMSB = (ReqGF > 1) ? (ReqGF - 2) : 0;
 
   // Number of cuts if a burst crosses the target memory boundary
@@ -30,7 +31,7 @@ package burst_pkg;
   typedef struct packed {
     logic isburst;
     logic [BurstLenWidth-1:0] blen;
-    logic [ReqBurstMSB:0][31:0] gdata;
+    logic [ReqBurstMSB:0][GroupedDW-1:0] gdata;
   } burst_t;
 
   /********************************
@@ -44,7 +45,7 @@ package burst_pkg;
   // Add this to rdata payload when the response is grouped
   typedef struct packed {
     logic isburst;
-    logic [RspBurstMSB:0][31:0] gdata;
+    logic [RspBurstMSB:0][GroupedDW-1:0] gdata;
   } burst_gresp_t;
 
 endpackage : burst_pkg

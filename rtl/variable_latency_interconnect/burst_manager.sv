@@ -25,13 +25,12 @@ module burst_manager
   // Group Request Extension Grouping Factor for TCDM
   parameter int unsigned ReqGF = 1,
   // Group Response Extension Grouping Factor for TCDM
-  parameter int unsigned  RspGF = 1,
+  parameter int unsigned RspGF = 1,
+  // Datawidth of words grouped in the burst
+  parameter int unsigned GroupedDW = burst_pkg::GroupedDW,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
-  parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1,
-  // Burst response type can be overwritten for DataWidth > 32b
-  // This can happen when the DataWidth includes transaction metadata
-  parameter type burst_resp_t = burst_pkg::burst_gresp_t
+  parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -328,14 +327,11 @@ module burst_manager
 
   end else begin : gen_grouper
 
-    // Number of groups we will check for grouping rsp
-    localparam int unsigned NumGroupRsp = RspGF > 0 ? NumOut >> $clog2(RspGF) : NumOut;
-
-    logic         [NumOut-1:0][NumInLog2-1:0] grouped_resp_ini_addr;
-    logic         [NumOut-1:0][DataWidth-1:0] grouped_resp_rdata;
-    burst_resp_t  [NumOut-1:0]                grouped_resp_burst;
-    logic         [NumOut-1:0]                grouped_resp_valid;
-    logic         [NumOut-1:0]                grouped_resp_ready;
+    logic         [NumOut-1:0][NumInLog2-1:0] resp_ini_addr;
+    logic         [NumOut-1:0][DataWidth-1:0] resp_rdata;
+    burst_gresp_t [NumOut-1:0]                resp_burst;
+    logic         [NumOut-1:0]                resp_valid;
+    logic         [NumOut-1:0]                resp_ready;
 
     always_comb begin
       // Latch the new ports requested in burst
@@ -356,20 +352,21 @@ module burst_manager
     // Assign input data to grouped response
     always_comb begin
       for (int i = 0; i < NumGroupRsp; i++) begin
-        grouped_resp_ini_addr[i*RspGF]           = resp_ini_addr_i[i*RspGF];
-        grouped_resp_rdata[i*RspGF]              = resp_rdata_i[i*RspGF];
-        grouped_resp_burst[i*RspGF].isburst      = &resp_valid_i[i*RspGF+:RspGF];
-        grouped_resp_valid[i*RspGF]              = &resp_valid_i[i*RspGF+:RspGF];
-        grouped_resp_ready[i*RspGF]              = resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF];
+
+        resp_ini_addr[i*RspGF]           = resp_ini_addr_i[i*RspGF];
+        resp_rdata[i*RspGF]              = resp_rdata_i[i*RspGF];
+        resp_burst[i*RspGF].isburst      = &resp_valid_i[i*RspGF+:RspGF];
+        resp_valid[i*RspGF]              = &resp_valid_i[i*RspGF+:RspGF];
+        resp_ready[i*RspGF]              = resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF];
 
         for (int j = 1; j < RspGF; j++) begin
-          grouped_resp_ini_addr[i*RspGF+j]       = '0;
-          grouped_resp_rdata[i*RspGF+j]          = '0;
-          grouped_resp_burst[i*RspGF].gdata[j-1] = resp_rdata_i[i*RspGF+j];
-          grouped_resp_burst[i*RspGF+j].isburst  = 1'b0;
-          grouped_resp_valid[i*RspGF+j]          = 1'b0;
+          resp_ini_addr[i*RspGF+j]       = '0;
+          resp_rdata[i*RspGF+j]          = '0;
+          resp_burst[i*RspGF].gdata[j-1] = resp_rdata_i[i*RspGF+j][GroupedDW-1:0];
+          resp_burst[i*RspGF+j].isburst  = 1'b0;
+          resp_valid[i*RspGF+j]          = 1'b0;
           // grouped response is ready if the i*RspGF'th output handshakes
-          grouped_resp_ready[i*RspGF+j]          = resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF];
+          resp_ready[i*RspGF+j]          = resp_valid_o[i*RspGF] && resp_ready_i[i*RspGF];
         end
 
       end

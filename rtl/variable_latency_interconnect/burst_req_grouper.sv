@@ -27,11 +27,10 @@ module burst_req_grouper
   parameter int unsigned  ReqGF = 1,
   // Group Response Extension Grouping Factor for TCDM
   parameter int unsigned  RspGF = 1,
+  // Datawidth of words grouped in the burst
+  parameter int unsigned GroupedDW = burst_pkg::GroupedDW,
   // Dependant parameters. DO NOT CHANGE!
-  parameter int unsigned NumInLog2 = NumIn == 1 ? 1 : $clog2(NumIn),
-  // Burst response type can be overwritten for DataWidth > 32b
-  // This can happen when the DataWidth includes transaction metadata
-  parameter type burst_resp_t = burst_pkg::burst_gresp_t
+  parameter int unsigned NumInLog2 = NumIn == 1 ? 1 : $clog2(NumIn)
 )(
   input  logic clk_i,
   input  logic rst_ni,
@@ -257,8 +256,8 @@ module burst_req_grouper
               // TODO: This is necessary to assign all the response fields by
               // default to the value of the (ii*RspGF)'th port. It assumes
               // that the actual data payload is in the LSBs.
-              resp_rdata_o[ii*RspGF+jj] = (DataWidth > 32) ? {resp_rdata_i[ii*RspGF][DataWidth-1:32], resp_burst_i[ii*RspGF].gdata[jj-1]} :
-                                                             resp_burst_i[ii*RspGF].gdata[jj-1];
+              resp_rdata_o[ii*RspGF+jj] = (DataWidth > GroupedDW) ? {resp_rdata_i[ii*RspGF][DataWidth-1:GroupedDW], resp_burst_i[ii*RspGF].gdata[jj-1]} :
+                                                                    resp_burst_i[ii*RspGF].gdata[jj-1];
               resp_valid_o[ii*RspGF+jj] = resp_valid_i[ii*RspGF];
               resp_ready_o[ii*RspGF+jj] = 1'b0;
             end
