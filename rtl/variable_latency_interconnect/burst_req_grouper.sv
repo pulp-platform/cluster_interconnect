@@ -123,7 +123,7 @@ module burst_req_grouper
           req_wen_o[i*ReqGF]                = req_wen_i[i*ReqGF];
           req_be_o[i*ReqGF]                 = req_be_i[i*ReqGF];
           req_burst_o[i*ReqGF].isburst      = 1'b1;
-          req_burst_o[i*ReqGF].blen         = '0;
+          req_burst_o[i*ReqGF].blen         = ReqGF;
           req_valid_o[i*ReqGF]              = req_valid_i[i*ReqGF];
           req_ready_o[i*ReqGF]              = req_valid_o[i*ReqGF] && req_ready_i[i*ReqGF];
           for (int j = 1; j < ReqGF; j++) begin
