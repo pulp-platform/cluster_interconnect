@@ -123,7 +123,7 @@ module burst_manager
         prearb_data[i].wen      = req_wen_i[i];
         prearb_data[i].ben      = req_be_i[i];
         prearb_data[i].burst    = req_burst_i[i];
-        prearb_valid[i]         = 1'b1;
+        prearb_valid[i]         = req_valid_i[i];
         req_valid[i]            = 1'b0;
       end
     end
