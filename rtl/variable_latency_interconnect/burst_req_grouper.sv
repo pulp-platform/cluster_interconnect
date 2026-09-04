@@ -135,8 +135,7 @@ module burst_req_grouper
             req_burst_o[i*ReqGF+j]          = '0;
             req_valid_o[i*ReqGF+j]          = 1'b0;
             req_ready_o[i*ReqGF+j]          = req_valid_o[i*ReqGF] && req_ready_i[i*ReqGF];
-            // Redistribute the outputs from the i*RspGF'th input
-            req_burst_o[i*ReqGF].gdata      = req_wdata_i[i*ReqGF+j];
+            req_burst_o[i*ReqGF].gdata[j-1] = req_wdata_i[i*ReqGF+j][GroupedDW-1:0];
           end
         end
       end
