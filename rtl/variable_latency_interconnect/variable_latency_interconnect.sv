@@ -249,12 +249,12 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .valid_i   (resp_valid_i   ),
       .ready_o   (resp_ready_o   ),
       .tgt_addr_i(resp_ini_addr_i),
-      .wdata_i   (resp_agg_i     ),
+      .wdata_i   (resp_agg_in    ),
       // Initiator side
       .valid_o   (resp_valid_o   ),
       .ready_i   (resp_ready_i   ),
       .ini_addr_o(/* Unused */   ),
-      .wdata_o   (resp_agg_o     )
+      .wdata_o   (resp_agg_out   )
     );
   end
 
