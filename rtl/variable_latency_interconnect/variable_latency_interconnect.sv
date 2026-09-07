@@ -10,6 +10,7 @@
 
 // Author: Michael Schaffner <schaffner@iis.ee.ethz.ch>, ETH Zurich
 //         Matheus Cavalcante <matheusd@iis.ee.ethz.ch>, ETH Zurich
+//         Marco Bertuletti <mbertuletti@iis.ee.ethz.ch>, ETH Zurich
 
 // Date: 16.01.2020
 
@@ -23,8 +24,10 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   parameter int unsigned NumIn             = 32,                    // Number of Initiators. Must be aligned with a power of 2 for butterflies.
   parameter int unsigned NumOut            = 64,                    // Number of Targets. Must be aligned with a power of 2 for butterflies.
   parameter int unsigned AddrWidth         = 32,                    // Address Width on the Initiator Side
-  parameter int unsigned DataWidth         = 32,                    // Data Word Width
-  parameter int unsigned BeWidth           = DataWidth/8,           // Byte Strobe Width
+  parameter int unsigned DataWidth         = 32,
+  parameter int unsigned ReqDataWidth      = DataWidth,             // Data Word Width on the Request path
+  parameter int unsigned RespDataWidth     = DataWidth,             // Data Word Width on the Response path
+  parameter int unsigned BeWidth           = ReqDataWidth/8,        // Byte Strobe Width
   parameter int unsigned AddrMemWidth      = 12,                    // Number of Address bits per Target
   parameter bit AxiVldRdy                  = 1'b1,                  // Valid/ready signaling
   // Spill registers
@@ -35,7 +38,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   parameter bit FallThroughRegister        = 1'b0,                  // Insert a fall-through register, if missing a spill register in that stage
   // Determines the width of the byte offset in a memory word. Normally this can be left at the default value,
   // but sometimes it needs to be overridden (e.g., when metadata is supplied to the memory via the wdata signal).
-  parameter int unsigned ByteOffWidth      = $clog2(DataWidth-1)-3,
+  parameter int unsigned ByteOffWidth      = $clog2(ReqDataWidth-1)-3,
   // Topology can be: LIC, BFLY2, BFLY4, CLOS
   parameter topo_e Topology = tcdm_interconnect_pkg::LIC,
   // Dependant parameters. DO NOT CHANGE!
@@ -44,27 +47,27 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   input  logic                                clk_i,
   input  logic                                rst_ni,
   // Initiator side
-  input  logic [NumIn-1:0]                    req_valid_i,     // Request valid
-  output logic [NumIn-1:0]                    req_ready_o,     // Request ready
-  input  logic [NumIn-1:0][AddrWidth-1:0]     req_tgt_addr_i,  // Target address
-  input  logic [NumIn-1:0]                    req_wen_i,       // Write enable
-  input  logic [NumIn-1:0][DataWidth-1:0]     req_wdata_i,     // Write data
-  input  logic [NumIn-1:0][BeWidth-1:0]       req_be_i,        // Byte enable
-  output logic [NumIn-1:0]                    resp_valid_o,    // Response valid
-  input  logic [NumIn-1:0]                    resp_ready_i,    // Response ready
-  output logic [NumIn-1:0][DataWidth-1:0]     resp_rdata_o,    // Data response
+  input  logic [NumIn-1:0]                     req_valid_i,     // Request valid
+  output logic [NumIn-1:0]                     req_ready_o,     // Request ready
+  input  logic [NumIn-1:0][AddrWidth-1:0]      req_tgt_addr_i,  // Target address
+  input  logic [NumIn-1:0]                     req_wen_i,       // Write enable
+  input  logic [NumIn-1:0][ReqDataWidth-1:0]   req_wdata_i,     // Write data
+  input  logic [NumIn-1:0][BeWidth-1:0]        req_be_i,        // Byte enable
+  output logic [NumIn-1:0]                     resp_valid_o,    // Response valid
+  input  logic [NumIn-1:0]                     resp_ready_i,    // Response ready
+  output logic [NumIn-1:0][RespDataWidth-1:0]  resp_rdata_o,    // Data response
   // Target side
-  output logic [NumOut-1:0]                   req_valid_o,     // Request valid
-  input  logic [NumOut-1:0]                   req_ready_i,     // Request ready
-  output logic [NumOut-1:0][NumInLog2-1:0]    req_ini_addr_o,  // Initiator address
-  output logic [NumOut-1:0][AddrMemWidth-1:0] req_tgt_addr_o,  // Target address
-  output logic [NumOut-1:0]                   req_wen_o,       // Write enable
-  output logic [NumOut-1:0][DataWidth-1:0]    req_wdata_o,     // Write data
-  output logic [NumOut-1:0][BeWidth-1:0]      req_be_o,        // Byte enable
-  input  logic [NumOut-1:0]                   resp_valid_i,    // Response valid
-  output logic [NumOut-1:0]                   resp_ready_o,    // Response ready
-  input  logic [NumOut-1:0][NumInLog2-1:0]    resp_ini_addr_i, // Initiator address
-  input  logic [NumOut-1:0][DataWidth-1:0]    resp_rdata_i     // Data response
+  output logic [NumOut-1:0]                    req_valid_o,     // Request valid
+  input  logic [NumOut-1:0]                    req_ready_i,     // Request ready
+  output logic [NumOut-1:0][NumInLog2-1:0]     req_ini_addr_o,  // Initiator address
+  output logic [NumOut-1:0][AddrMemWidth-1:0]  req_tgt_addr_o,  // Target address
+  output logic [NumOut-1:0]                    req_wen_o,       // Write enable
+  output logic [NumOut-1:0][ReqDataWidth-1:0]  req_wdata_o,     // Write data
+  output logic [NumOut-1:0][BeWidth-1:0]       req_be_o,        // Byte enable
+  input  logic [NumOut-1:0]                    resp_valid_i,    // Response valid
+  output logic [NumOut-1:0]                    resp_ready_o,    // Response ready
+  input  logic [NumOut-1:0][NumInLog2-1:0]     resp_ini_addr_i, // Initiator address
+  input  logic [NumOut-1:0][RespDataWidth-1:0] resp_rdata_i     // Data response
 );
 
   /******************
@@ -74,35 +77,40 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
   // localparams and aggregation of address, wen and payload data
 
   localparam int unsigned NumOutLog2      = $clog2(NumOut);
-  localparam int unsigned IniAggDataWidth = 1 + BeWidth + AddrMemWidth + DataWidth;
+  localparam int unsigned ReqAggDataWidth = 1 + BeWidth + AddrMemWidth + ReqDataWidth;
+  localparam int unsigned RespAggDataWidth = RespDataWidth ;
 
   /*************
    *  Signals  *
    *************/
 
-  logic [NumIn-1:0][IniAggDataWidth-1:0]  data_agg_in;
-  logic [NumOut-1:0][IniAggDataWidth-1:0] data_agg_out;
+  logic [NumIn-1:0][ReqAggDataWidth-1:0]  req_agg_in;
+  logic [NumOut-1:0][ReqAggDataWidth-1:0] req_agg_out;
+
+  logic [NumIn-1:0][RespAggDataWidth-1:0]  resp_agg_out;
+  logic [NumOut-1:0][RespAggDataWidth-1:0] resp_agg_in;
+
   logic [NumIn-1:0][cf_math_pkg::idx_width(NumOut)-1:0] tgt_sel;
 
   for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_inputs
-    // Extract target index
-    if (NumIn == 1) begin
-      assign tgt_sel[j] = '0;
-    end else begin
-      if (NumOut == 1) begin
-        assign tgt_sel[j] = 0;
-      end else begin
-        assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
-      end
-    end
-
     // Aggregate data to be routed to targets
-    assign data_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j]};
+    assign req_agg_in[j] = {req_wen_i[j], req_be_i[j], req_tgt_addr_i[j][ByteOffWidth + NumOutLog2 +: AddrMemWidth], req_wdata_i[j]};
+    assign resp_rdata_o[j] = resp_agg_out[j];
   end
 
-  // Disaggregate data
   for (genvar k = 0; unsigned'(k) < NumOut; k++) begin : gen_outputs
-    assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k]} = data_agg_out[k];
+    // Disaggregate data
+    assign {req_wen_o[k], req_be_o[k], req_tgt_addr_o[k], req_wdata_o[k]} = req_agg_out[k];
+    assign resp_agg_in[k] = resp_rdata_i[k];
+  end
+
+  for (genvar j = 0; unsigned'(j) < NumIn; j++) begin : gen_target
+    // Extract target index
+    if (NumOut == 1) begin
+      assign tgt_sel[j] = 0;
+    end else begin
+      assign tgt_sel[j] = req_tgt_addr_i[j][ByteOffWidth +: NumOutLog2];
+    end
   end
 
   /****************
@@ -114,17 +122,17 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     assign req_valid_o    = req_valid_i;
     assign req_ready_o    = req_ready_i;
     assign req_ini_addr_o = '0;
-    assign data_agg_out   = data_agg_in;
+    assign req_agg_out    = req_agg_in;
     assign resp_valid_o   = resp_valid_i;
     assign resp_ready_o   = resp_ready_i;
-    assign resp_rdata_o   = resp_rdata_i;
+    assign resp_agg_out   = resp_agg_in;
   // Tuned logarithmic interconnect architecture, based on rr_arb_tree primitives
   end else if (Topology == tcdm_interconnect_pkg::LIC) begin : gen_lic
     full_duplex_xbar #(
       .NumIn              (NumIn               ),
       .NumOut             (NumOut              ),
-      .ReqDataWidth       (IniAggDataWidth     ),
-      .RespDataWidth      (DataWidth           ),
+      .ReqDataWidth       (ReqAggDataWidth     ),
+      .RespDataWidth      (RespAggDataWidth    ),
       .AxiVldRdy          (AxiVldRdy           ),
       .SpillRegisterReq   (SpillRegisterReq[0] ),
       .SpillRegisterResp  (SpillRegisterResp[0]),
@@ -139,19 +147,19 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .req_valid_i    (req_valid_i    ),
       .req_ready_o    (req_ready_o    ),
       .req_tgt_addr_i (tgt_sel        ),
-      .req_wdata_i    (data_agg_in    ),
+      .req_wdata_i    (req_agg_in     ),
       .resp_valid_o   (resp_valid_o   ),
-      .resp_rdata_o   (resp_rdata_o   ),
+      .resp_rdata_o   (resp_agg_out   ),
       .resp_ready_i   (resp_ready_i   ),
       // Target side
       .req_valid_o    (req_valid_o    ),
       .req_ini_addr_o (req_ini_addr_o ),
       .req_ready_i    (req_ready_i    ),
-      .req_wdata_o    (data_agg_out   ),
+      .req_wdata_o    (req_agg_out    ),
       .resp_valid_i   (resp_valid_i   ),
       .resp_ready_o   (resp_ready_o   ),
       .resp_ini_addr_i(resp_ini_addr_i),
-      .resp_rdata_i   (resp_rdata_i   )
+      .resp_rdata_i   (resp_agg_in    )
     );
   end
 
@@ -200,7 +208,7 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
     variable_latency_bfly_net #(
       .NumIn              (NumIn               ),
       .NumOut             (NumOut              ),
-      .DataWidth          (IniAggDataWidth     ),
+      .DataWidth          (ReqAggDataWidth     ),
       .Radix              (Radix               ),
       .ExtPrio            (1'b0                ),
       .SpillRegister      (SpillRegisterReq    ),
@@ -215,18 +223,18 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .valid_i   (req_valid_i    ),
       .ready_o   (req_ready_o    ),
       .tgt_addr_i(tgt_sel        ),
-      .wdata_i   (data_agg_in    ),
+      .wdata_i   (req_agg_in     ),
       // Target side
       .valid_o   (req_valid_o    ),
       .ini_addr_o(req_ini_addr_o ),
       .ready_i   (req_ready_i    ),
-      .wdata_o   (data_agg_out   )
+      .wdata_o   (req_agg_out    )
     );
 
     variable_latency_bfly_net #(
       .NumIn              (NumOut              ),
       .NumOut             (NumIn               ),
-      .DataWidth          (DataWidth           ),
+      .DataWidth          (RespAggDataWidth    ),
       .Radix              (Radix               ),
       .ExtPrio            (1'b0                ),
       .SpillRegister      (SpillRegisterResp   ),
@@ -241,12 +249,12 @@ module variable_latency_interconnect import tcdm_interconnect_pkg::topo_e; #(
       .valid_i   (resp_valid_i   ),
       .ready_o   (resp_ready_o   ),
       .tgt_addr_i(resp_ini_addr_i),
-      .wdata_i   (resp_rdata_i   ),
+      .wdata_i   (resp_agg_in    ),
       // Initiator side
       .valid_o   (resp_valid_o   ),
       .ready_i   (resp_ready_i   ),
       .ini_addr_o(/* Unused */   ),
-      .wdata_o   (resp_rdata_o   )
+      .wdata_o   (resp_agg_out   )
     );
   end
 
