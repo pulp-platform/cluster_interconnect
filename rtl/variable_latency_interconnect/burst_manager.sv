@@ -28,6 +28,8 @@ module burst_manager
   parameter int unsigned RspGF = 1,
   // Datawidth of words grouped in the burst
   parameter int unsigned GroupedDW = burst_pkg::GroupedDW,
+  // If set to 1, it will not send back write responses for burst writes.
+  parameter bit DropBurstWriteRsp = 1'b0,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
   parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1
@@ -198,6 +200,11 @@ module burst_manager
   logic [NumOut-1:0] burst_req_mask_d, burst_req_mask_q;
   // Indicates which resp inputs are involved in a burst
   logic [NumOut-1:0] burst_resp_mask_d, burst_resp_mask_q;
+  // Indicates which resp inputs carry the response of a burst write
+  logic [NumOut-1:0] burst_wack_mask_d, burst_wack_mask_q;
+  logic [NumOut-1:0] wack_now;
+  // All the banks of the burst being driven can take it in this cycle
+  logic burst_all_ready;
   // indicates if there is pending req/resp to be picked
   logic pending_req, pending_rsp;
 
@@ -206,6 +213,7 @@ module burst_manager
   `FF(req_q, req_d, '0, clk_i, rst_ni);
   `FF(burst_req_mask_q, burst_req_mask_d, '0, clk_i, rst_ni);
   `FF(burst_resp_mask_q, burst_resp_mask_d, '0, clk_i, rst_ni);
+  `FF(burst_wack_mask_q, burst_wack_mask_d, '0, clk_i, rst_ni);
 
   assign resp_ini_addr_o = resp_ini_addr_i;
   assign resp_rdata_o    = resp_rdata_i;
@@ -220,9 +228,12 @@ module burst_manager
     req_d             = req_q;
     burst_req_mask_d  = burst_req_mask_q;
     burst_resp_mask_d = burst_resp_mask_q;
+    burst_wack_mask_d = burst_wack_mask_q;
 
     // Do not take in next burst for now
     fifo_pop = 1'b0;
+
+    burst_all_ready = (burst_req_mask_q & req_ready_i) == burst_req_mask_q;
 
     // Bypass all requests by default
     req_wdata_o    = req_wdata_i;
@@ -251,6 +262,22 @@ module burst_manager
             resp_burst[i*RspGF+j].isburst  = 1'b0;
             resp_burst[i*RspGF].gdata[j-1] = resp_rdata_i[i*RspGF+j][GroupedDW-1:0];
           end
+        end
+      end
+    end
+
+    // Responses of burst writes
+    for (int i = 0; i < NumOut; i++) begin
+      wack_now[i] = burst_wack_mask_q[i] && resp_valid_i[i];
+      if (wack_now[i]) begin
+        if (!DropBurstWriteRsp && (i % BurstLen == 0)) begin
+          // Send back write response for the whole burst.
+          if (resp_ready_i[i]) burst_wack_mask_d[i] = 1'b0;
+        end else begin
+          // Drop the write response for this bank
+          resp_valid[i]        = 1'b0;
+          resp_ready[i]        = 1'b1;
+          burst_wack_mask_d[i] = 1'b0;
         end
       end
     end
@@ -292,7 +319,7 @@ module burst_manager
             req_tgt_addr_o[i] = i + req_q.tgt_addr - req_q.idx;
             req_wen_o[i]      = req_q.wen;
             req_be_o[i]       = req_q.ben;
-            req_valid_o[i]    = 1'b1;
+            req_valid_o[i]    = burst_all_ready;
             if (i == req_q.idx) begin
               req_wdata_o[i] = req_q.wdata;
               for (int j = 1; j < ReqGF; j++) begin
@@ -303,7 +330,8 @@ module burst_manager
           end
         end
 
-        if ((burst_req_mask_q & req_ready_i) == burst_req_mask_q) begin
+        if (burst_all_ready) begin
+          burst_wack_mask_d = burst_wack_mask_d | burst_req_mask_q;
           state_d = Idle;
         end
 
@@ -324,11 +352,11 @@ module burst_manager
             req_wen_o[i]      = req_q.wen;
             req_be_o[i]       = req_q.ben;
             // Set the valid for burst requests
-            req_valid_o[i]    = 1'b1;
+            req_valid_o[i]    = burst_all_ready;
           end
         end
 
-        if ((burst_req_mask_q & req_ready_i) == burst_req_mask_q) begin
+        if (burst_all_ready) begin
           burst_resp_mask_d = burst_resp_mask_d | burst_req_mask_q;
           state_d = Idle;
         end
