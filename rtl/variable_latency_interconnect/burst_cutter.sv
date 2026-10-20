@@ -125,7 +125,7 @@ module burst_cutter
               req_burst_o.blen    = max_blen;
               req_burst_o.gdata   = '0;
               // store the info for next burst
-              cut_ini_addr_d      = req_ini_addr_i + (max_blen << ByteOffWidth);
+              cut_ini_addr_d      = req_ini_addr_i + max_blen[NumInLog2-1:0];
               cut_tgt_addr_d      = req_tgt_addr_i + (max_blen << ByteOffWidth);
               cut_wdata_d         = req_wdata_i[max_blen];
               cut_burst_d.isburst = 1'b1;
@@ -148,7 +148,7 @@ module burst_cutter
       BurstCut: begin
 
         // Send out second half and wait for ready
-        req_tgt_addr_o = cut_ini_addr_q;
+        req_ini_addr_o = cut_ini_addr_q;
         req_tgt_addr_o = cut_tgt_addr_q;
         req_wdata_o    = cut_wdata_q;
         req_wen_o      = '0; // only read burst is supported
