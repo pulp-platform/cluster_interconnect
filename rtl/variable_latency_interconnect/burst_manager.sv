@@ -73,6 +73,7 @@ module burst_manager
 
   // Include FF module
   `include "common_cells/registers.svh"
+  `include "common_cells/assertions.svh"
 
   localparam int unsigned NumGroupReq = ReqGF > 0 ? NumOut >> $clog2(ReqGF) : NumOut;
   localparam int unsigned NumGroupRsp = RspGF > 0 ? NumOut >> $clog2(RspGF) : NumOut;
@@ -205,8 +206,9 @@ module burst_manager
   logic [NumOut-1:0] wack_now;
   // All the banks of the burst being driven can take it in this cycle
   logic burst_all_ready;
-  // indicates if there is pending req/resp to be picked
-  logic pending_req, pending_rsp;
+  // Next burst: load enable, banks busy in the next cycle, banks of the FIFO head
+  logic              start_next;
+  logic [NumOut-1:0] bank_busy, head_mask;
 
   // Store FSM state and signals
   `FF(state_q, state_d, Idle, clk_i, rst_ni);
@@ -232,6 +234,9 @@ module burst_manager
 
     // Do not take in next burst for now
     fifo_pop = 1'b0;
+
+    start_next = 1'b0;
+    head_mask  = ((NumOut'(1) << fifo_data.burst.blen) - NumOut'(1)) << fifo_data.idx;
 
     burst_all_ready = (burst_req_mask_q & req_ready_i) == burst_req_mask_q;
 
@@ -291,19 +296,7 @@ module burst_manager
         req_valid_o = req_valid;
         req_ready_o = (req_valid & req_ready_i) | (prearb_valid & prearb_ready);
 
-        // Select banks for burst
-        burst_req_mask_d  = ((1'b1 << fifo_data.burst.blen) - 1'b1) << fifo_data.idx;
-        // Check if there is a request on the affected banks
-        pending_req = |(req_valid & burst_req_mask_d);
-        // Wait until previous burst responses on the same banks are consumed
-        pending_rsp = |(resp_valid & burst_req_mask_d);
-
-        // Start pending burst
-        if (!fifo_empty && !pending_req && !pending_rsp) begin
-          fifo_pop = 1'b1;
-          req_d    = fifo_data;
-          state_d  = fifo_data.wen ? DoBurstWrite : DoBurstRead;
-        end
+        start_next = 1'b1;
 
       end
 
@@ -333,6 +326,7 @@ module burst_manager
         if (burst_all_ready) begin
           burst_wack_mask_d = burst_wack_mask_d | burst_req_mask_q;
           state_d = Idle;
+          start_next = 1'b1;
         end
 
       end
@@ -359,12 +353,23 @@ module burst_manager
         if (burst_all_ready) begin
           burst_resp_mask_d = burst_resp_mask_d | burst_req_mask_q;
           state_d = Idle;
+          start_next = 1'b1;
         end
 
       end
 
       default: state_d = Idle;
     endcase
+
+    // Start the next burst back to back if its banks are free in the next cycle
+    bank_busy = req_valid | burst_resp_mask_d | burst_wack_mask_d |
+                (resp_valid_i & ~burst_resp_mask_q & ~burst_wack_mask_q);
+    if (start_next && !fifo_empty && !(|(head_mask & bank_busy))) begin
+      fifo_pop         = 1'b1;
+      req_d            = fifo_data;
+      burst_req_mask_d = head_mask;
+      state_d          = fifo_data.wen ? DoBurstWrite : DoBurstRead;
+    end
   end
 
   /******************
@@ -375,5 +380,9 @@ module burst_manager
 
   if (NumOut < RspGF)
     $error("[burst_manager] NumBanks needs to be larger or equal to RspGF");
+
+  `ASSERT(burst_banks_free, ((state_q != Idle) && burst_all_ready) |->
+          !(|((resp_valid_i | burst_resp_mask_q | burst_wack_mask_q) & burst_req_mask_q)),
+          clk_i, !rst_ni, "Burst driven on a bank that still owes a response")
 
 endmodule : burst_manager
