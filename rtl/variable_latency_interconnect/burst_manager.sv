@@ -30,6 +30,8 @@ module burst_manager
   parameter int unsigned GroupedDW = burst_pkg::GroupedDW,
   // If set to 1, it will not send back write responses for burst writes.
   parameter bit DropBurstWriteRsp = 1'b0,
+  // Entries of the burst FIFO (0: one per bank)
+  parameter int unsigned FifoDepth = 0,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
   parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1
@@ -167,7 +169,7 @@ module burst_manager
   // Fall though FIFO to store bursts
   fifo_v3 #(
     .FALL_THROUGH ( 1'b1            ),
-    .DEPTH        ( NumOut          ),
+    .DEPTH        ( (FifoDepth > 0) ? FifoDepth : NumOut ),
     .dtype        ( fifo_data_t     )
   ) i_fall_though_fifo (
     .clk_i        ( clk_i           ),
