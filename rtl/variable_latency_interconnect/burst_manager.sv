@@ -10,6 +10,7 @@
 /// to NumIn target banks in a target multi-banked memory with NumOut banks.
 /// Collects a parallel response from NumOut banks in a target multi-banked memory
 /// and groups them according to the RspGF.
+/// Optionally, the whole response of a wide read (BurstLen aligned banks) goes to an external sink.
 
 module burst_manager
   import burst_pkg::*;
@@ -32,9 +33,17 @@ module burst_manager
   parameter bit DropBurstWriteRsp = 1'b0,
   // Entries of the burst FIFO (0: one per bank)
   parameter int unsigned FifoDepth = 0,
+  // Width of a request's response port
+  parameter int unsigned RportWidth = 1,
+  // Wide reads for ports SinkPortBase to SinkPortBase+NumSinkPorts-1 go to the sink, one credit per port
+  parameter bit WideSink = 1'b0,
+  parameter int unsigned SinkPortBase = 0,
+  parameter int unsigned NumSinkPorts = 1,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
-  parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1
+  parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1,
+  parameter int unsigned SinkIdxWidth =
+      (NumSinkPorts > 32'd1) ? unsigned'($clog2(NumSinkPorts)) : 32'd1
 ) (
   input  logic clk_i,
   input  logic rst_ni,
@@ -47,12 +56,20 @@ module burst_manager
   input  burst_t [NumOut-1:0]                req_burst_i,
   input  logic   [NumOut-1:0]                req_valid_i,
   output logic   [NumOut-1:0]                req_ready_o,
+  input  logic   [NumOut-1:0][RportWidth-1:0] req_rport_i,
   //
   output logic         [NumOut-1:0][NumInLog2-1:0] resp_ini_addr_o,
   output logic         [NumOut-1:0][DataWidth-1:0] resp_rdata_o,
   output burst_gresp_t [NumOut-1:0]                resp_burst_o,
   output logic         [NumOut-1:0]                resp_valid_o,
   input  logic         [NumOut-1:0]                resp_ready_i,
+  /// Wide sink side
+  input  logic [NumSinkPorts-1:0]                    sink_credit_i,
+  output logic                                       sink_take_o,
+  output logic [SinkIdxWidth-1:0]                    sink_take_idx_o,
+  output logic [NumOut/BurstLen-1:0]                 wide_valid_o,
+  output logic [NumOut/BurstLen-1:0][RportWidth-1:0] wide_rport_o,
+  input  logic [NumOut/BurstLen-1:0]                 wide_ready_i,
   /// Bank side
   output logic [NumOut-1:0][NumInLog2-1:0] req_ini_addr_o,
   output logic [NumOut-1:0][AddrWidth-1:0] req_tgt_addr_o,
@@ -87,6 +104,7 @@ module burst_manager
     logic                   wen;
     logic   [BeWidth-1:0]   ben;
     burst_t                 burst;
+    logic   [RportWidth-1:0] rport;
   } arb_data_t;
 
   typedef struct packed {
@@ -96,6 +114,7 @@ module burst_manager
     logic                    wen;
     logic   [BeWidth-1:0]    ben;
     burst_t                  burst;
+    logic   [RportWidth-1:0] rport;
     logic   [NumOutLog2-1:0] idx;
   } fifo_data_t;
 
@@ -128,6 +147,7 @@ module burst_manager
         prearb_data[i].wen      = req_wen_i[i];
         prearb_data[i].ben      = req_be_i[i];
         prearb_data[i].burst    = req_burst_i[i];
+        prearb_data[i].rport    = req_rport_i[i];
         prearb_valid[i]         = req_valid_i[i];
         req_valid[i]            = 1'b0;
       end
@@ -161,6 +181,7 @@ module burst_manager
   assign pre_fifo_data.wen = postarb_data.wen;
   assign pre_fifo_data.ben = postarb_data.ben;
   assign pre_fifo_data.burst = postarb_data.burst;
+  assign pre_fifo_data.rport = postarb_data.rport;
   assign pre_fifo_data.idx = postarb_idx;
 
   // Push when FIFO is not full and data is valid
@@ -225,6 +246,20 @@ module burst_manager
   assign resp_valid_o    = resp_valid;
   assign resp_ready_o    = resp_ready;
 
+  // Wide sink: banks whose response goes to the sink, and each wide group's port
+  localparam int unsigned NumWide = NumOut / BurstLen;
+  logic [NumOut-1:0]                  wide_mask_d, wide_mask_q;
+  logic [NumWide-1:0][RportWidth-1:0] wide_rport_d, wide_rport_q;
+  logic                               head_sink_ok;
+  `FF(wide_mask_q, wide_mask_d, '0, clk_i, rst_ni);
+  `FF(wide_rport_q, wide_rport_d, '0, clk_i, rst_ni);
+  assign wide_rport_o = wide_rport_q;
+
+  function automatic logic to_sink(input fifo_data_t b);
+    return WideSink && !b.wen && (b.burst.blen == BurstLen) && (b.idx % BurstLen == 0) &&
+           (b.rport >= SinkPortBase) && (b.rport < SinkPortBase + NumSinkPorts);
+  endfunction
+
   always_comb begin : request_generator
 
     // FSM defaults
@@ -233,6 +268,12 @@ module burst_manager
     burst_req_mask_d  = burst_req_mask_q;
     burst_resp_mask_d = burst_resp_mask_q;
     burst_wack_mask_d = burst_wack_mask_q;
+    wide_mask_d       = wide_mask_q;
+    wide_rport_d      = wide_rport_q;
+    sink_take_o       = 1'b0;
+    sink_take_idx_o   = SinkIdxWidth'(fifo_data.rport - SinkPortBase);
+    wide_valid_o      = '0;
+    head_sink_ok      = 1'b1;
 
     // Do not take in next burst for now
     fifo_pop = 1'b0;
@@ -268,6 +309,24 @@ module burst_manager
             resp_valid[i*RspGF+j]          = 1'b0;
             resp_burst[i*RspGF+j].isburst  = 1'b0;
             resp_burst[i*RspGF].gdata[j-1] = resp_rdata_i[i*RspGF+j][GroupedDW-1:0];
+          end
+        end
+      end
+    end
+
+    // Wide sink: a wide group's whole response goes to the sink, never to the bank outputs
+    if (WideSink) begin
+      for (int w = 0; w < NumWide; w++) begin
+        if (wide_mask_q[w*BurstLen]) begin
+          resp_valid[w*BurstLen+:BurstLen] = '0;
+          resp_burst[w*BurstLen+:BurstLen] = '0;
+          resp_ready[w*BurstLen+:BurstLen] = '0;
+          if (&resp_valid_i[w*BurstLen+:BurstLen]) begin
+            wide_valid_o[w] = 1'b1;
+            if (wide_ready_i[w]) begin
+              resp_ready[w*BurstLen+:BurstLen]  = '1;
+              wide_mask_d[w*BurstLen+:BurstLen] = '0;
+            end
           end
         end
       end
@@ -353,7 +412,12 @@ module burst_manager
         end
 
         if (burst_all_ready) begin
-          burst_resp_mask_d = burst_resp_mask_d | burst_req_mask_q;
+          if (to_sink(req_q)) begin
+            wide_mask_d = wide_mask_d | burst_req_mask_q;
+            wide_rport_d[req_q.idx / BurstLen] = req_q.rport;
+          end else begin
+            burst_resp_mask_d = burst_resp_mask_d | burst_req_mask_q;
+          end
           state_d = Idle;
           start_next = 1'b1;
         end
@@ -364,13 +428,16 @@ module burst_manager
     endcase
 
     // Start the next burst back to back if its banks are free in the next cycle
-    bank_busy = req_valid | burst_resp_mask_d | burst_wack_mask_d |
+    bank_busy = req_valid | burst_resp_mask_d | burst_wack_mask_d | wide_mask_d |
                 (resp_valid_i & ~burst_resp_mask_q & ~burst_wack_mask_q);
-    if (start_next && !fifo_empty && !(|(head_mask & bank_busy))) begin
+    // A wide sink read also needs a credit
+    head_sink_ok      = !to_sink(fifo_data) || sink_credit_i[fifo_data.rport - SinkPortBase];
+    if (start_next && !fifo_empty && !(|(head_mask & bank_busy)) && head_sink_ok) begin
       fifo_pop         = 1'b1;
       req_d            = fifo_data;
       burst_req_mask_d = head_mask;
       state_d          = fifo_data.wen ? DoBurstWrite : DoBurstRead;
+      sink_take_o        = to_sink(fifo_data);
     end
   end
 
@@ -383,8 +450,12 @@ module burst_manager
   if (NumOut < RspGF)
     $error("[burst_manager] NumBanks needs to be larger or equal to RspGF");
 
+  if (WideSink && ((NumOut % BurstLen != 0) || (RspGF < 2)))
+    $error("[burst_manager] the wide sink needs a multiple of BurstLen banks and RspGF > 1");
+
   `ASSERT(burst_banks_free, ((state_q != Idle) && burst_all_ready) |->
-          !(|((resp_valid_i | burst_resp_mask_q | burst_wack_mask_q) & burst_req_mask_q)),
+          !(|((resp_valid_i | burst_resp_mask_q | burst_wack_mask_q | wide_mask_q) &
+              burst_req_mask_q)),
           clk_i, !rst_ni, "Burst driven on a bank that still owes a response")
 
 endmodule : burst_manager
