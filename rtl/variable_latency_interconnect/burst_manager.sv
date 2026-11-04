@@ -10,7 +10,8 @@
 /// to NumIn target banks in a target multi-banked memory with NumOut banks.
 /// Collects a parallel response from NumOut banks in a target multi-banked memory
 /// and groups them according to the RspGF.
-/// Optionally, the whole response of a wide read (BurstLen aligned banks) goes to an external sink.
+/// Optionally, the whole response of a wide read (BurstLen aligned banks) goes to 
+/// an external sink.
 
 module burst_manager
   import burst_pkg::*;
@@ -39,6 +40,9 @@ module burst_manager
   parameter bit WideSink = 1'b0,
   parameter int unsigned SinkPortBase = 0,
   parameter int unsigned NumSinkPorts = 1,
+  // Load the next burst at once and check its banks and sink credit when driving it
+  // TODO: decide whether to keep this parameter or make it the only behaviour
+  parameter bit CheckAtDrive = 1'b0,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = (NumIn > 32'd1) ? unsigned'($clog2(NumIn)) : 32'd1,
   parameter int unsigned NumOutLog2 = (NumOut > 32'd1) ? unsigned'($clog2(NumOut)) : 32'd1,
@@ -229,6 +233,8 @@ module burst_manager
   logic [NumOut-1:0] wack_now;
   // All the banks of the burst being driven can take it in this cycle
   logic burst_all_ready;
+  // CheckAtDrive: the loaded burst can be driven in this cycle
+  logic drive_ok, burst_go;
   // Next burst: load enable, banks busy in the next cycle, banks of the FIFO head
   logic              start_next;
   logic [NumOut-1:0] bank_busy, head_mask;
@@ -271,7 +277,7 @@ module burst_manager
     wide_mask_d       = wide_mask_q;
     wide_rport_d      = wide_rport_q;
     sink_take_o       = 1'b0;
-    sink_take_idx_o   = SinkIdxWidth'(fifo_data.rport - SinkPortBase);
+    sink_take_idx_o   = SinkIdxWidth'((CheckAtDrive ? req_q.rport : fifo_data.rport) - SinkPortBase);
     wide_valid_o      = '0;
     head_sink_ok      = 1'b1;
 
@@ -282,6 +288,10 @@ module burst_manager
     head_mask  = ((NumOut'(1) << fifo_data.burst.blen) - NumOut'(1)) << fifo_data.idx;
 
     burst_all_ready = (burst_req_mask_q & req_ready_i) == burst_req_mask_q;
+    drive_ok = !(|(burst_req_mask_q & (burst_resp_mask_q | burst_wack_mask_q | wide_mask_q |
+                                       resp_valid_i))) &&
+               (!to_sink(req_q) || sink_credit_i[req_q.rport - SinkPortBase]);
+    burst_go = burst_all_ready && (!CheckAtDrive || drive_ok);
 
     // Bypass all requests by default
     req_wdata_o    = req_wdata_i;
@@ -373,7 +383,7 @@ module burst_manager
             req_tgt_addr_o[i] = i + req_q.tgt_addr - req_q.idx;
             req_wen_o[i]      = req_q.wen;
             req_be_o[i]       = req_q.ben;
-            req_valid_o[i]    = burst_all_ready;
+            req_valid_o[i]    = burst_go;
             if (i == req_q.idx) begin
               req_wdata_o[i] = req_q.wdata;
               for (int j = 1; j < ReqGF; j++) begin
@@ -384,7 +394,7 @@ module burst_manager
           end
         end
 
-        if (burst_all_ready) begin
+        if (burst_go) begin
           burst_wack_mask_d = burst_wack_mask_d | burst_req_mask_q;
           state_d = Idle;
           start_next = 1'b1;
@@ -407,14 +417,15 @@ module burst_manager
             req_wen_o[i]      = req_q.wen;
             req_be_o[i]       = req_q.ben;
             // Set the valid for burst requests
-            req_valid_o[i]    = burst_all_ready;
+            req_valid_o[i]    = burst_go;
           end
         end
 
-        if (burst_all_ready) begin
+        if (burst_go) begin
           if (to_sink(req_q)) begin
             wide_mask_d = wide_mask_d | burst_req_mask_q;
             wide_rport_d[req_q.idx / BurstLen] = req_q.rport;
+            sink_take_o = CheckAtDrive;
           end else begin
             burst_resp_mask_d = burst_resp_mask_d | burst_req_mask_q;
           end
@@ -427,17 +438,30 @@ module burst_manager
       default: state_d = Idle;
     endcase
 
-    // Start the next burst back to back if its banks are free in the next cycle
-    bank_busy = req_valid | burst_resp_mask_d | burst_wack_mask_d | wide_mask_d |
-                (resp_valid_i & ~burst_resp_mask_q & ~burst_wack_mask_q);
-    // A wide sink read also needs a credit
-    head_sink_ok      = !to_sink(fifo_data) || sink_credit_i[fifo_data.rport - SinkPortBase];
-    if (start_next && !fifo_empty && !(|(head_mask & bank_busy)) && head_sink_ok) begin
-      fifo_pop         = 1'b1;
-      req_d            = fifo_data;
-      burst_req_mask_d = head_mask;
-      state_d          = fifo_data.wen ? DoBurstWrite : DoBurstRead;
-      sink_take_o        = to_sink(fifo_data);
+    if (CheckAtDrive) begin
+      // Load the head at once; burst_go checks its banks and sink credit
+      bank_busy = '0;
+      if (start_next) begin
+        req_d            = fifo_data;
+        burst_req_mask_d = head_mask;
+        if (!fifo_empty) begin
+          fifo_pop = 1'b1;
+          state_d  = fifo_data.wen ? DoBurstWrite : DoBurstRead;
+        end
+      end
+    end else begin
+      // Start the next burst back to back if its banks are free in the next cycle
+      bank_busy = req_valid | burst_resp_mask_d | burst_wack_mask_d | wide_mask_d |
+                  (resp_valid_i & ~burst_resp_mask_q & ~burst_wack_mask_q);
+      // A wide sink read also needs a credit
+      head_sink_ok = !to_sink(fifo_data) || sink_credit_i[fifo_data.rport - SinkPortBase];
+      if (start_next && !fifo_empty && !(|(head_mask & bank_busy)) && head_sink_ok) begin
+        fifo_pop         = 1'b1;
+        req_d            = fifo_data;
+        burst_req_mask_d = head_mask;
+        state_d          = fifo_data.wen ? DoBurstWrite : DoBurstRead;
+        sink_take_o        = to_sink(fifo_data);
+      end
     end
   end
 
@@ -453,7 +477,7 @@ module burst_manager
   if (WideSink && ((NumOut % BurstLen != 0) || (RspGF < 2)))
     $error("[burst_manager] the wide sink needs a multiple of BurstLen banks and RspGF > 1");
 
-  `ASSERT(burst_banks_free, ((state_q != Idle) && burst_all_ready) |->
+  `ASSERT(burst_banks_free, ((state_q != Idle) && burst_go) |->
           !(|((resp_valid_i | burst_resp_mask_q | burst_wack_mask_q | wide_mask_q) &
               burst_req_mask_q)),
           clk_i, !rst_ni, "Burst driven on a bank that still owes a response")
