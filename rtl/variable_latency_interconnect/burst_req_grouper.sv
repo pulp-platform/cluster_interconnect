@@ -29,6 +29,8 @@ module burst_req_grouper
   parameter int unsigned  RspGF = 1,
   // Datawidth of words grouped in the burst
   parameter int unsigned GroupedDW = burst_pkg::GroupedDW,
+  // Send burst 0 for last, after sending all other bursts. It's used by the burst_manager to send back the write response for the whole burst.
+  parameter bit WriteFirstLast = 1'b1,
   // Dependant parameters. DO NOT CHANGE!
   parameter int unsigned NumInLog2 = NumIn == 1 ? 1 : $clog2(NumIn)
 )(
@@ -125,6 +127,10 @@ module burst_req_grouper
           req_burst_o[i*ReqGF].isburst      = 1'b1;
           req_burst_o[i*ReqGF].blen         = ReqGF;
           req_valid_o[i*ReqGF]              = req_valid_i[i*ReqGF];
+          // The first burst waits for the other words to have left
+          if (WriteFirstLast && (i == 0) && (|req_valid_i[NumIn-1:ReqGF])) begin
+            req_valid_o[i*ReqGF]            = 1'b0;
+          end
           req_ready_o[i*ReqGF]              = req_valid_o[i*ReqGF] && req_ready_i[i*ReqGF];
           for (int j = 1; j < ReqGF; j++) begin
             req_ini_addr_o[i*ReqGF+j]       = '0;
